@@ -1,6 +1,7 @@
 import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
-import { User, Mail, LogOut } from "lucide-react"
+import { User, Mail, LogOut, Lock } from "lucide-react"
+import Link from "next/link"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -57,6 +58,23 @@ export default async function ProfilPage() {
           </div>
         </div>
       </div>
+
+      {/* Change password */}
+      <Link
+        href="/profil/mot-de-passe"
+        className="card flex items-center justify-between hover:border-d5-gold/30 transition-colors group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-d5-gold/10 flex items-center justify-center">
+            <Lock size={16} className="text-d5-gold" />
+          </div>
+          <div>
+            <p className="text-white text-sm font-medium">Changer mon mot de passe</p>
+            <p className="text-d5-muted text-xs">Modifie ton mot de passe de connexion</p>
+          </div>
+        </div>
+        <span className="text-d5-muted group-hover:text-white transition-colors">&rsaquo;</span>
+      </Link>
 
       {/* Sign out */}
       <form
