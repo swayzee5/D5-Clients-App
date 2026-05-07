@@ -8,17 +8,19 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="relative min-h-dvh flex flex-col items-center justify-center px-5 py-12 overflow-hidden">
-      {/* Photo de fond */}
-      <div className="absolute inset-0 z-0">
+    <div className="relative min-h-dvh bg-d5-bg flex flex-col items-center justify-center px-5 py-12 overflow-hidden">
+      {/* Photo — fond noir naturel, pas de rognage */}
+      <div className="absolute inset-0 z-0 flex items-end justify-center">
         <Image
-          src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/image00002.png"
+          src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/image00001.png"
           alt=""
-          fill
-          className="object-cover object-top"
+          width={600}
+          height={800}
+          className="object-contain w-full max-w-sm opacity-60"
           priority
         />
-        <div className="absolute inset-0 bg-black/70" />
+        {/* Dégradé haut pour lisibilité du formulaire */}
+        <div className="absolute inset-0 bg-gradient-to-b from-d5-bg via-d5-bg/60 to-transparent" />
       </div>
 
       {/* Contenu */}
