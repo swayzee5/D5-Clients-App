@@ -35,8 +35,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (!isValid) return null
 
           return {
-            id: user.id,
-            email: user.email,
+            id: user.id as string,
+            email: user.email as string,
             name: `${user.first_name} ${user.last_name}`,
           }
         } catch (error) {
@@ -52,7 +52,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   callbacks: {
     jwt({ token, user }) {
-      if (user) {
+      if (user?.id) {
         token.id = user.id
       }
       return token
