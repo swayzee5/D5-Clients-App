@@ -8,30 +8,31 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="relative min-h-dvh flex flex-col items-center justify-center px-5 py-12 overflow-hidden">
-      {/* Photo de fond */}
-      <div className="absolute inset-0 z-0">
-        <Image
-          src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/image00002.png"
-          alt=""
-          fill
-          className="object-cover object-center"
-          priority
-        />
-        <div className="absolute inset-0 bg-black/75" />
-      </div>
+    <div className="min-h-dvh bg-d5-bg flex flex-col items-center justify-center px-5 py-12">
+      <div className="w-full max-w-sm">
 
-      {/* Contenu */}
-      <div className="relative z-10 w-full max-w-sm">
+        {/* Photo coach — petite, entière, centrée */}
+        <div className="flex justify-center mb-6">
+          <div className="relative w-36 h-48 rounded-2xl overflow-hidden border border-d5-border shadow-lg">
+            <Image
+              src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/image00002.png"
+              alt="Coach D5"
+              fill
+              className="object-cover object-top"
+              priority
+            />
+          </div>
+        </div>
+
         {/* Branding */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-d5-surface border border-d5-border mb-5 overflow-hidden">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white mb-5 overflow-hidden shadow-md">
             <Image
               src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/Logo%20D5.PNG"
               alt="D5 Coaching"
-              width={64}
-              height={64}
-              className="object-contain"
+              width={72}
+              height={72}
+              className="object-contain p-1"
               priority
             />
           </div>
