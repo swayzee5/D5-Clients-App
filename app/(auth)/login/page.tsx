@@ -12,14 +12,13 @@ export default function LoginPage() {
       {/* Photo — fond noir naturel, pas de rognage */}
       <div className="absolute inset-0 z-0 flex items-end justify-center">
         <Image
-          src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/image00001.png"
+          src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/image00002.png"
           alt=""
           width={600}
           height={800}
           className="object-contain w-full max-w-sm opacity-60"
           priority
         />
-        {/* Dégradé haut pour lisibilité du formulaire */}
         <div className="absolute inset-0 bg-gradient-to-b from-d5-bg via-d5-bg/60 to-transparent" />
       </div>
 
