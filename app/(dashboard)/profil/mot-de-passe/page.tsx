@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useFormState, useFormStatus } from "react-dom";
 import { changePassword } from "./actions";
 import Link from "next/link";
 import { Lock, ArrowLeft, CheckCircle } from "lucide-react";
@@ -8,8 +8,21 @@ import { Lock, ArrowLeft, CheckCircle } from "lucide-react";
 const inputCls =
   "w-full bg-d5-surface border border-d5-border rounded-xl px-4 py-3 text-white text-sm placeholder-d5-muted focus:outline-none focus:border-d5-gold transition-colors";
 
+function SubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="w-full py-3.5 bg-d5-gold text-black font-bold rounded-xl hover:bg-d5-gold/90 transition-colors disabled:opacity-50"
+    >
+      {pending ? "Modification..." : "Changer le mot de passe"}
+    </button>
+  );
+}
+
 export default function ChangePasswordPage() {
-  const [state, action, pending] = useActionState(changePassword, {});
+  const [state, action] = useFormState(changePassword, {});
 
   return (
     <div className="space-y-6">
@@ -87,13 +100,7 @@ export default function ChangePasswordPage() {
             </div>
           </div>
 
-          <button
-            type="submit"
-            disabled={pending}
-            className="w-full py-3.5 bg-d5-gold text-black font-bold rounded-xl hover:bg-d5-gold/90 transition-colors disabled:opacity-50"
-          >
-            {pending ? "Modification..." : "Changer le mot de passe"}
-          </button>
+          <SubmitButton />
         </form>
       )}
     </div>
