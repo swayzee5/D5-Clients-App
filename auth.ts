@@ -24,12 +24,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         try {
           const result = await pool.query(
-            "SELECT id, email, password_hash, first_name, last_name, is_active FROM clients WHERE email = $1",
+            "SELECT id, email, password_hash, first_name, last_name, is_active, is_blocked FROM clients WHERE email = $1",
             [email.toLowerCase().trim()]
           )
 
           const user = result.rows[0]
-          if (!user || !user.is_active) return null
+          if (!user || !user.is_active || user.is_blocked) return null
 
           const isValid = await bcrypt.compare(password, user.password_hash)
           if (!isValid) return null
