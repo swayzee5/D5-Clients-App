@@ -12,7 +12,7 @@ export default function LoginPage() {
       {/* Photo de fond */}
       <div className="absolute inset-0 z-0">
         <Image
-          src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/image00001.png"
+          src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/image00002.png"
           alt=""
           fill
           className="object-cover object-center"
