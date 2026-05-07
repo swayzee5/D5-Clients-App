@@ -8,34 +8,35 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-dvh bg-d5-bg flex flex-col items-center justify-center px-5 py-12">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <Image
-            src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/Logo%20D5.PNG"
-            alt="D5 Coaching"
-            width={120}
-            height={80}
-            className="object-contain"
-            priority
-          />
-        </div>
+    <div className="relative min-h-dvh flex flex-col items-center justify-center px-5 py-12 overflow-hidden">
+      {/* Photo de fond */}
+      <div className="absolute inset-0 z-0">
+        <Image
+          src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/image00001.png"
+          alt=""
+          fill
+          className="object-cover object-center"
+          priority
+        />
+        <div className="absolute inset-0 bg-black/75" />
+      </div>
 
-        {/* Coach */}
-        <div className="flex flex-col items-center mb-8 gap-3">
-          <div className="relative w-16 h-16 rounded-full overflow-hidden border-2 border-d5-gold/40">
+      {/* Contenu */}
+      <div className="relative z-10 w-full max-w-sm">
+        {/* Branding */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-d5-surface border border-d5-border mb-5 overflow-hidden">
             <Image
-              src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/image00001.png"
-              alt="Daye Kaba - Coach D5"
-              fill
-              className="object-cover object-top"
+              src="https://raw.githubusercontent.com/swayzee5/D5-Clients-App/main/Logo%20D5.PNG"
+              alt="D5 Coaching"
+              width={64}
+              height={64}
+              className="object-contain"
+              priority
             />
           </div>
-          <div className="text-center">
-            <p className="text-white font-semibold text-sm">Daye Kaba</p>
-            <p className="text-d5-muted text-xs">Ton coach D5</p>
-          </div>
+          <h1 className="text-2xl font-bold text-white">D5 Coaching</h1>
+          <p className="text-d5-muted mt-1.5 text-sm">Ton espace personnel</p>
         </div>
 
         <LoginForm />
