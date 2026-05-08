@@ -43,7 +43,37 @@ export default async function NouvelleEntreePage() {
           />
         </div>
 
-        {/* Weight */}
+        {/* Profil physique */}
+        <div className="card space-y-3">
+          <h3 className="font-semibold text-sm text-white">Profil physique</h3>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-d5-muted mb-1.5">Taille (cm)</label>
+              <input
+                type="number"
+                name="heightCm"
+                step="0.5"
+                min="100"
+                max="250"
+                placeholder="ex : 178"
+                className="input-base"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-d5-muted mb-1.5">Âge (ans)</label>
+              <input
+                type="number"
+                name="ageYears"
+                min="18"
+                max="99"
+                placeholder="ex : 45"
+                className="input-base"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Poids */}
         <div className="card space-y-3">
           <h3 className="font-semibold text-sm text-white">Poids</h3>
           <div>
@@ -60,7 +90,7 @@ export default async function NouvelleEntreePage() {
           </div>
         </div>
 
-        {/* Measurements */}
+        {/* Mensurations */}
         <div className="card space-y-3">
           <h3 className="font-semibold text-sm text-white">Mensurations</h3>
           <div className="grid grid-cols-2 gap-3">
@@ -130,7 +160,7 @@ export default async function NouvelleEntreePage() {
           <textarea
             name="notes"
             rows={3}
-            placeholder="Comment tu te sens aujourd&apos;hui ?"
+            placeholder="Comment tu te sens aujourd&apos;hui ?"
             className="input-base resize-none"
           />
         </div>
