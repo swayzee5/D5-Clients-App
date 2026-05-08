@@ -26,7 +26,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         try {
           const result = await pool.query(
-            "SELECT id, email, password_hash, first_name, last_name, is_active, is_blocked FROM clients WHERE email = $1",
+            "SELECT id, email, password_hash, first_name, last_name, is_active, is_blocked, is_reboot_only FROM clients WHERE email = $1",
             [email.toLowerCase().trim()]
           )
 
@@ -40,6 +40,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             id: user.id as string,
             email: user.email as string,
             name: `${user.first_name} ${user.last_name}`,
+            isRebootOnly: user.is_reboot_only as boolean,
           }
         } catch (error) {
           console.error("[Auth] Database error:", error)

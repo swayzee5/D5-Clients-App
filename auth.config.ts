@@ -20,10 +20,14 @@ export const authConfig: NextAuthConfig = {
     },
     jwt({ token, user }) {
       if (user?.id) token.id = user.id
+      if (user?.isRebootOnly !== undefined) token.isRebootOnly = user.isRebootOnly
       return token
     },
     session({ session, token }) {
-      if (token && session.user) session.user.id = token.id as string
+      if (token && session.user) {
+        session.user.id = token.id as string
+        session.user.isRebootOnly = token.isRebootOnly ?? false
+      }
       return session
     },
   },

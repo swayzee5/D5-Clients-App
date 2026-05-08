@@ -21,6 +21,7 @@ export default async function DashboardPage() {
   if (!session) redirect("/login")
 
   const firstName = session.user?.name?.split(" ")[0] ?? "Athlète"
+  const isRebootOnly = session.user?.isRebootOnly ?? false
 
   return (
     <div className="space-y-6">
@@ -86,24 +87,26 @@ export default async function DashboardPage() {
         </Link>
       </section>
 
-      {/* Reboot CTA */}
-      <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-white">Reboot 40</h2>
-          <Link href="/reboot" className="text-d5-gold text-sm font-medium">
-            Voir tout
-          </Link>
-        </div>
-        <Link href="/reboot">
-          <div className="card flex items-center gap-3 hover:border-d5-gold/30 transition-colors active:scale-[0.98]">
-            <div className="w-10 h-10 rounded-xl bg-d5-gold/10 flex items-center justify-center flex-shrink-0">
-              <Zap size={18} className="text-d5-gold" />
-            </div>
-            <p className="text-d5-muted text-sm flex-1">Challenge 7 jours — Démarre ta transformation</p>
-            <ArrowRight size={16} className="text-d5-muted" />
+      {/* Reboot 40 — visible uniquement pour les clients reboot */}
+      {isRebootOnly && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold text-white">Reboot 40</h2>
+            <Link href="/reboot" className="text-d5-gold text-sm font-medium">
+              Voir tout
+            </Link>
           </div>
-        </Link>
-      </section>
+          <Link href="/reboot">
+            <div className="card flex items-center gap-3 hover:border-d5-gold/30 transition-colors active:scale-[0.98]">
+              <div className="w-10 h-10 rounded-xl bg-d5-gold/10 flex items-center justify-center flex-shrink-0">
+                <Zap size={18} className="text-d5-gold" />
+              </div>
+              <p className="text-d5-muted text-sm flex-1">Challenge 7 jours — Démarre ta transformation</p>
+              <ArrowRight size={16} className="text-d5-muted" />
+            </div>
+          </Link>
+        </section>
+      )}
     </div>
   )
 }
