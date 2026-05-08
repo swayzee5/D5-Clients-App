@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getActiveProgram } from "@/lib/queries/programme";
 import { Dumbbell } from "lucide-react";
 import type { Metadata } from "next";
+import CommentForm from "./CommentForm";
 
 export const metadata: Metadata = {
   title: "Programme",
@@ -34,6 +35,7 @@ export default async function ProgrammePage() {
             Ton coach va bientôt te créer un programme personnalisé
           </p>
         </div>
+        <CommentForm clientId={session.user.id} programId={null} />
       </div>
     );
   }
@@ -116,7 +118,6 @@ export default async function ProgrammePage() {
               </p>
             ) : (
               <div>
-                {/* Table header */}
                 <div className="grid grid-cols-12 gap-2 pb-2 border-b border-d5-border">
                   <div className="col-span-6 text-xs text-d5-muted uppercase tracking-wider">
                     Exercice
@@ -132,7 +133,6 @@ export default async function ProgrammePage() {
                   </div>
                 </div>
 
-                {/* Rows */}
                 <div className="divide-y divide-d5-border">
                   {sess.exercises.map((ex) => (
                     <div key={ex.id} className="grid grid-cols-12 gap-2 py-3 items-center">
@@ -160,6 +160,9 @@ export default async function ProgrammePage() {
           </div>
         ))}
       </div>
+
+      {/* Comment form */}
+      <CommentForm clientId={session.user.id} programId={activeProgram.id} />
     </div>
   );
 }
