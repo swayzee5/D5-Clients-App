@@ -43,10 +43,22 @@ export default async function NouvelleEntreePage() {
           />
         </div>
 
-        {/* Profil physique */}
+        {/* Poids + Taille */}
         <div className="card space-y-3">
-          <h3 className="font-semibold text-sm text-white">Profil physique</h3>
+          <h3 className="font-semibold text-sm text-white">Poids &amp; Taille</h3>
           <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs text-d5-muted mb-1.5">Poids (kg)</label>
+              <input
+                type="number"
+                name="weightKg"
+                step="0.1"
+                min="30"
+                max="300"
+                placeholder="ex : 82.5"
+                className="input-base"
+              />
+            </div>
             <div>
               <label className="block text-xs text-d5-muted mb-1.5">Taille (cm)</label>
               <input
@@ -59,34 +71,6 @@ export default async function NouvelleEntreePage() {
                 className="input-base"
               />
             </div>
-            <div>
-              <label className="block text-xs text-d5-muted mb-1.5">Âge (ans)</label>
-              <input
-                type="number"
-                name="ageYears"
-                min="18"
-                max="99"
-                placeholder="ex : 45"
-                className="input-base"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Poids */}
-        <div className="card space-y-3">
-          <h3 className="font-semibold text-sm text-white">Poids</h3>
-          <div>
-            <label className="block text-xs text-d5-muted mb-1.5">Poids (kg)</label>
-            <input
-              type="number"
-              name="weightKg"
-              step="0.1"
-              min="30"
-              max="300"
-              placeholder="ex : 82.5"
-              className="input-base"
-            />
           </div>
         </div>
 

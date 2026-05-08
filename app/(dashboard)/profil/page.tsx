@@ -1,6 +1,8 @@
 import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
-import { User, Mail, LogOut } from "lucide-react"
+import { User, Mail, LogOut, Lock, Calendar } from "lucide-react"
+import Link from "next/link"
+import { pool } from "@/lib/db"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -20,6 +22,24 @@ export default async function ProfilPage() {
     .toUpperCase()
     .slice(0, 2)
 
+  let birthDate: string | null = null
+  try {
+    const { rows } = await pool.query<{ birth_date: string | null }>(
+      `SELECT birth_date FROM clients WHERE id = $1`,
+      [session.user.id]
+    )
+    birthDate = rows[0]?.birth_date ?? null
+  } catch {
+    // ignore
+  }
+
+  const age =
+    birthDate
+      ? Math.floor(
+          (Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000)
+        )
+      : null
+
   return (
     <div className="space-y-6">
       <div>
@@ -36,6 +56,7 @@ export default async function ProfilPage() {
           <div>
             <p className="font-bold text-white text-lg">{name}</p>
             <p className="text-d5-muted text-sm">{email}</p>
+            {age && <p className="text-d5-muted text-xs mt-0.5">{age} ans</p>}
           </div>
         </div>
       </div>
@@ -56,7 +77,39 @@ export default async function ProfilPage() {
             <p className="text-white text-sm font-medium">{email}</p>
           </div>
         </div>
+        {birthDate && (
+          <div className="flex items-center gap-3">
+            <Calendar size={16} className="text-d5-muted" />
+            <div>
+              <p className="text-xs text-d5-muted">Date de naissance</p>
+              <p className="text-white text-sm font-medium">
+                {new Date(birthDate).toLocaleDateString("fr-FR", {
+                  day: "numeric",
+                  month: "long",
+                  year: "numeric",
+                })}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Change password */}
+      <Link
+        href="/profil/mot-de-passe"
+        className="card flex items-center justify-between hover:border-d5-gold/30 transition-colors group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-d5-gold/10 flex items-center justify-center">
+            <Lock size={16} className="text-d5-gold" />
+          </div>
+          <div>
+            <p className="text-white text-sm font-medium">Changer mon mot de passe</p>
+            <p className="text-d5-muted text-xs">Modifie ton mot de passe de connexion</p>
+          </div>
+        </div>
+        <span className="text-d5-muted group-hover:text-white transition-colors">&rsaquo;</span>
+      </Link>
 
       {/* Sign out */}
       <form
