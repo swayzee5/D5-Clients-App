@@ -31,12 +31,12 @@ export function CompleteButton({
       className="w-full py-3.5 rounded-xl bg-d5-gold text-black font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-60 active:scale-95 transition-all"
     >
       {isPending ? (
-        “…”
+        <span>Chargement...</span>
       ) : (
-        <>
+        <span className="flex items-center gap-2">
           <CheckCircle2 size={16} />
           Séance terminée !
-        </>
+        </span>
       )}
     </button>
   );
