@@ -2,27 +2,14 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { pool } from "@/lib/db"
 import Link from "next/link"
-import { CheckCircle, ChevronLeft, ChevronRight, Zap } from "lucide-react"
+import { ChevronLeft } from "lucide-react"
+import { ActivitesList } from "./ActivitesList"
 import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: "Mes activités",
-}
-
-function formatDuration(seconds: number | null): string {
-  if (!seconds) return ""
-  const m = Math.round(seconds / 60)
-  if (m < 60) return `${m} min`
-  return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`
-}
-
-function rpeColor(rpe: number | null): string {
-  if (rpe === null || rpe === undefined) return "text-d5-muted"
-  if (rpe <= 4) return "text-emerald-400"
-  if (rpe <= 7) return "text-amber-400"
-  return "text-red-400"
 }
 
 async function ensureColumns() {
@@ -97,58 +84,7 @@ export default async function ActivitesPage() {
           </Link>
         </div>
       ) : (
-        groups.map(({ label, items }) => (
-          <div key={label} className="space-y-2">
-            <p className="text-xs text-d5-muted font-semibold uppercase tracking-wider capitalize">
-              {label}
-            </p>
-            {items.map((a) => {
-              const time = new Date(a.completed_at).toLocaleTimeString("fr-FR", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-              const href =
-                a.source !== "libre" && a.program_id && a.training_session_id
-                  ? `/programme/${a.program_id}/seance/${a.training_session_id}`
-                  : null
-
-              const inner = (
-                <>
-                  <CheckCircle size={18} className="text-emerald-400 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">{a.name}</p>
-                    <p className="text-d5-muted text-xs">
-                      {time}
-                      {a.duration_seconds ? ` · ${formatDuration(a.duration_seconds)}` : ""}
-                      {a.source === "libre" ? " · Activité libre" : ""}
-                    </p>
-                  </div>
-                  {a.rpe !== null && a.rpe !== undefined && (
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <Zap size={12} className={rpeColor(a.rpe)} />
-                      <span className={`text-xs font-bold ${rpeColor(a.rpe)}`}>{a.rpe}</span>
-                    </div>
-                  )}
-                  {href && <ChevronRight size={16} className="text-d5-muted flex-shrink-0" />}
-                </>
-              )
-
-              return href ? (
-                <Link
-                  key={a.id}
-                  href={href}
-                  className="card flex items-center gap-3 hover:border-d5-gold/30 transition-colors active:scale-[0.98]"
-                >
-                  {inner}
-                </Link>
-              ) : (
-                <div key={a.id} className="card flex items-center gap-3">
-                  {inner}
-                </div>
-              )
-            })}
-          </div>
-        ))
+        <ActivitesList groups={groups} />
       )}
     </div>
   )
