@@ -25,8 +25,15 @@ function rpeColor(rpe: number | null): string {
   return "text-red-400"
 }
 
+async function ensureColumns() {
+  await pool.query(`ALTER TABLE workout_sessions ALTER COLUMN training_session_id DROP NOT NULL`).catch(() => {})
+  await pool.query(`ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS activity_type VARCHAR(100)`).catch(() => {})
+  await pool.query(`ALTER TABLE workout_sessions ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'programme'`).catch(() => {})
+}
+
 async function getAllActivities(clientId: string) {
   try {
+    await ensureColumns()
     const result = await pool.query(
       `SELECT ws.id, ws.completed_at, ws.duration_seconds, ws.rpe,
               COALESCE(ws.activity_type, ts.name, 'Séance') AS name,
@@ -50,7 +57,6 @@ export default async function ActivitesPage() {
 
   const activities = await getAllActivities(session.user.id)
 
-  // Group by date label
   const groups: { label: string; items: typeof activities }[] = []
   const seen = new Map<string, number>()
   for (const a of activities) {
