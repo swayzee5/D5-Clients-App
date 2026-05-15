@@ -29,12 +29,8 @@ export default async function SeancePage({
 
   return (
     <div className="space-y-5">
-      {/* Header */}
       <div>
-        <Link
-          href="/programme"
-          className="text-d5-muted text-sm flex items-center gap-1 mb-4"
-        >
+        <Link href="/programme" className="text-d5-muted text-sm flex items-center gap-1 mb-4">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -56,7 +52,16 @@ export default async function SeancePage({
         </div>
       </div>
 
-      {/* Exercises */}
+      {/* Démarrer la séance */}
+      {seance.exercises.length > 0 && (
+        <Link
+          href={`/programme/${params.programId}/seance/${params.sessionId}/executer`}
+          className="block w-full py-4 bg-d5-gold hover:bg-d5-gold/90 text-black font-bold text-center rounded-2xl transition-colors active:scale-[0.98] text-base"
+        >
+          Démarrer la séance
+        </Link>
+      )}
+
       {seance.exercises.length === 0 ? (
         <div className="card flex flex-col items-center justify-center py-12 text-center">
           <p className="text-d5-muted text-sm">Aucun exercice dans cette séance</p>
@@ -65,7 +70,6 @@ export default async function SeancePage({
         <div className="space-y-5">
           {seance.exercises.map((ex, i) => (
             <div key={ex.id} className="card space-y-4">
-              {/* Exercise header */}
               <div className="flex items-start gap-3">
                 <div className="w-7 h-7 rounded-lg bg-d5-gold/10 flex items-center justify-center shrink-0 mt-0.5">
                   <span className="text-d5-gold font-bold text-xs">{i + 1}</span>
@@ -80,7 +84,6 @@ export default async function SeancePage({
                 </div>
               </div>
 
-              {/* Vimeo video */}
               {ex.vimeo_video_id && (
                 <div className="rounded-xl overflow-hidden bg-black aspect-video">
                   <iframe
@@ -92,14 +95,12 @@ export default async function SeancePage({
                 </div>
               )}
 
-              {/* Notes */}
               {ex.notes && (
                 <div className="bg-d5-surface-2 rounded-xl p-3">
                   <p className="text-d5-muted text-xs leading-relaxed">{ex.notes}</p>
                 </div>
               )}
 
-              {/* Series detail */}
               {ex.sets && ex.sets > 0 && (
                 <div className="space-y-2">
                   <div className="grid grid-cols-4 gap-2 pb-1.5 border-b border-d5-border">
@@ -128,6 +129,15 @@ export default async function SeancePage({
             </div>
           ))}
         </div>
+      )}
+
+      {seance.exercises.length > 0 && (
+        <Link
+          href={`/programme/${params.programId}/seance/${params.sessionId}/executer`}
+          className="block w-full py-4 bg-d5-gold hover:bg-d5-gold/90 text-black font-bold text-center rounded-2xl transition-colors active:scale-[0.98] text-base"
+        >
+          Démarrer la séance
+        </Link>
       )}
     </div>
   );
