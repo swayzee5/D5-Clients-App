@@ -51,7 +51,7 @@ async function getCompletedSessionsThisWeek(clientId: string): Promise<Completed
     const result = await pool.query(
       `SELECT ws.id, COALESCE(ts.name, 'Séance') AS name, ws.completed_at, ws.duration_seconds
        FROM workout_sessions ws
-       LEFT JOIN training_sessions ts ON ts.id = ws.session_id
+       LEFT JOIN training_sessions ts ON ts.id = ws.training_session_id
        WHERE ws.client_id = $1
          AND ws.status = 'completed'
          AND ws.completed_at >= $2
