@@ -6,22 +6,22 @@ import { Home, TrendingUp, User, Plus, X, Activity, CalendarPlus, Ruler, Message
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 
-const leftNav = [
-  { href: "/dashboard", icon: Home, label: "Accueil" },
-  { href: "/progression", icon: TrendingUp, label: "Progrès" },
-]
-
-const rightNav = [
-  { href: "/messagerie", icon: MessageCircle, label: "Messagerie" },
-  { href: "/profil", icon: User, label: "Profil" },
-]
-
-export function BottomNav() {
+export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
   const isActive = (href: string) =>
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href))
+
+  const leftNav = [
+    { href: "/dashboard", icon: Home, label: "Accueil" },
+    { href: "/progression", icon: TrendingUp, label: "Progrès" },
+  ]
+
+  const rightNav = [
+    { href: "/messagerie", icon: MessageCircle, label: "Messagerie", badge: unreadMessages },
+    { href: "/profil", icon: User, label: "Profil", badge: 0 },
+  ]
 
   return (
     <>
@@ -32,11 +32,8 @@ export function BottomNav() {
             className="absolute bottom-24 left-4 right-4 max-w-lg mx-auto bg-d5-surface border border-d5-border rounded-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <Link
-              href="/activites"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-4 px-5 py-4 border-b border-d5-border hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2"
-            >
+            <Link href="/activites" onClick={() => setOpen(false)}
+              className="flex items-center gap-4 px-5 py-4 border-b border-d5-border hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
               <div className="w-10 h-10 rounded-xl bg-d5-gold/10 flex items-center justify-center flex-shrink-0">
                 <Activity size={18} className="text-d5-gold" />
               </div>
@@ -45,11 +42,8 @@ export function BottomNav() {
                 <p className="text-d5-muted text-xs">Historique de toutes vos séances</p>
               </div>
             </Link>
-            <Link
-              href="/activite/nouvelle"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-4 px-5 py-4 border-b border-d5-border hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2"
-            >
+            <Link href="/activite/nouvelle" onClick={() => setOpen(false)}
+              className="flex items-center gap-4 px-5 py-4 border-b border-d5-border hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
               <div className="w-10 h-10 rounded-xl bg-emerald-400/10 flex items-center justify-center flex-shrink-0">
                 <CalendarPlus size={18} className="text-emerald-400" />
               </div>
@@ -58,11 +52,8 @@ export function BottomNav() {
                 <p className="text-d5-muted text-xs">Logger une activité libre</p>
               </div>
             </Link>
-            <Link
-              href="/progression/nouvelle-entree"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-4 px-5 py-4 hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2"
-            >
+            <Link href="/progression/nouvelle-entree" onClick={() => setOpen(false)}
+              className="flex items-center gap-4 px-5 py-4 hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
               <div className="w-10 h-10 rounded-xl bg-blue-400/10 flex items-center justify-center flex-shrink-0">
                 <Ruler size={18} className="text-blue-400" />
               </div>
@@ -77,11 +68,10 @@ export function BottomNav() {
 
       <nav className="fixed bottom-0 left-0 right-0 bg-d5-surface/95 backdrop-blur-md border-t border-d5-border z-50">
         <div className="flex items-end max-w-lg mx-auto px-2 pb-safe">
+          {/* Left */}
           <div className="flex flex-1 justify-around py-2">
             {leftNav.map(({ href, icon: Icon, label }) => (
-              <Link
-                key={href}
-                href={href}
+              <Link key={href} href={href}
                 className={cn(
                   "flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-all",
                   isActive(href) ? "text-d5-gold" : "text-d5-muted"
@@ -93,6 +83,7 @@ export function BottomNav() {
             ))}
           </div>
 
+          {/* Center FAB */}
           <div className="flex flex-col items-center px-3 -mb-1">
             <button
               onClick={() => setOpen((o) => !o)}
@@ -104,26 +95,29 @@ export function BottomNav() {
               )}
               aria-label="Ajouter"
             >
-              {open ? (
-                <X size={26} className="text-white" strokeWidth={2.5} />
-              ) : (
-                <Plus size={28} className="text-black" strokeWidth={2.5} />
-              )}
+              {open ? <X size={26} className="text-white" strokeWidth={2.5} />
+                    : <Plus size={28} className="text-black" strokeWidth={2.5} />}
             </button>
             <span className="text-[9px] text-d5-muted mt-1.5 mb-1">Ajouter</span>
           </div>
 
+          {/* Right */}
           <div className="flex flex-1 justify-around py-2">
-            {rightNav.map(({ href, icon: Icon, label }) => (
-              <Link
-                key={href}
-                href={href}
+            {rightNav.map(({ href, icon: Icon, label, badge }) => (
+              <Link key={href} href={href}
                 className={cn(
-                  "flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-all",
+                  "flex flex-col items-center gap-1 px-4 py-1.5 rounded-xl transition-all relative",
                   isActive(href) ? "text-d5-gold" : "text-d5-muted"
                 )}
               >
-                <Icon size={21} strokeWidth={isActive(href) ? 2.5 : 1.75} />
+                <div className="relative">
+                  <Icon size={21} strokeWidth={isActive(href) ? 2.5 : 1.75} />
+                  {badge > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-medium">{label}</span>
               </Link>
             ))}

@@ -2,7 +2,6 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { pool } from "@/lib/db"
 import { ChatView } from "./ChatView"
-import { ensureMessagesTable, markCoachMessagesRead } from "./actions"
 import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
@@ -15,15 +14,34 @@ export default async function MessageriePage() {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  await ensureMessagesTable()
-  await markCoachMessagesRead(session.user.id)
+  const clientId = session.user.id
 
+  // Create table if needed
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS messages (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      client_id UUID NOT NULL,
+      sender_role VARCHAR(10) NOT NULL,
+      content TEXT NOT NULL,
+      is_read BOOLEAN DEFAULT false,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `).catch(() => {})
+
+  // Mark coach messages as read
+  await pool.query(
+    `UPDATE messages SET is_read = true
+     WHERE client_id = $1 AND sender_role = 'coach' AND is_read = false`,
+    [clientId]
+  ).catch(() => {})
+
+  // Fetch all messages for this client
   const result = await pool.query(
     `SELECT id, sender_role, content, created_at
      FROM messages
      WHERE client_id = $1
      ORDER BY created_at ASC`,
-    [session.user.id]
+    [clientId]
   ).catch(() => ({ rows: [] }))
 
   return (
