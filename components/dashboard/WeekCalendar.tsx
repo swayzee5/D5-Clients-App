@@ -49,6 +49,8 @@ function formatDuration(seconds: number | null): string {
   return `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}`
 }
 
+const MAX_VISIBLE = 4
+
 export function WeekCalendar({ completedSessions = [] }: { completedSessions?: CompletedSession[] }) {
   const now = new Date()
   now.setHours(0, 0, 0, 0)
@@ -61,7 +63,6 @@ export function WeekCalendar({ completedSessions = [] }: { completedSessions?: C
   offsetMonday.setDate(baseMonday.getDate() + weekOffset * 7)
   const weekDays = getWeekDays(offsetMonday)
 
-  // Build a map: dateKey -> CompletedSession[]
   const sessionMap = new Map<string, CompletedSession[]>()
   for (const s of completedSessions) {
     const d = new Date(s.completed_at)
@@ -72,6 +73,8 @@ export function WeekCalendar({ completedSessions = [] }: { completedSessions?: C
 
   const selectedKey = dateKey(selectedDate)
   const sessionsForSelected = sessionMap.get(selectedKey) ?? []
+  const visible = sessionsForSelected.slice(0, MAX_VISIBLE)
+  const overflow = sessionsForSelected.length - MAX_VISIBLE
 
   return (
     <div>
@@ -133,22 +136,27 @@ export function WeekCalendar({ completedSessions = [] }: { completedSessions?: C
         {sessionsForSelected.length === 0 ? (
           <p className="text-d5-muted text-sm">Aucune séance ce jour</p>
         ) : (
-          sessionsForSelected.map((s) => {
-            const completedAt = new Date(s.completed_at)
-            const timeStr = completedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
-            return (
-              <div key={s.id} className="flex items-center gap-3">
-                <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-white text-sm font-medium truncate">{s.name}</p>
-                  <p className="text-d5-muted text-xs">
-                    {timeStr}{s.duration_seconds ? ` · ${formatDuration(s.duration_seconds)}` : ""}
-                  </p>
+          <>
+            {visible.map((s) => {
+              const completedAt = new Date(s.completed_at)
+              const timeStr = completedAt.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })
+              return (
+                <div key={s.id} className="flex items-center gap-3">
+                  <CheckCircle size={16} className="text-emerald-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-medium truncate">{s.name}</p>
+                    <p className="text-d5-muted text-xs">
+                      {timeStr}{s.duration_seconds ? ` · ${formatDuration(s.duration_seconds)}` : ""}
+                    </p>
+                  </div>
+                  <span className="text-xs text-emerald-400 font-semibold flex-shrink-0">✓ Terminé</span>
                 </div>
-                <span className="text-xs text-emerald-400 font-semibold flex-shrink-0">✓ Terminé</span>
-              </div>
-            )
-          })
+              )
+            })}
+            {overflow > 0 && (
+              <p className="text-d5-muted text-xs pl-7">+{overflow} séance{overflow > 1 ? "s" : ""} ce jour</p>
+            )}
+          </>
         )}
       </div>
     </div>
