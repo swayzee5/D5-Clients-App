@@ -2,7 +2,7 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { pool } from "@/lib/db"
 import Link from "next/link"
-import { CheckCircle, ChevronLeft, Zap } from "lucide-react"
+import { CheckCircle, ChevronLeft, ChevronRight, Zap } from "lucide-react"
 import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
@@ -36,6 +36,7 @@ async function getAllActivities(clientId: string) {
     await ensureColumns()
     const result = await pool.query(
       `SELECT ws.id, ws.completed_at, ws.duration_seconds, ws.rpe,
+              ws.training_session_id, ws.program_id,
               COALESCE(ws.activity_type, ts.name, 'Séance') AS name,
               COALESCE(ws.source, 'programme') AS source
        FROM workout_sessions ws
@@ -106,8 +107,13 @@ export default async function ActivitesPage() {
                 hour: "2-digit",
                 minute: "2-digit",
               })
-              return (
-                <div key={a.id} className="card flex items-center gap-3">
+              const href =
+                a.source !== "libre" && a.program_id && a.training_session_id
+                  ? `/programme/${a.program_id}/seance/${a.training_session_id}`
+                  : null
+
+              const inner = (
+                <>
                   <CheckCircle size={18} className="text-emerald-400 flex-shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-semibold text-sm truncate">{a.name}</p>
@@ -123,6 +129,21 @@ export default async function ActivitesPage() {
                       <span className={`text-xs font-bold ${rpeColor(a.rpe)}`}>{a.rpe}</span>
                     </div>
                   )}
+                  {href && <ChevronRight size={16} className="text-d5-muted flex-shrink-0" />}
+                </>
+              )
+
+              return href ? (
+                <Link
+                  key={a.id}
+                  href={href}
+                  className="card flex items-center gap-3 hover:border-d5-gold/30 transition-colors active:scale-[0.98]"
+                >
+                  {inner}
+                </Link>
+              ) : (
+                <div key={a.id} className="card flex items-center gap-3">
+                  {inner}
                 </div>
               )
             })}
