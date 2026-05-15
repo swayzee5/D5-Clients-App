@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { ChevronLeft, ChevronRight, CheckCircle } from "lucide-react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 
 const DAY_LABELS = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"]
@@ -156,6 +157,12 @@ export function WeekCalendar({ completedSessions = [] }: { completedSessions?: C
             {overflow > 0 && (
               <p className="text-d5-muted text-xs pl-7">+{overflow} séance{overflow > 1 ? "s" : ""} ce jour</p>
             )}
+            <Link
+              href="/activites"
+              className="block text-center text-d5-gold text-sm font-semibold pt-1 hover:text-d5-gold-light transition-colors"
+            >
+              Voir plus
+            </Link>
           </>
         )}
       </div>
