@@ -27,6 +27,8 @@ export default async function SeancePage({
   const seance = await getSession(params.sessionId, session.user.id);
   if (!seance || seance.program_id !== params.programId) notFound();
 
+  const execUrl = `/programme/${params.programId}/seance/${params.sessionId}/executer`;
+
   return (
     <div className="space-y-5">
       <div>
@@ -52,13 +54,16 @@ export default async function SeancePage({
         </div>
       </div>
 
-      {/* Démarrer la séance */}
+      {/* Lecture automatique — top CTA */}
       {seance.exercises.length > 0 && (
         <Link
-          href={`/programme/${params.programId}/seance/${params.sessionId}/executer`}
-          className="block w-full py-4 bg-d5-gold hover:bg-d5-gold/90 text-black font-bold text-center rounded-2xl transition-colors active:scale-[0.98] text-base"
+          href={execUrl}
+          className="flex items-center justify-center gap-3 w-full py-4 bg-d5-gold hover:bg-d5-gold/90 text-black font-bold rounded-2xl transition-colors active:scale-[0.98] text-base"
         >
-          Démarrer la séance
+          <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+          Lecture automatique de la séance
         </Link>
       )}
 
@@ -131,12 +136,13 @@ export default async function SeancePage({
         </div>
       )}
 
+      {/* Terminer la séance — bottom CTA */}
       {seance.exercises.length > 0 && (
         <Link
-          href={`/programme/${params.programId}/seance/${params.sessionId}/executer`}
-          className="block w-full py-4 bg-d5-gold hover:bg-d5-gold/90 text-black font-bold text-center rounded-2xl transition-colors active:scale-[0.98] text-base"
+          href={execUrl}
+          className="block w-full py-4 border-2 border-d5-gold text-d5-gold font-bold text-center rounded-2xl transition-colors active:scale-[0.98] text-base hover:bg-d5-gold/10"
         >
-          Démarrer la séance
+          Terminer la séance
         </Link>
       )}
     </div>
