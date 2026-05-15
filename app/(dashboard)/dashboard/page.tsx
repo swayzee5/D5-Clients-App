@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import Link from "next/link"
 import { Dumbbell, Utensils, Zap, ArrowRight, Lock } from "lucide-react"
 import { WeekCalendar } from "@/components/dashboard/WeekCalendar"
+import type { CompletedSession } from "@/components/dashboard/WeekCalendar"
 import { pool } from "@/lib/db"
 import type { Metadata } from "next"
 
@@ -14,9 +15,9 @@ export const metadata: Metadata = {
 
 function getGreeting(name: string): string {
   const hour = new Date().getHours()
-  if (hour < 12) return `Bonjour, ${name} !`
-  if (hour < 18) return `Bon après-midi, ${name} !`
-  return `Bonsoir, ${name} !`
+  if (hour < 12) return `Bonjour, ${name} !`
+  if (hour < 18) return `Bon après-midi, ${name} !`
+  return `Bonsoir, ${name} !`
 }
 
 async function getDashboardCounts(clientId: string) {
@@ -36,13 +37,44 @@ async function getDashboardCounts(clientId: string) {
   }
 }
 
+async function getCompletedSessionsThisWeek(clientId: string): Promise<CompletedSession[]> {
+  try {
+    const now = new Date()
+    const day = now.getDay()
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
+    monday.setHours(0, 0, 0, 0)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    sunday.setHours(23, 59, 59, 999)
+
+    const result = await pool.query(
+      `SELECT ws.id, COALESCE(ts.name, 'Séance') AS name, ws.completed_at, ws.duration_seconds
+       FROM workout_sessions ws
+       LEFT JOIN training_sessions ts ON ts.id = ws.session_id
+       WHERE ws.client_id = $1
+         AND ws.status = 'completed'
+         AND ws.completed_at >= $2
+         AND ws.completed_at <= $3
+       ORDER BY ws.completed_at ASC`,
+      [clientId, monday.toISOString(), sunday.toISOString()]
+    )
+    return result.rows as CompletedSession[]
+  } catch {
+    return []
+  }
+}
+
 export default async function DashboardPage() {
   const session = await auth()
   if (!session) redirect("/login")
 
   const firstName = session.user?.name?.split(" ")[0] ?? "Athlète"
   const isRebootOnly = session.user?.isRebootOnly ?? false
-  const { hasProgram, hasNutrition } = await getDashboardCounts(session.user.id)
+  const [{ hasProgram, hasNutrition }, completedSessions] = await Promise.all([
+    getDashboardCounts(session.user.id),
+    getCompletedSessionsThisWeek(session.user.id),
+  ])
 
   return (
     <div className="space-y-6">
@@ -58,13 +90,7 @@ export default async function DashboardPage() {
           <Link href="/programme" className="text-d5-gold text-sm font-medium">Voir tout</Link>
         </div>
         <div className="card pt-3 pb-2">
-          <WeekCalendar />
-          <div className="mt-4 pt-3 border-t border-d5-border flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-d5-surface-2 flex items-center justify-center flex-shrink-0">
-              <Dumbbell size={15} className="text-d5-muted" />
-            </div>
-            <p className="text-d5-muted text-sm">Aucune séance planifiée</p>
-          </div>
+          <WeekCalendar completedSessions={completedSessions} />
         </div>
       </section>
 
