@@ -45,7 +45,7 @@ export default async function ProgrammePage() {
     if (!weekGroups.has(key)) weekGroups.set(key, []);
     weekGroups.get(key)!.push(s);
   }
-  const sortedWeeks = [...weekGroups.keys()].sort((a, b) => {
+  const sortedWeeks = Array.from(weekGroups.keys()).sort((a, b) => {
     if (a === null) return 1;
     if (b === null) return -1;
     return a - b;
@@ -141,7 +141,6 @@ export default async function ProgrammePage() {
                     <ChevronRight size={16} className="text-d5-muted shrink-0" />
                   </div>
 
-                  {/* Exercise preview */}
                   {sess.exercises.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-d5-border space-y-2">
                       {sess.exercises.slice(0, 3).map((ex) => (
