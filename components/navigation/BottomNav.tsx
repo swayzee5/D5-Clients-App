@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, TrendingUp, User, Plus, X, Activity, CalendarPlus, Ruler, MessageCircle } from "lucide-react"
+import { Home, TrendingUp, User, Plus, X, Activity, CalendarPlus, Ruler, MessageCircle, ClipboardList } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState } from "react"
 
@@ -53,7 +53,7 @@ export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
               </div>
             </Link>
             <Link href="/progression/nouvelle-entree" onClick={() => setOpen(false)}
-              className="flex items-center gap-4 px-5 py-4 hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
+              className="flex items-center gap-4 px-5 py-4 border-b border-d5-border hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
               <div className="w-10 h-10 rounded-xl bg-blue-400/10 flex items-center justify-center flex-shrink-0">
                 <Ruler size={18} className="text-blue-400" />
               </div>
@@ -62,13 +62,22 @@ export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
                 <p className="text-d5-muted text-xs">Poids &amp; mensurations</p>
               </div>
             </Link>
+            <Link href="/checkin" onClick={() => setOpen(false)}
+              className="flex items-center gap-4 px-5 py-4 hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
+              <div className="w-10 h-10 rounded-xl bg-purple-400/10 flex items-center justify-center flex-shrink-0">
+                <ClipboardList size={18} className="text-purple-400" />
+              </div>
+              <div>
+                <p className="text-white font-semibold text-sm">Check-in semaine</p>
+                <p className="text-d5-muted text-xs">Énergie, sommeil, stress &amp; note au coach</p>
+              </div>
+            </Link>
           </div>
         </div>
       )}
 
       <nav className="fixed bottom-0 left-0 right-0 bg-d5-surface/95 backdrop-blur-md border-t border-d5-border z-50">
         <div className="flex items-end max-w-lg mx-auto px-2 pb-safe">
-          {/* Left */}
           <div className="flex flex-1 justify-around py-2">
             {leftNav.map(({ href, icon: Icon, label }) => (
               <Link key={href} href={href}
@@ -83,7 +92,6 @@ export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
             ))}
           </div>
 
-          {/* Center FAB */}
           <div className="flex flex-col items-center px-3 -mb-1">
             <button
               onClick={() => setOpen((o) => !o)}
@@ -101,7 +109,6 @@ export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
             <span className="text-[9px] text-d5-muted mt-1.5 mb-1">Ajouter</span>
           </div>
 
-          {/* Right */}
           <div className="flex flex-1 justify-around py-2">
             {rightNav.map(({ href, icon: Icon, label, badge }) => (
               <Link key={href} href={href}
