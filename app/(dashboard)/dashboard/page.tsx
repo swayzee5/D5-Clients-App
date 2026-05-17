@@ -39,23 +39,28 @@ export default async function DashboardPage() {
       </div>
 
       {isRebootOnly ? (
-        // ─── REBOOT ONLY ───────────────────────────────────────────────
+        // ─── REBOOT ONLY ────────────────────────────────────────────────────────
         <>
           {/* Reboot card — mise en avant */}
-          <Link href="/reboot">
-            <div className="bg-gradient-to-br from-d5-gold/20 via-d5-gold/10 to-transparent border-2 border-d5-gold/50 rounded-2xl p-6 hover:border-d5-gold/80 transition-all active:scale-[0.98]">
-              <div className="flex items-center gap-2 mb-2">
-                <Zap size={16} className="text-d5-gold" />
-                <span className="text-d5-gold text-xs font-bold uppercase tracking-wider">Reboot 40+</span>
-              </div>
-              <h3 className="text-white text-xl font-bold mb-1">Challenge 7 jours</h3>
-              <p className="text-gray-400 text-sm mb-4">Démarre ta transformation</p>
-              <div className="flex items-center gap-2 text-d5-gold font-semibold text-sm">
-                <span>Accéder au challenge</span>
-                <ArrowRight size={16} />
-              </div>
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-white">Mon challenge</h2>
             </div>
-          </Link>
+            <Link href="/reboot">
+              <div className="bg-gradient-to-br from-d5-gold/20 via-d5-gold/10 to-transparent border-2 border-d5-gold/50 rounded-2xl p-6 hover:border-d5-gold/80 transition-all active:scale-[0.98]">
+                <div className="flex items-center gap-2 mb-2">
+                  <Zap size={16} className="text-d5-gold" />
+                  <span className="text-d5-gold text-xs font-bold uppercase tracking-wider">Reboot 40+</span>
+                </div>
+                <h3 className="text-white text-xl font-bold mb-1">Challenge 7 jours</h3>
+                <p className="text-gray-400 text-sm mb-4">Démarre ta transformation</p>
+                <div className="flex items-center gap-2 text-d5-gold font-semibold text-sm">
+                  <span>Accéder au challenge</span>
+                  <ArrowRight size={16} />
+                </div>
+              </div>
+            </Link>
+          </section>
 
           {/* Programmes — verrouillé */}
           <section className="space-y-3">
@@ -82,7 +87,7 @@ export default async function DashboardPage() {
           </section>
         </>
       ) : (
-        // ─── CLIENT COACHING ───────────────────────────────────────────
+        // ─── CLIENT COACHING ───────────────────────────────────────────────────
         <>
           {/* Séances + calendrier */}
           <section className="space-y-3">
@@ -135,22 +140,30 @@ export default async function DashboardPage() {
             </Link>
           </section>
 
-          {/* Reboot CTA (en option pour les clients coaching) */}
-          <Link href="/reboot">
-            <div className="bg-gradient-to-br from-d5-gold/20 to-transparent border border-d5-gold/30 rounded-2xl p-5 hover:border-d5-gold/50 transition-all active:scale-[0.98]">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Zap size={14} className="text-d5-gold" />
-                    <span className="text-d5-gold text-xs font-bold uppercase tracking-wider">Reboot 40+</span>
-                  </div>
-                  <h3 className="text-white font-bold">Challenge 7 jours</h3>
-                  <p className="text-gray-400 text-sm mt-0.5">Démarre ta transformation</p>
-                </div>
-                <ArrowRight size={20} className="text-d5-gold ml-3 flex-shrink-0" />
-              </div>
+          {/* Divider */}
+          <div className="border-t border-d5-border" />
+
+          {/* Reboot CTA */}
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-semibold text-white">Mon challenge</h2>
             </div>
-          </Link>
+            <Link href="/reboot">
+              <div className="bg-gradient-to-br from-d5-gold/20 to-transparent border border-d5-gold/30 rounded-2xl p-5 hover:border-d5-gold/50 transition-all active:scale-[0.98]">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <Zap size={14} className="text-d5-gold" />
+                      <span className="text-d5-gold text-xs font-bold uppercase tracking-wider">Reboot 40+</span>
+                    </div>
+                    <h3 className="text-white font-bold">Challenge 7 jours</h3>
+                    <p className="text-gray-400 text-sm mt-0.5">Démarre ta transformation</p>
+                  </div>
+                  <ArrowRight size={20} className="text-d5-gold ml-3 flex-shrink-0" />
+                </div>
+              </div>
+            </Link>
+          </section>
         </>
       )}
     </div>
