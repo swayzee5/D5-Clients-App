@@ -1,22 +1,22 @@
-import NextAuth from "next-auth";
-import { authConfig } from "@/auth.config";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-const { auth } = NextAuth(authConfig);
+export function middleware(request: NextRequest) {
+  const token =
+    request.cookies.get("__Secure-authjs.session-token")?.value ||
+    request.cookies.get("authjs.session-token")?.value;
 
-export default auth((req) => {
-  const { nextUrl } = req;
-  const isLoggedIn = !!req.auth;
-  const isLoginPage = nextUrl.pathname === "/login";
+  const isLoggedIn = Boolean(token);
+  const isLoginPage = request.nextUrl.pathname === "/login";
 
   if (isLoginPage) {
-    if (isLoggedIn) return Response.redirect(new URL("/dashboard", nextUrl.origin));
-    return;
+    if (isLoggedIn) return NextResponse.redirect(new URL("/dashboard", request.url));
+    return NextResponse.next();
   }
 
-  if (!isLoggedIn) {
-    return Response.redirect(new URL("/login", nextUrl.origin));
-  }
-});
+  if (!isLoggedIn) return NextResponse.redirect(new URL("/login", request.url));
+  return NextResponse.next();
+}
 
 export const config = {
   matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$).*)"],
