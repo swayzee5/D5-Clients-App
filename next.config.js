@@ -12,6 +12,10 @@ const nextConfig = {
       { hostname: "player.vimeo.com" },
     ],
   },
+  webpack: (config) => {
+    config.resolve.alias["pg-native"] = false;
+    return config;
+  },
 };
 
 module.exports = nextConfig;
