@@ -10,6 +10,7 @@ const nextConfig = {
     remotePatterns: [
       { hostname: "i.vimeocdn.com" },
       { hostname: "player.vimeo.com" },
+      { hostname: "raw.githubusercontent.com" },
     ],
   },
   webpack: (config) => {
