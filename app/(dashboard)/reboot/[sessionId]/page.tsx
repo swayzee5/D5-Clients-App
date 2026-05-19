@@ -8,17 +8,11 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Séance Reboot" };
 
-const MUSCLE_LABELS: Record<string, string> = {
-  pecs: "Pectoraux",
-  dos: "Dos & Biceps",
-  jambes: "Jambes & Fessiers",
-};
-
 export default async function RebootSessionPage({ params }: { params: { sessionId: string } }) {
   const session = await auth();
   if (!session) redirect("/login");
-
   const clientId = session.user.id;
+
   let data: Awaited<ReturnType<typeof getRebootSessionWithExercises>> = null;
   let completed = false;
 
@@ -27,29 +21,22 @@ export default async function RebootSessionPage({ params }: { params: { sessionI
       getRebootSessionWithExercises(params.sessionId),
       isSessionCompleted(clientId, params.sessionId),
     ]);
-  } catch {
-    return notFound();
-  }
+  } catch { return notFound(); }
 
   if (!data) return notFound();
-
   const { session: rebootSession, exercises } = data;
 
   return (
     <div className="space-y-5">
       <Link href="/reboot" className="inline-flex items-center gap-1.5 text-d5-muted text-sm hover:text-white transition-colors">
-        <ArrowLeft size={14} />
-        Retour au challenge
+        <ArrowLeft size={14} />Retour au challenge
       </Link>
 
       <div>
         <div className="flex items-center gap-2 mb-1.5">
           <span className={`text-xs font-semibold uppercase px-2 py-0.5 rounded-full ${
             rebootSession.location === "salle" ? "bg-blue-500/15 text-blue-400" : "bg-green-500/15 text-green-400"
-          }`}>
-            {rebootSession.location === "salle" ? "Salle" : "Maison"}
-          </span>
-          <span className="text-d5-muted text-xs">{MUSCLE_LABELS[rebootSession.muscle_group] ?? rebootSession.muscle_group}</span>
+          }`}>{rebootSession.location === "salle" ? "Salle" : "Maison"}</span>
         </div>
         <h1 className="text-xl font-bold text-white">{rebootSession.name}</h1>
         {rebootSession.description && <p className="text-d5-muted text-sm mt-1">{rebootSession.description}</p>}
@@ -66,13 +53,8 @@ export default async function RebootSessionPage({ params }: { params: { sessionI
             <div key={ex.id} className="card">
               {ex.vimeo_video_id && (
                 <div className="mb-3 rounded-xl overflow-hidden aspect-video bg-black">
-                  <iframe
-                    src={`https://player.vimeo.com/video/${ex.vimeo_video_id}?badge=0&autopause=0`}
-                    className="w-full h-full"
-                    allow="autoplay; fullscreen; picture-in-picture"
-                    allowFullScreen
-                    title={ex.name}
-                  />
+                  <iframe src={`https://player.vimeo.com/video/${ex.vimeo_video_id}?badge=0&autopause=0&player_id=0`}
+                    className="w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen title={ex.name} />
                 </div>
               )}
               <div className="flex items-start gap-3">
@@ -104,7 +86,7 @@ export default async function RebootSessionPage({ params }: { params: { sessionI
             <p className="text-d5-gold font-semibold text-sm">Séance complétée !</p>
           </div>
         ) : (
-          <CompleteButton clientId={clientId} sessionId={params.sessionId} />
+          <CompleteButton clientId={clientId} sessionId={params.sessionId} sessionName={rebootSession.name} />
         )}
       </div>
     </div>
