@@ -10,27 +10,25 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Reboot 40" };
 
-const MUSCLE_GROUPS = [
-  { key: "pecs",   label: "Pectoraux",    desc: "Poitrine · Épaules avant · Triceps",      icon: "💪" },
-  { key: "dos",    label: "Dos & Biceps", desc: "Grand dorsal · Trapèzes · Biceps",         icon: "🏋️" },
-  { key: "jambes", label: "Jambes",       desc: "Quadriceps · Ischio-jambiers · Fessiers", icon: "🦵" },
-];
+const MUSCLE_CONFIG: Record<string, { label: string; desc: string; icon: string }> = {
+  pecs:     { label: "Pectoraux",               desc: "Poitrine · Épaules · Triceps",        icon: "💪" },
+  dos:      { label: "Dos & Biceps",             desc: "Grand dorsal · Trapèzes · Biceps",    icon: "🏋️" },
+  epaules:  { label: "Épaules",                 desc: "Deltoïdes · Trapèzes · Rotateurs",    icon: "🔱" },
+  bras:     { label: "Bras",                    desc: "Biceps · Triceps · Avant-bras",       icon: "💪" },
+  jambes_h: { label: "Jambes Homme",             desc: "Quadriceps · Ischio · Fessiers",     icon: "🦵" },
+  jambes_f: { label: "Jambes & Fessiers Femme", desc: "Fessiers · Quadriceps · Adducteurs", icon: "🦵" },
+  fullbody: { label: "Full Body",               desc: "Corps entier · Force · Cardio",      icon: "⚡" },
+  gainage:  { label: "Gainage",                 desc: "Core · Abdominaux · Stabilité",      icon: "🔥" },
+  abdos:    { label: "Abdominaux",              desc: "Droits · Obliques · Transverse",     icon: "💠" },
+  cardio:   { label: "Cardio & Mobilité",        desc: "Endurance · Flexibilité · Récup",    icon: "🏃" },
+  jambes:   { label: "Jambes",                  desc: "Quadriceps · Ischio · Fessiers",     icon: "🦵" },
+};
 
 const MODULES = [
   { key: "regularite",  emoji: "🔥", title: "La régularité avant l'intensité", teaser: "Le secret de la transformation durable" },
   { key: "hydratation", emoji: "💧", title: "L'hydratation, ton moteur",        teaser: "2L minimum — comprendre pourquoi" },
   { key: "sommeil",     emoji: "😴", title: "Le sommeil, ton meilleur allié",   teaser: "Quand le vrai travail se fait" },
   { key: "nutrition",   emoji: "🥗", title: "Protéines à chaque repas",          teaser: "La règle simple qui change tout" },
-];
-
-const ACCOMPLISHMENTS = [
-  { icon: "💪", text: "Séance Pectoraux" },
-  { icon: "🏋️", text: "Séance Dos & Biceps" },
-  { icon: "🦵", text: "Séance Jambes" },
-  { icon: "🔥", text: "Module Régularité" },
-  { icon: "💧", text: "Module Hydratation" },
-  { icon: "😴", text: "Module Sommeil" },
-  { icon: "🥗", text: "Module Nutrition" },
 ];
 
 const DEFAULT_WELCOME =
@@ -49,35 +47,29 @@ export default async function RebootPage() {
   try { sessions = await getRebootSessions(clientId); } catch {}
 
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS reboot_task_completions (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        client_id TEXT NOT NULL,
-        task_key TEXT NOT NULL,
-        completed_at TIMESTAMPTZ DEFAULT now(),
-        UNIQUE(client_id, task_key)
-      )
-    `);
-    const { rows } = await pool.query(
-      `SELECT task_key FROM reboot_task_completions WHERE client_id = $1`,
-      [clientId]
-    );
+    await pool.query(`CREATE TABLE IF NOT EXISTS reboot_task_completions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id TEXT NOT NULL,
+      task_key TEXT NOT NULL, completed_at TIMESTAMPTZ DEFAULT now(), UNIQUE(client_id, task_key)
+    )`);
+    const { rows } = await pool.query(`SELECT task_key FROM reboot_task_completions WHERE client_id = $1`, [clientId]);
     completedModules = rows.map((r: { task_key: string }) => r.task_key);
   } catch {}
 
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS app_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT,
-        updated_at TIMESTAMPTZ DEFAULT now()
-      )
-    `);
-    const { rows } = await pool.query(
-      `SELECT value FROM app_settings WHERE key = 'reboot_welcome_message'`
-    );
+    await pool.query(`CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ DEFAULT now())`);
+    const { rows } = await pool.query(`SELECT value FROM app_settings WHERE key = 'reboot_welcome_message'`);
     if (rows[0]?.value) welcomeMessage = rows[0].value;
   } catch {}
+
+  // Derive unique muscle groups in order from sessions
+  const seenGroups = new Set<string>();
+  const muscleGroupKeys: string[] = [];
+  for (const s of sessions) {
+    if (!seenGroups.has(s.muscle_group)) {
+      seenGroups.add(s.muscle_group);
+      muscleGroupKeys.push(s.muscle_group);
+    }
+  }
 
   const sessionsByMuscle: Record<string, typeof sessions> = {};
   for (const s of sessions) {
@@ -85,33 +77,25 @@ export default async function RebootPage() {
     sessionsByMuscle[s.muscle_group].push(s);
   }
 
-  const sessionsCompleted = MUSCLE_GROUPS.filter(
-    (g) => sessionsByMuscle[g.key]?.some((s) => s.completed)
-  ).length;
+  const sessionsTotal = muscleGroupKeys.length;
+  const sessionsCompleted = muscleGroupKeys.filter((k) => (sessionsByMuscle[k] ?? []).some((s) => s.completed)).length;
   const modulesCompleted = completedModules.length;
+  const modulesTotal = 4;
+  const totalTasks = sessionsTotal + modulesTotal;
   const totalCompleted = sessionsCompleted + modulesCompleted;
-  const totalTasks = 7;
-  const progressPct = Math.round((totalCompleted / totalTasks) * 100);
-  const allDone = totalCompleted === totalTasks;
+  const progressPct = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
+  const allDone = totalTasks > 0 && totalCompleted === totalTasks;
 
   if (allDone) {
     try {
       const [{ rows: sRows }, { rows: mRows }] = await Promise.all([
-        pool.query(
-          `SELECT MIN(completed_at) as first, MAX(completed_at) as last FROM reboot_completions WHERE client_id = $1::uuid`,
-          [clientId]
-        ),
-        pool.query(
-          `SELECT MIN(completed_at) as first, MAX(completed_at) as last FROM reboot_task_completions WHERE client_id = $1`,
-          [clientId]
-        ),
+        pool.query(`SELECT MIN(completed_at) as first, MAX(completed_at) as last FROM reboot_completions WHERE client_id = $1::uuid`, [clientId]),
+        pool.query(`SELECT MIN(completed_at) as first, MAX(completed_at) as last FROM reboot_task_completions WHERE client_id = $1`, [clientId]),
       ]);
       const allDates = [sRows[0]?.first, sRows[0]?.last, mRows[0]?.first, mRows[0]?.last]
-        .filter(Boolean)
-        .map((d) => new Date(d as string).getTime());
+        .filter(Boolean).map((d) => new Date(d as string).getTime());
       if (allDates.length > 0) {
-        const fmt = (ms: number) =>
-          new Date(ms).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+        const fmt = (ms: number) => new Date(ms).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
         completionDates = { first: fmt(Math.min(...allDates)), last: fmt(Math.max(...allDates)) };
       }
     } catch {}
@@ -126,17 +110,14 @@ export default async function RebootPage() {
           <span className="text-d5-gold text-xs font-semibold uppercase tracking-wider">Challenge offert</span>
         </div>
         <h1 className="text-xl font-bold text-white">Reboot 40</h1>
-        <p className="text-gray-400 text-sm mt-0.5">7 étapes pour te remettre en mouvement</p>
+        <p className="text-gray-400 text-sm mt-0.5">{totalTasks} étapes pour te remettre en mouvement</p>
         <div className="mt-4">
           <div className="flex items-center justify-between text-xs mb-1.5">
             <span className="text-gray-400">{totalCompleted}/{totalTasks} étapes complétées</span>
             <span className="text-d5-gold font-semibold">{progressPct}%</span>
           </div>
           <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-d5-gold rounded-full transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
-            />
+            <div className="h-full bg-d5-gold rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
           </div>
         </div>
         <div className="mt-4 pt-4 border-t border-white/10">
@@ -149,20 +130,25 @@ export default async function RebootPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-white font-semibold text-sm">Mes séances</h2>
-          <span className="text-xs text-d5-muted">{sessionsCompleted}/3 complétées</span>
+          <span className="text-xs text-d5-muted">{sessionsCompleted}/{sessionsTotal} complétées</span>
         </div>
-        {MUSCLE_GROUPS.map(({ key, label, desc, icon }) => {
+        {muscleGroupKeys.length === 0 ? (
+          <div className="card text-center py-6">
+            <p className="text-d5-muted text-sm">Les séances arrivent bientôt…</p>
+          </div>
+        ) : muscleGroupKeys.map((key) => {
+          const cfg = MUSCLE_CONFIG[key] ?? { label: key, desc: "", icon: "🏋️" };
           const groupSessions = sessionsByMuscle[key] ?? [];
           const done = groupSessions.some((s) => s.completed);
           return (
             <div key={key} className={`card transition-all ${done ? "border-green-500/20 bg-green-500/5" : "border-d5-border"}`}>
               <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${done ? "bg-green-500/10" : "bg-d5-surface-2"}`}>
-                  {done ? <CheckCircle2 size={18} className="text-green-400" /> : <span className="text-lg">{icon}</span>}
+                  {done ? <CheckCircle2 size={18} className="text-green-400" /> : <span className="text-lg">{cfg.icon}</span>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`font-semibold text-sm ${done ? "text-gray-400" : "text-white"}`}>{label}</p>
-                  <p className="text-d5-muted text-xs">{desc}</p>
+                  <p className={`font-semibold text-sm ${done ? "text-gray-400" : "text-white"}`}>{cfg.label}</p>
+                  <p className="text-d5-muted text-xs">{cfg.desc}</p>
                 </div>
                 {done && <span className="text-xs text-green-400 font-medium shrink-0">Complétée ✓</span>}
               </div>
@@ -193,7 +179,7 @@ export default async function RebootPage() {
       <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-white font-semibold text-sm">Modules lifestyle</h2>
-          <span className="text-xs text-d5-muted">{modulesCompleted}/4 validés</span>
+          <span className="text-xs text-d5-muted">{modulesCompleted}/{modulesTotal} validés</span>
         </div>
         {MODULES.map(({ key, emoji, title, teaser }) => {
           const done = completedModules.includes(key);
@@ -209,10 +195,7 @@ export default async function RebootPage() {
                   <p className={`font-semibold text-sm ${done ? "text-gray-400" : "text-white"}`}>{title}</p>
                   <p className="text-d5-muted text-xs">{done ? "Validé" : teaser}</p>
                 </div>
-                {done
-                  ? <span className="text-xs text-green-400 font-medium shrink-0">✓</span>
-                  : <ArrowRight size={15} className="text-d5-muted shrink-0" />
-                }
+                {done ? <span className="text-xs text-green-400 font-medium shrink-0">✓</span> : <ArrowRight size={15} className="text-d5-muted shrink-0" />}
               </div>
             </Link>
           );
@@ -229,20 +212,28 @@ export default async function RebootPage() {
               <p className="text-d5-muted text-sm">Du {completionDates.first} au {completionDates.last}</p>
             )}
           </div>
-
           <div className="card space-y-3">
             <p className="text-d5-gold text-xs font-bold uppercase tracking-wider">Ce que tu as accompli</p>
             <div className="space-y-2">
-              {ACCOMPLISHMENTS.map((item, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-base">{item.icon}</span>
-                  <span className="text-gray-300 text-sm flex-1">{item.text}</span>
+              {muscleGroupKeys.map((key) => {
+                const cfg = MUSCLE_CONFIG[key] ?? { label: key, icon: "🏋️" };
+                return (
+                  <div key={key} className="flex items-center gap-2">
+                    <span className="text-base">{cfg.icon}</span>
+                    <span className="text-gray-300 text-sm flex-1">Séance {cfg.label}</span>
+                    <CheckCircle2 size={13} className="text-green-400" />
+                  </div>
+                );
+              })}
+              {MODULES.map((m) => (
+                <div key={m.key} className="flex items-center gap-2">
+                  <span className="text-base">{m.emoji}</span>
+                  <span className="text-gray-300 text-sm flex-1">{m.title}</span>
                   <CheckCircle2 size={13} className="text-green-400" />
                 </div>
               ))}
             </div>
           </div>
-
           <div className="space-y-3">
             <p className="text-gray-400 text-sm text-center leading-relaxed">
               Tu as prouvé que tu peux être régulier. L&apos;accompagnement coaching va 10× plus loin — programme personnalisé, suivi nutritionnel, et coaching direct.
