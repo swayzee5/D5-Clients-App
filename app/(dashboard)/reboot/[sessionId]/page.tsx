@@ -14,6 +14,12 @@ const MUSCLE_LABELS: Record<string, string> = {
   jambes: "Jambes & Fessiers",
 };
 
+const MUSCLE_ORDER: Record<string, number> = {
+  pecs: 1,
+  dos: 2,
+  jambes: 3,
+};
+
 export default async function RebootSessionPage({
   params,
 }: {
@@ -38,6 +44,7 @@ export default async function RebootSessionPage({
   if (!data) return notFound();
 
   const { session: rebootSession, exercises } = data;
+  const sessionNumber = MUSCLE_ORDER[rebootSession.muscle_group] ?? 1;
 
   return (
     <div className="space-y-5">
@@ -135,7 +142,11 @@ export default async function RebootSessionPage({
             <p className="text-d5-gold font-semibold text-sm">Séance complétée !</p>
           </div>
         ) : (
-          <CompleteButton clientId={clientId} sessionId={params.sessionId} />
+          <CompleteButton
+            clientId={clientId}
+            sessionId={params.sessionId}
+            sessionNumber={sessionNumber}
+          />
         )}
       </div>
     </div>

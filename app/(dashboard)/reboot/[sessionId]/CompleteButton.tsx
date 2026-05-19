@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { completeSession, submitSessionCheckin } from "./actions";
 
-type Step = "idle" | "checkin" | "done";
+type Step = "idle" | "checkin" | "whatsapp" | "done";
 
 const ENERGY_OPTIONS = [
   { value: 1, label: "😴" },
@@ -21,13 +21,26 @@ const DIFFICULTY_OPTIONS = [
   { value: "hard", label: "Très dur" },
 ];
 
-export function CompleteButton({ clientId, sessionId }: { clientId: string; sessionId: string }) {
+export function CompleteButton({
+  clientId,
+  sessionId,
+  sessionNumber,
+}: {
+  clientId: string;
+  sessionId: string;
+  sessionNumber: number;
+}) {
   const [step, setStep] = useState<Step>("idle");
   const [energy, setEnergy] = useState<number>(3);
   const [difficulty, setDifficulty] = useState<string>("good");
   const [feeling, setFeeling] = useState("");
+  const [copied, setCopied] = useState(false);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  const whatsappMessage = `Séance ${sessionNumber}/3 validée 🔥🔥🔥${
+    feeling ? `\n${feeling}` : ""
+  }`;
 
   function handleComplete() {
     if (!confirm("Marquer cette séance comme terminée ?")) return;
@@ -40,17 +53,68 @@ export function CompleteButton({ clientId, sessionId }: { clientId: string; sess
   function handleCheckin() {
     startTransition(async () => {
       await submitSessionCheckin(clientId, sessionId, energy, difficulty, feeling);
-      setStep("done");
-      setTimeout(() => router.push("/reboot"), 1500);
+      setStep("whatsapp");
     });
+  }
+
+  async function copyMessage() {
+    await navigator.clipboard.writeText(whatsappMessage);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  function finishAndRedirect() {
+    setStep("done");
+    setTimeout(() => router.push("/reboot"), 1500);
   }
 
   if (step === "done") {
     return (
       <div className="card border-d5-gold/30 bg-d5-gold/5 flex flex-col items-center gap-2 py-6 text-center">
         <span className="text-4xl">🎉</span>
-        <p className="text-white font-bold">Séance validée !</p>
+        <p className="text-white font-bold">Séance validée !</p>
         <p className="text-d5-muted text-sm">Retour au challenge…</p>
+      </div>
+    );
+  }
+
+  if (step === "whatsapp") {
+    return (
+      <div className="card space-y-4">
+        <div className="text-center space-y-1">
+          <p className="text-3xl">📲</p>
+          <p className="text-white font-bold">Partage dans le groupe !</p>
+          <p className="text-d5-muted text-xs mt-0.5">
+            Copie ce message et colle-le dans le groupe WhatsApp
+          </p>
+        </div>
+
+        <div className="bg-d5-surface-2 border border-d5-gold/20 rounded-xl p-3.5">
+          <p className="text-white text-sm leading-relaxed whitespace-pre-line">
+            {whatsappMessage}
+          </p>
+        </div>
+
+        <button
+          onClick={copyMessage}
+          className="w-full border border-d5-border hover:border-white/30 bg-d5-surface-2 text-white rounded-xl py-3 text-sm font-medium transition-all active:scale-[0.98]"
+        >
+          {copied ? "✓ Copié !" : "Copier le message"}
+        </button>
+
+        <button
+          onClick={finishAndRedirect}
+          className="w-full bg-d5-gold hover:bg-d5-gold/90 text-black font-bold rounded-xl py-3.5 text-sm transition-colors active:scale-[0.98]"
+        >
+          Message envoyé ✓
+        </button>
+
+        <button
+          onClick={finishAndRedirect}
+          className="w-full text-center text-xs text-d5-muted hover:text-white transition-colors py-1"
+        >
+          Passer cette étape
+        </button>
       </div>
     );
   }
@@ -59,12 +123,16 @@ export function CompleteButton({ clientId, sessionId }: { clientId: string; sess
     return (
       <div className="card space-y-5">
         <div>
-          <p className="text-white font-bold">Comment tu te sens ?</p>
-          <p className="text-d5-muted text-xs mt-0.5">2 questions rapides — aide ton coach à suivre ta progression</p>
+          <p className="text-white font-bold">Comment tu te sens ?</p>
+          <p className="text-d5-muted text-xs mt-0.5">
+            2 questions rapides — aide ton coach à suivre ta progression
+          </p>
         </div>
 
         <div className="space-y-2">
-          <p className="text-xs text-d5-muted font-semibold uppercase tracking-wider">Niveau d&apos;énergie</p>
+          <p className="text-xs text-d5-muted font-semibold uppercase tracking-wider">
+            Niveau d&apos;énergie
+          </p>
           <div className="flex gap-2">
             {ENERGY_OPTIONS.map((opt) => (
               <button
@@ -109,7 +177,7 @@ export function CompleteButton({ clientId, sessionId }: { clientId: string; sess
             value={feeling}
             onChange={(e) => setFeeling(e.target.value)}
             rows={2}
-            placeholder="Ex : j’ai senti mes pecs, genoux un peu sensibles…"
+            placeholder="Ex : j'ai senti mes pecs, genoux un peu sensibles…"
             className="w-full bg-d5-surface-2 border border-d5-border rounded-xl px-3 py-2.5 text-white text-sm placeholder-d5-muted focus:outline-none focus:border-d5-gold/40 resize-none transition-colors"
           />
         </div>
@@ -144,7 +212,7 @@ export function CompleteButton({ clientId, sessionId }: { clientId: string; sess
       ) : (
         <span className="flex items-center gap-2">
           <CheckCircle2 size={16} />
-          Séance terminée !
+          Séance terminée !
         </span>
       )}
     </button>
