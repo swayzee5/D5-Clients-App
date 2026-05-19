@@ -10,9 +10,9 @@ export const metadata: Metadata = { title: "Tableau de bord" }
 
 function getGreeting(name: string): string {
   const hour = new Date().getHours()
-  if (hour < 12) return `Bonjour, ${name} !`
-  if (hour < 18) return `Bon après-midi, ${name} !`
-  return `Bonsoir, ${name} !`
+  if (hour < 12) return `Bonjour, ${name} !`
+  if (hour < 18) return `Bon après-midi, ${name} !`
+  return `Bonsoir, ${name} !`
 }
 
 export default async function DashboardPage() {
@@ -50,7 +50,7 @@ export default async function DashboardPage() {
               <div className="bg-gradient-to-br from-d5-gold/20 via-d5-gold/10 to-transparent border-2 border-d5-gold/50 rounded-2xl p-6 hover:border-d5-gold/80 transition-all active:scale-[0.98]">
                 <div className="flex items-center gap-2 mb-2">
                   <Zap size={16} className="text-d5-gold" />
-                  <span className="text-d5-gold text-xs font-bold uppercase tracking-wider">Reboot 40+</span>
+                  <span className="text-d5-gold text-xs font-bold uppercase tracking-wider">Reboot 40</span>
                 </div>
                 <h3 className="text-white text-xl font-bold mb-1">Challenge 7 jours</h3>
                 <p className="text-gray-400 text-sm mb-4">Démarre ta transformation</p>
@@ -154,7 +154,7 @@ export default async function DashboardPage() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1.5">
                       <Zap size={14} className="text-d5-gold" />
-                      <span className="text-d5-gold text-xs font-bold uppercase tracking-wider">Reboot 40+</span>
+                      <span className="text-d5-gold text-xs font-bold uppercase tracking-wider">Reboot 40</span>
                     </div>
                     <h3 className="text-white font-bold">Challenge 7 jours</h3>
                     <p className="text-gray-400 text-sm mt-0.5">Démarre ta transformation</p>

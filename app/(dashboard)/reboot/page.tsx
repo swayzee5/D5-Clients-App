@@ -8,7 +8,7 @@ import { getRebootSessions } from "@/lib/queries/reboot";
 import { pool } from "@/lib/db";
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "Reboot 40+" };
+export const metadata: Metadata = { title: "Reboot 40" };
 
 const MUSCLE_GROUPS = [
   { key: "pecs",   label: "Pectoraux",    desc: "Poitrine · Épaules avant · Triceps",      icon: "💪" },
@@ -17,8 +17,8 @@ const MUSCLE_GROUPS = [
 ];
 
 const MODULES = [
-  { key: "regularite",  emoji: "🔥", title: "La régularité avant l’intensité", teaser: "Le secret de la transformation durable" },
-  { key: "hydratation", emoji: "💧", title: "L’hydratation, ton moteur",        teaser: "2L minimum — comprendre pourquoi" },
+  { key: "regularite",  emoji: "🔥", title: "La régularité avant l'intensité", teaser: "Le secret de la transformation durable" },
+  { key: "hydratation", emoji: "💧", title: "L'hydratation, ton moteur",        teaser: "2L minimum — comprendre pourquoi" },
   { key: "sommeil",     emoji: "😴", title: "Le sommeil, ton meilleur allié",   teaser: "Quand le vrai travail se fait" },
   { key: "nutrition",   emoji: "🥗", title: "Protéines à chaque repas",          teaser: "La règle simple qui change tout" },
 ];
@@ -34,7 +34,7 @@ const ACCOMPLISHMENTS = [
 ];
 
 const DEFAULT_WELCOME =
-  "Vas-y à ton rythme. Ce qui compte, c’est de compléter chaque étape — pas de le faire vite. Tu as tout ce qu’il faut.";
+  "Vas-y à ton rythme. Ce qui compte, c'est de compléter chaque étape — pas de le faire vite. Tu as tout ce qu'il faut.";
 
 export default async function RebootPage() {
   const session = await auth();
@@ -125,7 +125,7 @@ export default async function RebootPage() {
           <Zap size={14} className="text-d5-gold" />
           <span className="text-d5-gold text-xs font-semibold uppercase tracking-wider">Challenge offert</span>
         </div>
-        <h1 className="text-xl font-bold text-white">Reboot 40+</h1>
+        <h1 className="text-xl font-bold text-white">Reboot 40</h1>
         <p className="text-gray-400 text-sm mt-0.5">7 étapes pour te remettre en mouvement</p>
         <div className="mt-4">
           <div className="flex items-center justify-between text-xs mb-1.5">
@@ -224,7 +224,7 @@ export default async function RebootPage() {
         <div className="space-y-4 pb-4">
           <div className="bg-gradient-to-br from-d5-gold/30 via-d5-gold/10 to-transparent border-2 border-d5-gold/50 rounded-2xl p-6 text-center space-y-2">
             <div className="text-5xl">🏆</div>
-            <h2 className="text-white text-xl font-bold">Challenge complété !</h2>
+            <h2 className="text-white text-xl font-bold">Challenge complété !</h2>
             {completionDates && (
               <p className="text-d5-muted text-sm">Du {completionDates.first} au {completionDates.last}</p>
             )}
