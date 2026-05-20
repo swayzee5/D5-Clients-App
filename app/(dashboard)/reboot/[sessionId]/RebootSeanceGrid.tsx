@@ -142,12 +142,23 @@ export function RebootSeanceGrid({
 
   void startTimeRef;
 
-  if (alreadyCompleted || step === "done") {
+  // Session was already completed before entering this page
+  if (alreadyCompleted && step === "grid") {
     return (
       <div className="card border-d5-gold/30 bg-d5-gold/5 flex flex-col items-center gap-2 py-8 text-center mt-4">
-        <span className="text-4xl">{step === "done" ? "🎉" : "✅"}</span>
-        <p className="text-white font-bold">{step === "done" ? "Séance validée !" : "Séance déjà complétée"}</p>
-        {step === "done" && <p className="text-d5-muted text-sm">Retour au challenge…</p>}
+        <span className="text-4xl">✅</span>
+        <p className="text-white font-bold">Séance déjà complétée</p>
+      </div>
+    );
+  }
+
+  // Completion flow finished
+  if (step === "done") {
+    return (
+      <div className="card border-d5-gold/30 bg-d5-gold/5 flex flex-col items-center gap-2 py-8 text-center mt-4">
+        <span className="text-4xl">🎉</span>
+        <p className="text-white font-bold">Séance validée !</p>
+        <p className="text-d5-muted text-sm">Retour au challenge…</p>
       </div>
     );
   }
@@ -248,7 +259,7 @@ export function RebootSeanceGrid({
             <div className="space-y-3">
               <button onClick={triggerComplete} className="w-full py-3.5 bg-d5-gold text-black font-bold rounded-xl text-sm">Confirmer quand même</button>
               <button onClick={() => { setChecked(new Set(exercises.map((e) => e.id))); setShowModal(false); triggerComplete(); }}
-                className="w-full py-3.5 border-2 border-d5-gold text-d5-gold font-bold rounded-xl text-sm">J'ai fait tous les exercices</button>
+                className="w-full py-3.5 border-2 border-d5-gold text-d5-gold font-bold rounded-xl text-sm">J&apos;ai fait tous les exercices</button>
             </div>
           </div>
         </div>
