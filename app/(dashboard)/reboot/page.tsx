@@ -11,7 +11,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Reboot 40" };
 
-export const MUSCLE_CONFIG: Record<string, { label: string; desc: string; icon: string }> = {
+const MUSCLE_CONFIG: Record<string, { label: string; desc: string; icon: string }> = {
   pecs:     { label: "Pectoraux",               desc: "Poitrine · Épaules · Triceps",        icon: "💪" },
   dos:      { label: "Dos & Biceps",             desc: "Grand dorsal · Trapèzes · Biceps",    icon: "🏋️" },
   epaules:  { label: "Épaules",                 desc: "Deltoïdes · Trapèzes · Rotateurs",    icon: "🔱" },
@@ -103,7 +103,6 @@ export default async function RebootPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="bg-gradient-to-br from-d5-gold/20 to-transparent border border-d5-gold/30 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-2">
           <Zap size={14} className="text-d5-gold" />
@@ -126,7 +125,6 @@ export default async function RebootPage() {
         </div>
       </div>
 
-      {/* Séances — collapsible client component */}
       <SeancesSection
         muscleGroupKeys={muscleGroupKeys}
         sessionsByMuscle={sessionsByMuscle}
@@ -135,7 +133,6 @@ export default async function RebootPage() {
         sessionsTotal={sessionsTotal}
       />
 
-      {/* Modules lifestyle */}
       <section className="space-y-2">
         <div className="flex items-center justify-between py-1">
           <h2 className="text-white font-semibold text-sm">Modules lifestyle</h2>
@@ -154,7 +151,7 @@ export default async function RebootPage() {
                   {done ? <CheckCircle2 size={18} className="text-green-400" /> : <span className="text-xl">{emoji}</span>}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className={`font-semibold text-sm ${ done ? "text-gray-400" : "text-white"}`}>{title}</p>
+                  <p className={`font-semibold text-sm ${done ? "text-gray-400" : "text-white"}`}>{title}</p>
                   <p className="text-d5-muted text-xs">{done ? "Validé" : teaser}</p>
                 </div>
                 {done
@@ -166,7 +163,6 @@ export default async function RebootPage() {
         })}
       </section>
 
-      {/* Bilan final */}
       {allDone && (
         <div className="space-y-4 pb-4">
           <div className="bg-gradient-to-br from-d5-gold/30 via-d5-gold/10 to-transparent border-2 border-d5-gold/50 rounded-2xl p-6 text-center space-y-2">
