@@ -13,14 +13,17 @@ export function SeancesSection({
   muscleConfig,
   sessionsCompleted,
   sessionsTotal,
+  seancesGoal,
 }: {
   muscleGroupKeys: string[];
   sessionsByMuscle: Record<string, RebootSession[]>;
   muscleConfig: Record<string, MuscleConfig>;
   sessionsCompleted: number;
   sessionsTotal: number;
+  seancesGoal: number;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const completedDisplay = Math.min(sessionsCompleted, seancesGoal);
 
   return (
     <section className="space-y-2">
@@ -31,7 +34,7 @@ export function SeancesSection({
       >
         <h2 className="text-white font-semibold text-sm">Mes séances</h2>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-d5-muted">{sessionsCompleted}/{sessionsTotal} complétées</span>
+          <span className="text-xs text-d5-muted">{completedDisplay}/{seancesGoal} complétées</span>
           {isOpen
             ? <ChevronUp size={14} className="text-d5-muted" />
             : <ChevronDown size={14} className="text-d5-muted" />}
@@ -46,10 +49,10 @@ export function SeancesSection({
               <Dumbbell size={16} className="text-d5-muted" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-medium">{sessionsTotal} séances disponibles</p>
+              <p className="text-white text-sm font-medium">Choisir {seancesGoal} parmi {sessionsTotal} séances disponibles</p>
               <p className="text-d5-muted text-xs">
-                {sessionsCompleted > 0
-                  ? `${sessionsCompleted} complétée${sessionsCompleted > 1 ? "s" : ""} · `
+                {completedDisplay > 0
+                  ? `${completedDisplay} complétée${completedDisplay > 1 ? "s" : ""} · `
                   : ""}
                 {muscleGroupKeys
                   .map((k) => muscleConfig[k]?.label ?? k)
