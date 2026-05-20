@@ -55,15 +55,24 @@ export async function GET(req: NextRequest) {
       sessionsInserted++;
       if (tpl) {
         const { rows: exercises } = await pool.query(
-          `SELECT exercise_name, sets, reps, rest_seconds, order_index, notes
-           FROM seance_template_exercises WHERE seance_template_id = $1 ORDER BY order_index ASC`,
+          `SELECT ste.exercise_name, ste.sets, ste.reps, ste.rest_seconds, ste.order_index, ste.notes,
+                  (
+                    SELECT te.vimeo_video_id
+                    FROM training_exercises te
+                    WHERE LOWER(TRIM(te.name)) = LOWER(TRIM(ste.exercise_name))
+                      AND te.vimeo_video_id IS NOT NULL
+                    LIMIT 1
+                  ) AS vimeo_video_id
+           FROM seance_template_exercises ste
+           WHERE ste.seance_template_id = $1
+           ORDER BY ste.order_index ASC`,
           [tpl.id]
         );
         for (const ex of exercises) {
           await pool.query(
-            `INSERT INTO reboot_exercises (session_id, name, sets, reps, rest_seconds, order_index, notes)
-             VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-            [sessionId, ex.exercise_name, ex.sets, ex.reps, ex.rest_seconds, ex.order_index, ex.notes]
+            `INSERT INTO reboot_exercises (session_id, name, sets, reps, rest_seconds, vimeo_video_id, order_index, notes)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [sessionId, ex.exercise_name, ex.sets, ex.reps, ex.rest_seconds, ex.vimeo_video_id ?? null, ex.order_index, ex.notes]
           );
           exercisesInserted++;
         }
