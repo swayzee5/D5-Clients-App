@@ -1,9 +1,9 @@
 import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
-import { ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { getRebootSessionWithExercises, isSessionCompleted } from "@/lib/queries/reboot";
-import { CompleteButton } from "./CompleteButton";
+import { RebootSeanceGrid } from "./RebootSeanceGrid";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Séance Reboot" };
@@ -27,7 +27,7 @@ export default async function RebootSessionPage({ params }: { params: { sessionI
   const { session: rebootSession, exercises } = data;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-8">
       <Link href="/reboot" className="inline-flex items-center gap-1.5 text-d5-muted text-sm hover:text-white transition-colors">
         <ArrowLeft size={14} />Retour au challenge
       </Link>
@@ -46,49 +46,19 @@ export default async function RebootSessionPage({ params }: { params: { sessionI
         </div>
       </div>
 
-      {exercises.length > 0 ? (
-        <div className="space-y-3">
-          <h2 className="text-white font-semibold text-sm">Programme de la séance</h2>
-          {exercises.map((ex, i) => (
-            <div key={ex.id} className="card">
-              {ex.vimeo_video_id && (
-                <div className="mb-3 rounded-xl overflow-hidden aspect-video bg-black">
-                  <iframe src={`https://player.vimeo.com/video/${ex.vimeo_video_id}?badge=0&autopause=0&player_id=0`}
-                    className="w-full h-full" allow="autoplay; fullscreen; picture-in-picture" allowFullScreen title={ex.name} />
-                </div>
-              )}
-              <div className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-lg bg-d5-surface-2 flex items-center justify-center shrink-0">
-                  <span className="text-d5-muted text-xs font-bold">{i + 1}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-medium text-sm">{ex.name}</p>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    {ex.sets && ex.reps && <span className="text-d5-gold text-xs font-semibold">{ex.sets} × {ex.reps}</span>}
-                    {ex.rest_seconds && <span className="text-d5-muted text-xs">{ex.rest_seconds}s repos</span>}
-                  </div>
-                  {ex.notes && <p className="text-d5-muted text-xs mt-1 italic">{ex.notes}</p>}
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
+      {exercises.length === 0 ? (
         <div className="card text-center py-6">
           <p className="text-d5-muted text-sm">Les exercices arrivent bientôt…</p>
         </div>
+      ) : (
+        <RebootSeanceGrid
+          exercises={exercises}
+          clientId={clientId}
+          sessionId={params.sessionId}
+          sessionName={rebootSession.name}
+          alreadyCompleted={completed}
+        />
       )}
-
-      <div className="pt-2 pb-4">
-        {completed ? (
-          <div className="card border-d5-gold/30 bg-d5-gold/5 flex items-center justify-center gap-2 py-4">
-            <CheckCircle2 size={18} className="text-d5-gold" />
-            <p className="text-d5-gold font-semibold text-sm">Séance complétée !</p>
-          </div>
-        ) : (
-          <CompleteButton clientId={clientId} sessionId={params.sessionId} sessionName={rebootSession.name} />
-        )}
-      </div>
     </div>
   );
 }
