@@ -6,15 +6,15 @@ import { revalidatePath } from "next/cache";
 
 async function notifyIfChallengeComplete(clientId: string) {
   try {
-    const [{ rows: sRows }, { rows: mRows }, { rows: totalRows }] = await Promise.all([
-      pool.query(`SELECT COUNT(DISTINCT rs.muscle_group) AS cnt FROM reboot_completions rc JOIN reboot_sessions rs ON rc.session_id = rs.id WHERE rc.client_id = $1::uuid`, [clientId]),
+    const [{ rows: sRows }, { rows: mRows }, { rows: wRows }] = await Promise.all([
+      pool.query(`SELECT COUNT(*) AS cnt FROM reboot_completions WHERE client_id = $1::uuid`, [clientId]),
       pool.query(`SELECT COUNT(*) AS cnt FROM reboot_task_completions WHERE client_id = $1`, [clientId]),
-      pool.query(`SELECT COUNT(DISTINCT muscle_group) AS total FROM reboot_sessions`).catch(() => ({ rows: [{ total: 3 }] })),
+      pool.query(`SELECT COUNT(*) AS cnt FROM reboot_whatsapp_completions WHERE client_id = $1`, [clientId]).catch(() => ({ rows: [{ cnt: 0 }] })),
     ]);
-    const sessionsCompleted = parseInt(sRows[0]?.cnt ?? 0);
-    const modulesCompleted = parseInt(mRows[0]?.cnt ?? 0);
-    const sessionsTotal = parseInt(totalRows[0]?.total ?? 3);
-    if (sessionsCompleted >= sessionsTotal && modulesCompleted >= 4) {
+    const seancesDone = parseInt(sRows[0]?.cnt ?? 0);
+    const modulesDone = parseInt(mRows[0]?.cnt ?? 0);
+    const waDone = parseInt(wRows[0]?.cnt ?? 0);
+    if (seancesDone >= 3 && modulesDone >= 4 && waDone >= 3) {
       await pool.query(`CREATE TABLE IF NOT EXISTS coach_notifications (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id TEXT NOT NULL,
         type TEXT NOT NULL, is_read BOOLEAN DEFAULT false, created_at TIMESTAMPTZ DEFAULT now(),

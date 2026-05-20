@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { getRebootSessionWithExercises, isSessionCompleted } from "@/lib/queries/reboot";
+import { pool } from "@/lib/db";
 import { RebootSeanceGrid } from "./RebootSeanceGrid";
 import type { Metadata } from "next";
 
@@ -15,12 +16,18 @@ export default async function RebootSessionPage({ params }: { params: { sessionI
 
   let data: Awaited<ReturnType<typeof getRebootSessionWithExercises>> = null;
   let completed = false;
+  let completionsBefore = 0;
 
   try {
-    [data, completed] = await Promise.all([
+    const [dataResult, completedResult, countResult] = await Promise.all([
       getRebootSessionWithExercises(params.sessionId),
       isSessionCompleted(clientId, params.sessionId),
+      pool.query(`SELECT COUNT(*) AS cnt FROM reboot_completions WHERE client_id = $1::uuid`, [clientId]).catch(() => ({ rows: [{ cnt: 0 }] })),
     ]);
+    data = dataResult;
+    completed = completedResult;
+    completionsBefore = parseInt((countResult as { rows: { cnt: number }[] }).rows[0]?.cnt ?? 0);
+    if (completed) completionsBefore = Math.max(0, completionsBefore - 1);
   } catch { return notFound(); }
 
   if (!data) return notFound();
@@ -57,6 +64,7 @@ export default async function RebootSessionPage({ params }: { params: { sessionI
           sessionId={params.sessionId}
           sessionName={rebootSession.name}
           alreadyCompleted={completed}
+          completionsBefore={completionsBefore}
         />
       )}
     </div>
