@@ -26,7 +26,7 @@ export default async function RebootSessionPage({ params }: { params: { sessionI
     ]);
     data = dataResult;
     completed = completedResult;
-    completionsBefore = parseInt((countResult as { rows: { cnt: number }[] }).rows[0]?.cnt ?? 0);
+    completionsBefore = Number((countResult as { rows: { cnt: string | number }[] }).rows[0]?.cnt ?? 0);
     if (completed) completionsBefore = Math.max(0, completionsBefore - 1);
   } catch { return notFound(); }
 
