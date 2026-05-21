@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { Dumbbell, Utensils, Zap, ArrowRight, Lock } from "lucide-react"
+import { Dumbbell, Utensils, Zap, ArrowRight, Lock, ChevronRight } from "lucide-react"
 import { WeekCalendar } from "@/components/dashboard/WeekCalendar"
 import type { CompletedSession } from "@/components/dashboard/WeekCalendar"
 import { pool } from "@/lib/db"
@@ -103,14 +103,12 @@ export default async function DashboardPage() {
         <h1 className="text-2xl font-black text-white">{getGreeting(firstName)}</h1>
       </div>
 
-      {/* REBOOT HERO — en priorité pour les comptes Reboot */}
+      {/* REBOOT HERO */}
       {isRebootOnly && (
         <section>
           <Link href="/reboot">
             <div className="relative rounded-2xl p-[1.5px] overflow-hidden group active:scale-[0.98] transition-transform">
-              {/* Bordure gradient */}
               <div className="absolute inset-0 bg-gradient-to-br from-d5-gold via-orange-500 to-d5-gold opacity-80 group-hover:opacity-100 transition-opacity" />
-              {/* Contenu */}
               <div className="relative rounded-2xl bg-[#1a1200] p-5 space-y-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -127,8 +125,6 @@ export default async function DashboardPage() {
                     <p className="text-d5-muted text-xs">tâches</p>
                   </div>
                 </div>
-
-                {/* Barre de progression */}
                 <div>
                   <div className="flex justify-between text-xs mb-1.5">
                     <span className="text-d5-muted">Progression</span>
@@ -141,7 +137,6 @@ export default async function DashboardPage() {
                     />
                   </div>
                 </div>
-
                 <div className="flex items-center justify-between">
                   <p className="text-d5-muted text-sm">
                     {rebootProgress.done === 0
@@ -160,7 +155,7 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {/* Weekly calendar */}
+      {/* Weekly calendar — non-reboot uniquement */}
       {!isRebootOnly && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
@@ -173,14 +168,12 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {/* Programmes — masqué pour reboot */}
+      {/* Programmes — non-reboot */}
       {!isRebootOnly && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-white">Mes programmes</h2>
-            {hasProgram && (
-              <Link href="/programme" className="text-d5-gold text-sm font-medium">Voir tout</Link>
-            )}
+            {hasProgram && <Link href="/programme" className="text-d5-gold text-sm font-medium">Voir tout</Link>}
           </div>
           {hasProgram ? (
             <Link href="/programme">
@@ -193,27 +186,22 @@ export default async function DashboardPage() {
               </div>
             </Link>
           ) : (
-            <Link href="/programme">
-              <div className="card flex items-center gap-3 hover:border-d5-gold/30 transition-colors active:scale-[0.98]">
-                <div className="w-10 h-10 rounded-xl bg-blue-400/10 flex items-center justify-center flex-shrink-0">
-                  <Dumbbell size={18} className="text-blue-400" />
-                </div>
-                <p className="text-d5-muted text-sm flex-1">Pas de programme à afficher</p>
-                <ArrowRight size={16} className="text-d5-muted" />
+            <div className="card flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-400/10 flex items-center justify-center flex-shrink-0">
+                <Dumbbell size={18} className="text-blue-400" />
               </div>
-            </Link>
+              <p className="text-d5-muted text-sm flex-1">Pas de programme à afficher</p>
+            </div>
           )}
         </section>
       )}
 
-      {/* Nutrition — masqué pour reboot */}
+      {/* Nutrition — non-reboot */}
       {!isRebootOnly && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold text-white">Mes plans de nutrition</h2>
-            {hasNutrition && (
-              <Link href="/nutrition" className="text-d5-gold text-sm font-medium">Voir tout</Link>
-            )}
+            {hasNutrition && <Link href="/nutrition" className="text-d5-gold text-sm font-medium">Voir tout</Link>}
           </div>
           {hasNutrition ? (
             <Link href="/nutrition">
@@ -226,40 +214,88 @@ export default async function DashboardPage() {
               </div>
             </Link>
           ) : (
-            <Link href="/nutrition">
-              <div className="card flex items-center gap-3 hover:border-d5-gold/30 transition-colors active:scale-[0.98]">
-                <div className="w-10 h-10 rounded-xl bg-emerald-400/10 flex items-center justify-center flex-shrink-0">
-                  <Utensils size={18} className="text-emerald-400" />
-                </div>
-                <p className="text-d5-muted text-sm flex-1">Pas de plan à afficher</p>
-                <ArrowRight size={16} className="text-d5-muted" />
+            <div className="card flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-400/10 flex items-center justify-center flex-shrink-0">
+                <Utensils size={18} className="text-emerald-400" />
               </div>
-            </Link>
+              <p className="text-d5-muted text-sm flex-1">Pas de plan à afficher</p>
+            </div>
           )}
         </section>
       )}
 
-      {/* Pour les comptes Reboot : accès rapides secondaires */}
+      {/* UPSELL — comptes Reboot : présenter la suite comme une évolution naturelle */}
       {isRebootOnly && (
         <section className="space-y-3">
-          <h2 className="font-semibold text-white text-sm text-d5-muted">Accès rapides</h2>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="card flex items-center gap-3 opacity-50 cursor-default">
-              <div className="w-9 h-9 rounded-xl bg-d5-surface-2 flex items-center justify-center flex-shrink-0">
-                <Lock size={14} className="text-d5-muted" />
+          <div>
+            <p className="text-white font-semibold text-sm">La suite de ton parcours</p>
+            <p className="text-d5-muted text-xs mt-0.5">Après le Reboot, passe au niveau supérieur</p>
+          </div>
+
+          {/* Programme personnalisé */}
+          <div className="relative rounded-2xl p-[1px] overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/40 to-blue-400/20" />
+            <div className="relative rounded-2xl bg-[#0a0f1a] p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-xl bg-blue-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Dumbbell size={20} className="text-blue-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-white font-bold text-sm">Programme sur mesure</p>
+                    <span className="px-1.5 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded-full font-medium flex items-center gap-1">
+                      <Lock size={9} /> Premium
+                    </span>
+                  </div>
+                  <p className="text-d5-muted text-xs leading-relaxed">
+                    Un plan d’entraînement conçu pour toi, semaine par semaine. Charge, volume et progression adaptés à ton niveau.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-2.5">
+                    {["Séances structurées", "Suivi de charge", "Progression garantie"].map((f) => (
+                      <span key={f} className="px-2 py-0.5 bg-blue-500/10 text-blue-300 text-xs rounded-full">{f}</span>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-white text-xs font-medium">Programme</p>
-                <p className="text-d5-muted text-xs">Coaching complet</p>
+              <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
+                <p className="text-xs text-d5-muted">Disponible en coaching complet</p>
+                <div className="flex items-center gap-1 text-blue-400 text-xs font-semibold">
+                  En savoir plus <ChevronRight size={12} />
+                </div>
               </div>
             </div>
-            <div className="card flex items-center gap-3 opacity-50 cursor-default">
-              <div className="w-9 h-9 rounded-xl bg-d5-surface-2 flex items-center justify-center flex-shrink-0">
-                <Lock size={14} className="text-d5-muted" />
+          </div>
+
+          {/* Plan alimentaire */}
+          <div className="relative rounded-2xl p-[1px] overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/40 to-emerald-400/20" />
+            <div className="relative rounded-2xl bg-[#0a1a0f] p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-xl bg-emerald-500/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Utensils size={20} className="text-emerald-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-white font-bold text-sm">Plan alimentaire personnalisé</p>
+                    <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full font-medium flex items-center gap-1">
+                      <Lock size={9} /> Premium
+                    </span>
+                  </div>
+                  <p className="text-d5-muted text-xs leading-relaxed">
+                    Une alimentation calibrée sur tes objectifs, ton mode de vie et tes préférences. Pas de régime, une méthode.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-2.5">
+                    {["Calories & macros", "Recettes adaptées", "Flexible"].map((f) => (
+                      <span key={f} className="px-2 py-0.5 bg-emerald-500/10 text-emerald-300 text-xs rounded-full">{f}</span>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-white text-xs font-medium">Nutrition</p>
-                <p className="text-d5-muted text-xs">Coaching complet</p>
+              <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
+                <p className="text-xs text-d5-muted">Disponible en coaching complet</p>
+                <div className="flex items-center gap-1 text-emerald-400 text-xs font-semibold">
+                  En savoir plus <ChevronRight size={12} />
+                </div>
               </div>
             </div>
           </div>
