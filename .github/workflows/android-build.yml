@@ -23,7 +23,6 @@ jobs:
           wget -q https://services.gradle.org/distributions/gradle-8.6-bin.zip -O /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /opt/
           sudo ln -s /opt/gradle-8.6/bin/gradle /usr/local/bin/gradle
-          gradle --version
 
       - name: Generate Gradle wrapper
         working-directory: android
@@ -31,11 +30,21 @@ jobs:
           gradle wrapper --gradle-version=8.6 --distribution-type=bin
           chmod +x gradlew
 
+      - name: Generate signing keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore android/keystore.jks \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -alias d5coaching \
+            -storepass d5coaching2024 \
+            -keypass d5coaching2024 \
+            -dname "CN=D5 Coaching, OU=Mobile, O=D5Coaching, L=Paris, S=IDF, C=FR"
+          echo "Keystore generated"
+
       - name: Generate launcher icons
         run: |
           python3 - <<'EOF'
           import struct, zlib, os
-
           def make_png(w, h, r, g, b):
               raw = b''.join(b'\x00' + bytes([r, g, b] * w) for _ in range(h))
               def chunk(t, d):
@@ -44,7 +53,6 @@ jobs:
               ihdr = struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)
               return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) +
                       chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
-
           sizes = {'mdpi': 48, 'hdpi': 72, 'xhdpi': 96, 'xxhdpi': 144, 'xxxhdpi': 192}
           for density, size in sizes.items():
               path = f'android/app/src/main/res/mipmap-{density}'
@@ -52,10 +60,9 @@ jobs:
               data = make_png(size, size, 255, 193, 7)
               open(f'{path}/ic_launcher.png', 'wb').write(data)
               open(f'{path}/ic_launcher_round.png', 'wb').write(data)
-              print(f'Generated {density} ({size}x{size})')
           EOF
 
-      - name: Build Release AAB
+      - name: Build Signed Release AAB
         working-directory: android
         run: ./gradlew bundleRelease --no-daemon
 

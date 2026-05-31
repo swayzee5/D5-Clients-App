@@ -4,6 +4,15 @@ android {
     namespace 'com.d5coaching.clients'
     compileSdkVersion 34
 
+    signingConfigs {
+        release {
+            storeFile file('../keystore.jks')
+            storePassword 'd5coaching2024'
+            keyAlias 'd5coaching'
+            keyPassword 'd5coaching2024'
+        }
+    }
+
     defaultConfig {
         applicationId 'com.d5coaching.clients'
         minSdkVersion 21
@@ -15,6 +24,7 @@ android {
     buildTypes {
         release {
             minifyEnabled false
+            signingConfig signingConfigs.release
         }
     }
 
