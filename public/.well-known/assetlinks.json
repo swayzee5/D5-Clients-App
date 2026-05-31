@@ -1,0 +1,10 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.d5coaching.clients",
+    "sha256_cert_fingerprints": [
+      "REMPLACER_PAR_SHA256_APRES_UPLOAD_SUR_PLAY_STORE"
+    ]
+  }
+}]
