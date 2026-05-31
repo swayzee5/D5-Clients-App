@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.D5Coaching" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/backgroundColor</item>
+    </style>
+</resources>
