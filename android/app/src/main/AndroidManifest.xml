@@ -40,7 +40,7 @@
                 android:value="300" />
             <meta-data
                 android:name="android.support.customtabs.trusted.FILE_PROVIDER_AUTHORITY"
-                android:value="com.d5coaching.clients.fileprovider" />
+                android:value="com.d5coachingdistance.app.fileprovider" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -56,7 +56,7 @@
         </activity>
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.d5coaching.clients.fileprovider"
+            android:authorities="com.d5coachingdistance.app.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data
