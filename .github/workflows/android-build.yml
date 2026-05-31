@@ -30,16 +30,35 @@ jobs:
           gradle wrapper --gradle-version=8.6 --distribution-type=bin
           chmod +x gradlew
 
-      - name: Generate signing keystore
+      - name: Setup signing keystore
         run: |
-          keytool -genkeypair -v \
-            -keystore android/keystore.jks \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -alias d5coaching \
-            -storepass d5coaching2024 \
-            -keypass d5coaching2024 \
-            -dname "CN=D5 Coaching, OU=Mobile, O=D5Coaching, L=Paris, S=IDF, C=FR"
-          echo "Keystore generated"
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "Using saved keystore from secret"
+            echo "$KEYSTORE_B64" | base64 -d > android/keystore.jks
+          else
+            echo "Generating new keystore (first time)"
+            keytool -genkeypair -v \
+              -keystore android/keystore.jks \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -alias d5coaching \
+              -storepass d5coaching2024 \
+              -keypass d5coaching2024 \
+              -dname "CN=D5 Coaching, OU=Mobile, O=D5Coaching, L=Paris, S=IDF, C=FR"
+            echo "=== SAVE THIS AS GITHUB SECRET KEYSTORE_BASE64 ==="
+            base64 -w 0 android/keystore.jks
+            echo "=== END ==="
+          fi
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
+
+      - name: Upload keystore artifact (first time setup)
+        if: ${{ env.KEYSTORE_B64 == '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: keystore-SAVE-AS-SECRET
+          path: android/keystore.jks
+        env:
+          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
 
       - name: Generate launcher icons
         run: |
