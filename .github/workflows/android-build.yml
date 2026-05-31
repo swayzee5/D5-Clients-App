@@ -18,11 +18,15 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Gradle 8.6
+      - name: Download Gradle wrapper
+        working-directory: android
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.6-bin.zip -O /tmp/gradle.zip
-          unzip -q /tmp/gradle.zip -d /opt
-          echo "/opt/gradle-8.6/bin" >> $GITHUB_PATH
+          mkdir -p gradle/wrapper
+          curl -sL "https://raw.githubusercontent.com/gradle/gradle/v8.6.0/gradle/wrapper/gradle-wrapper.jar" \
+            -o gradle/wrapper/gradle-wrapper.jar
+          curl -sL "https://raw.githubusercontent.com/gradle/gradle/v8.6.0/gradlew" \
+            -o gradlew
+          chmod +x gradlew
 
       - name: Generate launcher icons
         run: |
@@ -36,18 +40,13 @@ jobs:
             esac
             dir="android/app/src/main/res/mipmap-$density"
             mkdir -p "$dir"
-            convert -size ${size}x${size} xc:"#FFC107" \
-              -fill "#1a1a1a" -gravity Center \
-              -font Liberation-Sans-Bold -pointsize $((size * 35 / 100)) \
-              -annotate 0 "d5" \
-              "$dir/ic_launcher.png" 2>/dev/null || \
             convert -size ${size}x${size} xc:"#FFC107" "$dir/ic_launcher.png"
             cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
           done
 
       - name: Build Debug APK
         working-directory: android
-        run: gradle assembleDebug
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
