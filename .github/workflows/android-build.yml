@@ -36,7 +36,7 @@ jobs:
             echo ">>> Using saved keystore from KEYSTORE_BASE64 secret"
             echo "$KEYSTORE_B64" | base64 -d > android/keystore.jks
           else
-            echo ">>> No secret found — generating new keystore"
+            echo ">>> No secret found - generating new keystore"
             keytool -genkeypair -v \
               -keystore android/keystore.jks \
               -keyalg RSA -keysize 2048 -validity 10000 \
@@ -50,8 +50,6 @@ jobs:
             echo ""
             echo "================================================================="
           fi
-          echo ">>> Keystore SHA1:"
-          keytool -list -keystore android/keystore.jks -alias d5coaching -storepass d5coaching2024 2>/dev/null | grep SHA1
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
 
@@ -60,7 +58,7 @@ jobs:
         with:
           name: keystore-backup
           path: android/keystore.jks
-          retention-days: 90
+          retention-days: 30
 
       - name: Generate launcher icons
         run: |
