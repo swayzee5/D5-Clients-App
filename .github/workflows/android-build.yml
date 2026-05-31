@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Android AAB
 
 on:
   push:
@@ -33,10 +33,10 @@ jobs:
       - name: Setup signing keystore
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
-            echo "Using saved keystore from secret"
+            echo ">>> Using saved keystore from KEYSTORE_BASE64 secret"
             echo "$KEYSTORE_B64" | base64 -d > android/keystore.jks
           else
-            echo "Generating new keystore (first time)"
+            echo ">>> No secret found — generating new keystore"
             keytool -genkeypair -v \
               -keystore android/keystore.jks \
               -keyalg RSA -keysize 2048 -validity 10000 \
@@ -44,21 +44,23 @@ jobs:
               -storepass d5coaching2024 \
               -keypass d5coaching2024 \
               -dname "CN=D5 Coaching, OU=Mobile, O=D5Coaching, L=Paris, S=IDF, C=FR"
-            echo "=== SAVE THIS AS GITHUB SECRET KEYSTORE_BASE64 ==="
+            echo ""
+            echo "========== COPY THIS AS GITHUB SECRET KEYSTORE_BASE64 =========="
             base64 -w 0 android/keystore.jks
-            echo "=== END ==="
+            echo ""
+            echo "================================================================="
           fi
+          echo ">>> Keystore SHA1:"
+          keytool -list -keystore android/keystore.jks -alias d5coaching -storepass d5coaching2024 2>/dev/null | grep SHA1
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
 
-      - name: Upload keystore artifact (first time setup)
-        if: ${{ env.KEYSTORE_B64 == '' }}
+      - name: Upload keystore artifact (backup)
         uses: actions/upload-artifact@v4
         with:
-          name: keystore-SAVE-AS-SECRET
+          name: keystore-backup
           path: android/keystore.jks
-        env:
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          retention-days: 90
 
       - name: Generate launcher icons
         run: |
