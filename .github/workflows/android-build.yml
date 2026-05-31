@@ -18,14 +18,18 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Download Gradle wrapper
+      - name: Install Gradle 8.6
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.6-bin.zip -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt/
+          ls /opt/gradle-8.6/bin/
+          sudo ln -s /opt/gradle-8.6/bin/gradle /usr/local/bin/gradle
+          gradle --version
+
+      - name: Generate Gradle wrapper
         working-directory: android
         run: |
-          mkdir -p gradle/wrapper
-          curl -sL "https://raw.githubusercontent.com/gradle/gradle/v8.6.0/gradle/wrapper/gradle-wrapper.jar" \
-            -o gradle/wrapper/gradle-wrapper.jar
-          curl -sL "https://raw.githubusercontent.com/gradle/gradle/v8.6.0/gradlew" \
-            -o gradlew
+          gradle wrapper --gradle-version=8.6 --distribution-type=bin
           chmod +x gradlew
 
       - name: Generate launcher icons

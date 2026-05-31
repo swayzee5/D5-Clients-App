@@ -1,15 +1,13 @@
-plugins {
-    id 'com.android.application'
-}
+apply plugin: 'com.android.application'
 
 android {
     namespace 'com.d5coaching.clients'
-    compileSdk 34
+    compileSdkVersion 34
 
     defaultConfig {
         applicationId 'com.d5coaching.clients'
-        minSdk 21
-        targetSdk 34
+        minSdkVersion 21
+        targetSdkVersion 34
         versionCode 1
         versionName '1.0'
     }
