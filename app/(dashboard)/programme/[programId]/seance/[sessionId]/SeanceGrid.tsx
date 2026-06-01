@@ -11,21 +11,64 @@ function formatRest(seconds: number): string {
   return s > 0 ? `${m}min${s}s` : `${m}min`;
 }
 
+function VideoModal({
+  exercise,
+  onClose,
+}: {
+  exercise: SessionExercise;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg bg-gray-900 rounded-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+          <p className="text-white font-bold text-sm truncate">{exercise.name}</p>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white ml-3 shrink-0"
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div style={{ aspectRatio: "16/9" }}>
+          <iframe
+            src={`https://player.vimeo.com/video/${exercise.vimeo_video_id}?autoplay=1&title=0&byline=0&portrait=0`}
+            className="w-full h-full"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ExerciseCard({
   exercise,
   index,
   checked,
   onCheck,
+  onVideoClick,
 }: {
   exercise: SessionExercise;
   index: number;
   checked: boolean;
   onCheck: () => void;
+  onVideoClick: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
+  const hasVideo = !!exercise.vimeo_video_id;
   const thumbnailUrl =
-    exercise.vimeo_video_id && !imgError
-      ? `https://i.vimeocdn.com/video/${exercise.vimeo_video_id}_640x360`
+    hasVideo && !imgError
+      ? `https://i.vimeocdn.com/video/${exercise.vimeo_video_id}_640x360.jpg`
       : null;
 
   const seriesLabel = exercise.sets
@@ -63,7 +106,13 @@ function ExerciseCard({
         </button>
       </div>
 
-      <div className="mx-3 rounded-xl overflow-hidden bg-gray-800" style={{ aspectRatio: "4/3" }}>
+      <div
+        className={`mx-3 rounded-xl overflow-hidden bg-gray-800 relative ${
+          hasVideo ? "cursor-pointer" : ""
+        }`}
+        style={{ aspectRatio: "4/3" }}
+        onClick={hasVideo ? onVideoClick : undefined}
+      >
         {thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -77,11 +126,20 @@ function ExerciseCard({
             <span className="text-5xl font-black text-gray-700">{index + 1}</span>
           </div>
         )}
+        {hasVideo && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-black/60 flex items-center justify-center">
+              <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="p-3 space-y-2">
         <p className="text-white font-bold text-sm leading-tight">
-          {index + 1} – {exercise.name}
+          {index + 1} – {exercise.name}
         </p>
         {stats.length > 0 && (
           <div className="flex gap-4">
@@ -109,6 +167,7 @@ export function SeanceGrid({
 }) {
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [showModal, setShowModal] = useState(false);
+  const [videoExercise, setVideoExercise] = useState<SessionExercise | null>(null);
   const startTimeRef = useRef<number>(Date.now());
   const router = useRouter();
 
@@ -153,6 +212,7 @@ export function SeanceGrid({
             index={i}
             checked={checked.has(ex.id)}
             onCheck={() => toggle(ex.id)}
+            onVideoClick={() => setVideoExercise(ex)}
           />
         ))}
       </div>
@@ -164,12 +224,19 @@ export function SeanceGrid({
         Terminer la séance
       </button>
 
+      {videoExercise && (
+        <VideoModal
+          exercise={videoExercise}
+          onClose={() => setVideoExercise(null)}
+        />
+      )}
+
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm space-y-5">
             <div className="flex items-start justify-between gap-3">
               <p className="font-bold text-white text-base leading-snug">
-                Vous n’avez pas complété la séance à 100%
+                Vous n'avez pas complété la séance à 100%
               </p>
               <button
                 onClick={() => setShowModal(false)}
@@ -182,7 +249,7 @@ export function SeanceGrid({
             </div>
 
             <p className="text-gray-400 text-sm">
-              Pourcentage d’exercices marqués comme fait : <span className="text-white font-semibold">{pct}%</span>
+              Pourcentage d'exercices marqués comme fait : <span className="text-white font-semibold">{pct}%</span>
             </p>
 
             <div className="space-y-3">
@@ -199,7 +266,7 @@ export function SeanceGrid({
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                J’ai fait tous les exercices
+                J'ai fait tous les exercices
               </button>
             </div>
           </div>
