@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { SessionExercise } from "@/lib/queries/programme";
 
@@ -48,20 +48,6 @@ function VideoModal({
   );
 }
 
-function useVimeoThumbnail(videoId: string | null): string | null {
-  const [url, setUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!videoId) return;
-    fetch(`/api/vimeo/${videoId}`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => { if (data?.url) setUrl(data.url); })
-      .catch(() => {});
-  }, [videoId]);
-
-  return url;
-}
-
 function ExerciseCard({
   exercise,
   index,
@@ -76,7 +62,7 @@ function ExerciseCard({
   onVideoClick: () => void;
 }) {
   const hasVideo = !!exercise.vimeo_video_id;
-  const thumbnailUrl = useVimeoThumbnail(exercise.vimeo_video_id);
+  const thumbnail = exercise.thumbnail_url ?? null;
 
   const seriesLabel = exercise.sets
     ? `${exercise.sets} série${exercise.sets > 1 ? "s" : ""}`
@@ -113,6 +99,7 @@ function ExerciseCard({
         </button>
       </div>
 
+      {/* Thumbnail — tap ouvre la vidéo */}
       <div
         className={`mx-3 rounded-xl overflow-hidden bg-gray-800 relative ${
           hasVideo ? "cursor-pointer" : ""
@@ -120,10 +107,10 @@ function ExerciseCard({
         style={{ aspectRatio: "4/3" }}
         onClick={hasVideo ? onVideoClick : undefined}
       >
-        {thumbnailUrl ? (
+        {thumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={thumbnailUrl}
+            src={thumbnail}
             alt={exercise.name}
             className="w-full h-full object-cover"
           />
@@ -132,9 +119,9 @@ function ExerciseCard({
             <span className="text-5xl font-black text-gray-700">{index + 1}</span>
           </div>
         )}
-        {hasVideo && (
+        {hasVideo && thumbnail && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-10 h-10 rounded-full bg-black/60 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
               <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>

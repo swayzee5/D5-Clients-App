@@ -9,6 +9,7 @@ export type SessionExercise = {
   tempo: string | null;
   weight: string | null;
   vimeo_video_id: string | null;
+  thumbnail_url: string | null;
   notes: string | null;
   rpe: number | null;
   order_index: number;
@@ -69,23 +70,19 @@ export async function getActiveProgram(
     [program.id]
   );
 
-  if (!sessions.length) {
-    return { ...program, sessions: [] };
-  }
+  if (!sessions.length) return { ...program, sessions: [] };
 
   const sessionIds = sessions.map((s) => s.id);
 
-  const { rows: exercises } = await pool.query<
-    SessionExercise & { session_id: string }
-  >(
+  const { rows: exercises } = await pool.query<SessionExercise & { session_id: string }>(
     `SELECT e.id, e.session_id, e.name, e.sets, e.reps, e.rest_seconds,
             e.tempo, e.weight,
             COALESCE(e.vimeo_video_id, el.vimeo_video_id) AS vimeo_video_id,
+            el.thumbnail_url,
             e.notes, e.rpe, e.order_index
      FROM exercises e
      LEFT JOIN exercise_library el
        ON LOWER(TRIM(el.name)) = LOWER(TRIM(e.name))
-       AND el.vimeo_video_id IS NOT NULL
        AND el.is_active = true
      WHERE e.session_id = ANY($1::uuid[])
      ORDER BY e.session_id, e.order_index ASC`,
@@ -128,11 +125,11 @@ export async function getSession(
     `SELECT e.id, e.name, e.sets, e.reps, e.rest_seconds,
             e.tempo, e.weight,
             COALESCE(e.vimeo_video_id, el.vimeo_video_id) AS vimeo_video_id,
+            el.thumbnail_url,
             e.notes, e.rpe, e.order_index
      FROM exercises e
      LEFT JOIN exercise_library el
        ON LOWER(TRIM(el.name)) = LOWER(TRIM(e.name))
-       AND el.vimeo_video_id IS NOT NULL
        AND el.is_active = true
      WHERE e.session_id = $1
      ORDER BY e.order_index ASC`,
