@@ -19,6 +19,7 @@ export type RebootExercise = {
   reps: string | null;
   rest_seconds: number | null;
   vimeo_video_id: string | null;
+  thumbnail_url: string | null;
   order_index: number;
   notes: string | null;
 };
@@ -49,9 +50,7 @@ export async function getRebootSessionWithExercises(sessionId: string): Promise<
   session: Omit<RebootSession, "exercise_count" | "completed">;
   exercises: RebootExercise[];
 } | null> {
-  const { rows: sessions } = await pool.query<
-    Omit<RebootSession, "exercise_count" | "completed">
-  >(
+  const { rows: sessions } = await pool.query<Omit<RebootSession, "exercise_count" | "completed">>(
     `SELECT id, name, muscle_group, location, description, duration_minutes, order_index
      FROM reboot_sessions WHERE id = $1`,
     [sessionId]
@@ -59,24 +58,32 @@ export async function getRebootSessionWithExercises(sessionId: string): Promise<
   if (!sessions.length) return null;
 
   const { rows: exercises } = await pool.query<RebootExercise>(
-    `SELECT id, name, sets, reps, rest_seconds, vimeo_video_id, order_index, notes
-     FROM reboot_exercises
-     WHERE session_id = $1
-     ORDER BY order_index ASC`,
+    `SELECT
+       re.id,
+       re.name,
+       re.sets,
+       re.reps,
+       re.rest_seconds,
+       re.order_index,
+       re.notes,
+       COALESCE(re.vimeo_video_id, el.vimeo_video_id) AS vimeo_video_id,
+       el.thumbnail_url
+     FROM reboot_exercises re
+     LEFT JOIN exercise_library el
+       ON LOWER(TRIM(el.name)) = LOWER(TRIM(re.name))
+       AND el.vimeo_video_id IS NOT NULL
+     WHERE re.session_id = $1
+     ORDER BY re.order_index ASC`,
     [sessionId]
   );
 
   return { session: sessions[0], exercises };
 }
 
-export async function isSessionCompleted(
-  clientId: string,
-  sessionId: string
-): Promise<boolean> {
+export async function isSessionCompleted(clientId: string, sessionId: string): Promise<boolean> {
   const { rows } = await pool.query<{ exists: boolean }>(
     `SELECT EXISTS(
-       SELECT 1 FROM reboot_completions
-       WHERE client_id = $1 AND session_id = $2
+       SELECT 1 FROM reboot_completions WHERE client_id = $1 AND session_id = $2
      ) AS exists`,
     [clientId, sessionId]
   );
