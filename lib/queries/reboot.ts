@@ -19,6 +19,7 @@ export type RebootExercise = {
   reps: string | null;
   rest_seconds: number | null;
   vimeo_video_id: string | null;
+  thumbnail_url: string | null;
   order_index: number;
   notes: string | null;
 };
@@ -65,7 +66,8 @@ export async function getRebootSessionWithExercises(sessionId: string): Promise<
        re.rest_seconds,
        re.order_index,
        re.notes,
-       COALESCE(re.vimeo_video_id, el.vimeo_video_id) AS vimeo_video_id
+       COALESCE(re.vimeo_video_id, el.vimeo_video_id) AS vimeo_video_id,
+       el.thumbnail_url
      FROM reboot_exercises re
      LEFT JOIN exercise_library el
        ON LOWER(TRIM(el.name)) = LOWER(TRIM(re.name))

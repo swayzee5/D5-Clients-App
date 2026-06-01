@@ -29,10 +29,7 @@ function VideoModal({
       >
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
           <p className="text-white font-bold text-sm truncate">{exercise.name}</p>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-white ml-3 shrink-0"
-          >
+          <button onClick={onClose} className="text-gray-400 hover:text-white ml-3 shrink-0">
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -64,12 +61,8 @@ function ExerciseCard({
   onCheck: () => void;
   onVideoClick: () => void;
 }) {
-  const [imgError, setImgError] = useState(false);
   const hasVideo = !!exercise.vimeo_video_id;
-  const thumbnailUrl =
-    hasVideo && !imgError
-      ? `https://i.vimeocdn.com/video/${exercise.vimeo_video_id}_640x360.jpg`
-      : null;
+  const thumbnail = exercise.thumbnail_url ?? null;
 
   const seriesLabel = exercise.sets
     ? `${exercise.sets} série${exercise.sets > 1 ? "s" : ""}`
@@ -113,22 +106,21 @@ function ExerciseCard({
         style={{ aspectRatio: "4/3" }}
         onClick={hasVideo ? onVideoClick : undefined}
       >
-        {thumbnailUrl ? (
+        {thumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={thumbnailUrl}
+            src={thumbnail}
             alt={exercise.name}
             className="w-full h-full object-cover"
-            onError={() => setImgError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <span className="text-5xl font-black text-gray-700">{index + 1}</span>
           </div>
         )}
-        {hasVideo && (
+        {hasVideo && thumbnail && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-10 h-10 rounded-full bg-black/60 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-full bg-black/50 flex items-center justify-center">
               <svg className="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
@@ -189,11 +181,8 @@ export function SeanceGrid({
   };
 
   const handleTerminer = () => {
-    if (pct < 100) {
-      setShowModal(true);
-    } else {
-      goToBilan();
-    }
+    if (pct < 100) setShowModal(true);
+    else goToBilan();
   };
 
   const handleAllDone = () => {
@@ -225,10 +214,7 @@ export function SeanceGrid({
       </button>
 
       {videoExercise && (
-        <VideoModal
-          exercise={videoExercise}
-          onClose={() => setVideoExercise(null)}
-        />
+        <VideoModal exercise={videoExercise} onClose={() => setVideoExercise(null)} />
       )}
 
       {showModal && (
@@ -238,20 +224,15 @@ export function SeanceGrid({
               <p className="font-bold text-white text-base leading-snug">
                 Vous n'avez pas complété la séance à 100%
               </p>
-              <button
-                onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-white shrink-0 mt-0.5"
-              >
+              <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white shrink-0 mt-0.5">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-
             <p className="text-gray-400 text-sm">
               Pourcentage d'exercices marqués comme fait : <span className="text-white font-semibold">{pct}%</span>
             </p>
-
             <div className="space-y-3">
               <button
                 onClick={() => { setShowModal(false); goToBilan(); }}
