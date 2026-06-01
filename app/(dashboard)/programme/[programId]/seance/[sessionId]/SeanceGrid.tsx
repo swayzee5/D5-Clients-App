@@ -99,7 +99,6 @@ function ExerciseCard({
         </button>
       </div>
 
-      {/* Thumbnail — tap ouvre la vidéo */}
       <div
         className={`mx-3 rounded-xl overflow-hidden bg-gray-800 relative ${
           hasVideo ? "cursor-pointer" : ""
