@@ -57,8 +57,21 @@ export async function getRebootSessionWithExercises(sessionId: string): Promise<
   if (!sessions.length) return null;
 
   const { rows: exercises } = await pool.query<RebootExercise>(
-    `SELECT id, name, sets, reps, rest_seconds, vimeo_video_id, order_index, notes
-     FROM reboot_exercises WHERE session_id = $1 ORDER BY order_index ASC`,
+    `SELECT
+       re.id,
+       re.name,
+       re.sets,
+       re.reps,
+       re.rest_seconds,
+       re.order_index,
+       re.notes,
+       COALESCE(re.vimeo_video_id, el.vimeo_video_id) AS vimeo_video_id
+     FROM reboot_exercises re
+     LEFT JOIN exercise_library el
+       ON LOWER(TRIM(el.name)) = LOWER(TRIM(re.name))
+       AND el.vimeo_video_id IS NOT NULL
+     WHERE re.session_id = $1
+     ORDER BY re.order_index ASC`,
     [sessionId]
   );
 
