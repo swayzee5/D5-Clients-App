@@ -62,23 +62,64 @@ jobs:
 
       - name: Generate launcher icons
         run: |
+          pip install pillow -q
           python3 - <<'EOF'
-          import struct, zlib, os
-          def make_png(w, h, r, g, b):
-              raw = b''.join(b'\x00' + bytes([r, g, b] * w) for _ in range(h))
-              def chunk(t, d):
-                  c = zlib.crc32(t + d) & 0xffffffff
-                  return struct.pack('>I', len(d)) + t + d + struct.pack('>I', c)
-              ihdr = struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)
-              return (b'\x89PNG\r\n\x1a\n' + chunk(b'IHDR', ihdr) +
-                      chunk(b'IDAT', zlib.compress(raw)) + chunk(b'IEND', b''))
+          from PIL import Image, ImageDraw, ImageFont
+          import os
+
+          def make_icon(size):
+              img = Image.new('RGB', (size, size), (255, 193, 7))
+              draw = ImageDraw.Draw(img)
+
+              # Rounded corners mask
+              mask = Image.new('L', (size, size), 0)
+              mask_draw = ImageDraw.Draw(mask)
+              radius = size // 5
+              mask_draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=255)
+
+              # Try bold system font
+              font_d5 = None
+              font_coaching = None
+              for font_path in [
+                  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+                  '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+                  '/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf',
+              ]:
+                  if os.path.exists(font_path):
+                      font_d5 = ImageFont.truetype(font_path, int(size * 0.42))
+                      font_coaching = ImageFont.truetype(font_path, int(size * 0.17))
+                      break
+
+              if font_d5 is None:
+                  font_d5 = ImageFont.load_default()
+                  font_coaching = ImageFont.load_default()
+
+              # Draw d5
+              bbox = draw.textbbox((0, 0), 'd5', font=font_d5)
+              tw = bbox[2] - bbox[0]
+              th = bbox[3] - bbox[1]
+              draw.text(((size - tw) // 2 - bbox[0], int(size * 0.22) - bbox[1]), 'd5', font=font_d5, fill=(0, 0, 0))
+
+              # Draw coaching
+              bbox2 = draw.textbbox((0, 0), 'coaching', font=font_coaching)
+              tw2 = bbox2[2] - bbox2[0]
+              draw.text(((size - tw2) // 2 - bbox2[0], int(size * 0.72) - bbox2[1]), 'coaching', font=font_coaching, fill=(0, 0, 0))
+
+              # Apply rounded corners
+              result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+              result.paste(img, mask=mask)
+              final = Image.new('RGB', (size, size), (255, 193, 7))
+              final.paste(result, mask=result.split()[3])
+              return final
+
           sizes = {'mdpi': 48, 'hdpi': 72, 'xhdpi': 96, 'xxhdpi': 144, 'xxxhdpi': 192}
           for density, size in sizes.items():
               path = f'android/app/src/main/res/mipmap-{density}'
               os.makedirs(path, exist_ok=True)
-              data = make_png(size, size, 255, 193, 7)
-              open(f'{path}/ic_launcher.png', 'wb').write(data)
-              open(f'{path}/ic_launcher_round.png', 'wb').write(data)
+              icon = make_icon(size)
+              icon.save(f'{path}/ic_launcher.png')
+              icon.save(f'{path}/ic_launcher_round.png')
+          print('Icons generated successfully')
           EOF
 
       - name: Build Signed Release AAB
