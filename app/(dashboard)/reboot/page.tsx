@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { Zap, CheckCircle2, Dumbbell, ArrowRight } from "lucide-react";
+import { Zap, CheckCircle2, Dumbbell, ArrowRight, Lock } from "lucide-react";
 import Link from "next/link";
 import { getRebootSessions } from "@/lib/queries/reboot";
 import { pool } from "@/lib/db";
@@ -38,6 +38,10 @@ export default async function RebootPage() {
   const session = await auth();
   if (!session) redirect("/login");
   const clientId = session.user.id;
+
+  // Gate: reboot clients only
+  const isRebootOnly = session.user?.isRebootOnly ?? false;
+  if (!isRebootOnly) redirect("/dashboard");
 
   let sessions: Awaited<ReturnType<typeof getRebootSessions>> = [];
   let completedModules: string[] = [];
@@ -123,6 +127,17 @@ export default async function RebootPage() {
         <div className="mt-4 pt-4 border-t border-white/10">
           <p className="text-xs text-d5-gold font-semibold uppercase tracking-wider mb-1">Mot de ton coach</p>
           <p className="text-gray-300 text-sm leading-relaxed">{welcomeMessage}</p>
+        </div>
+        {/* Certificate link — always visible for reboot clients */}
+        <div className="mt-3 pt-3 border-t border-white/5 flex justify-end">
+          <Link
+            href="/reboot/certificat"
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-d5-gold transition-colors"
+          >
+            <span>🏆</span>
+            <span>Mon certificat</span>
+            {!allDone && <Lock size={10} className="text-gray-700" />}
+          </Link>
         </div>
       </div>
 
@@ -235,6 +250,13 @@ export default async function RebootPage() {
             </div>
           </div>
           <div className="space-y-3">
+            {/* Certificate download button */}
+            <Link
+              href="/reboot/certificat"
+              className="flex items-center justify-center gap-2 py-3.5 bg-d5-gold/10 border border-d5-gold/40 text-d5-gold rounded-xl text-sm font-bold active:scale-[0.98] transition-transform"
+            >
+              🏆 Télécharger mon certificat PDF
+            </Link>
             <p className="text-gray-400 text-sm text-center leading-relaxed">
               Tu as prouvé que tu peux être régulier. L&apos;accompagnement coaching va 10× plus loin — programme personnalisé, suivi nutritionnel, et coaching direct.
             </p>
