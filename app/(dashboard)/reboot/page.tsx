@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Reboot 40" };
 const MUSCLE_CONFIG: Record<string, { label: string; desc: string; icon: string }> = {
   pecs:     { label: "Pectoraux",               desc: "Poitrine · Épaules · Triceps",        icon: "💪" },
   dos:      { label: "Dos & Biceps",             desc: "Grand dorsal · Trapèzes · Biceps",    icon: "🏋️" },
-  epaules:  { label: "Épaules",                 desc: "Deltoïdes · Trapèzes · Rotateurs",    icon: "🔱" },
+  epaules:  { label: "Épaules",                 desc: "Deltöides · Trapèzes · Rotateurs",    icon: "🔱" },
   bras:     { label: "Bras",                    desc: "Biceps · Triceps · Avant-bras",       icon: "💪" },
   jambes_h: { label: "Jambes Homme",             desc: "Quadriceps · Ischio · Fessiers",     icon: "🦵" },
   jambes_f: { label: "Jambes & Fessiers Femme", desc: "Fessiers · Quadriceps · Adducteurs", icon: "🦵" },
@@ -130,6 +130,7 @@ export default async function RebootPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header card */}
       <div className="bg-gradient-to-br from-d5-gold/20 to-transparent border border-d5-gold/30 rounded-2xl p-5">
         <div className="flex items-center gap-2 mb-2">
           <Zap size={14} className="text-d5-gold" />
@@ -149,6 +150,17 @@ export default async function RebootPage() {
         <div className="mt-4 pt-4 border-t border-white/10">
           <p className="text-xs text-d5-gold font-semibold uppercase tracking-wider mb-1">Mot de ton coach</p>
           <p className="text-gray-300 text-sm leading-relaxed">{welcomeMessage}</p>
+        </div>
+        {/* Certificate link — always visible for reboot clients */}
+        <div className="mt-3 pt-3 border-t border-white/5 flex justify-end">
+          <Link
+            href="/reboot/certificat"
+            className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-d5-gold transition-colors"
+          >
+            <span>\ud83c�</span>
+            <span>Mon certificat</span>
+            {!allDone && <span className="text-gray-700">\ud83d�</span>}
+          </Link>
         </div>
       </div>
 
@@ -228,8 +240,8 @@ export default async function RebootPage() {
       {allDone && (
         <div className="space-y-4 pb-4">
           <div className="bg-gradient-to-br from-d5-gold/30 via-d5-gold/10 to-transparent border-2 border-d5-gold/50 rounded-2xl p-6 text-center space-y-2">
-            <div className="text-5xl">🏆</div>
-            <h2 className="text-white text-xl font-bold">Challenge complété !</h2>
+            <div className="text-5xl">\ud83c�</div>
+            <h2 className="text-white text-xl font-bold">Challenge complété !</h2>
             {completionDates && (
               <p className="text-d5-muted text-sm">Du {completionDates.first} au {completionDates.last}</p>
             )}
@@ -238,12 +250,12 @@ export default async function RebootPage() {
             <p className="text-d5-gold text-xs font-bold uppercase tracking-wider">Ce que tu as accompli</p>
             <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="text-base">🏋️</span>
+                <span className="text-base">\ud83c�️</span>
                 <span className="text-gray-300 text-sm flex-1">3 séances complétées</span>
                 <CheckCircle2 size={13} className="text-green-400" />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-base">💬</span>
+                <span className="text-base">\ud83d�</span>
                 <span className="text-gray-300 text-sm flex-1">3 messages WhatsApp envoyés</span>
                 <CheckCircle2 size={13} className="text-green-400" />
               </div>
@@ -257,6 +269,13 @@ export default async function RebootPage() {
             </div>
           </div>
           <div className="space-y-3">
+            {/* Certificate download button */}
+            <Link
+              href="/reboot/certificat"
+              className="flex items-center justify-center gap-2 py-3.5 bg-d5-gold/10 border border-d5-gold/40 text-d5-gold rounded-xl text-sm font-bold active:scale-[0.98] transition-transform"
+            >
+              \ud83c� Télécharger mon certificat PDF
+            </Link>
             <p className="text-gray-400 text-sm text-center leading-relaxed">
               Tu as prouvé que tu peux être régulier. L&apos;accompagnement coaching va 10× plus loin — programme personnalisé, suivi nutritionnel, et coaching direct.
             </p>
