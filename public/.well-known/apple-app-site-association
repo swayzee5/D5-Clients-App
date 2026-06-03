@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["PH4CLA89XR.com.dayekaba.d5coaching"],
+        "components": [
+          {
+            "/": "/*"
+          }
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": ["PH4CLA89XR.com.dayekaba.d5coaching"]
+  }
+}
