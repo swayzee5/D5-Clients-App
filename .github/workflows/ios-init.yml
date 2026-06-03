@@ -1,0 +1,32 @@
+name: iOS — Init Certificats (une seule fois)
+
+# Declencher manuellement une seule fois pour creer les certificats
+on:
+  workflow_dispatch:
+
+jobs:
+  init-certs:
+    name: Creer certificats App Store dans d5-certs
+    runs-on: macos-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Ruby 3.2
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Install Fastlane
+        run: gem install fastlane --no-document
+
+      - name: Creer et stocker les certificats
+        env:
+          MATCH_GIT_URL:   https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
+          MATCH_PASSWORD:  ${{ secrets.MATCH_PASSWORD }}
+          ASC_KEY_ID:      ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID:   ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: fastlane ios init_certs
