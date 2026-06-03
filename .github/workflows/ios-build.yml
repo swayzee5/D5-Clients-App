@@ -1,0 +1,92 @@
+name: Build & Upload iOS — TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Raison du build"
+        required: false
+        default: "Manuel"
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'public/**'
+      - 'capacitor.config.ts'
+      - 'package.json'
+
+jobs:
+  build-ios:
+    name: Build iOS Release
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ---- Node ----
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # ---- Capacitor ----
+      - name: Add iOS platform (si absent)
+        run: |
+          if [ ! -d "ios" ] || [ -z "$(ls -A ios 2>/dev/null)" ]; then
+            echo "Generating Capacitor iOS project..."
+            npx cap add ios
+          else
+            echo "iOS project already present."
+          fi
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      # ---- Ruby / Fastlane ----
+      - name: Setup Ruby 3.2
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Install Fastlane
+        run: gem install fastlane --no-document
+
+      # ---- CocoaPods ----
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/App/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/App/Podfile.lock') }}
+          restore-keys: ${{ runner.os }}-pods-
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios/App
+        run: pod install
+
+      # ---- Build + TestFlight ----
+      - name: Build Release & Upload TestFlight
+        env:
+          MATCH_GIT_URL:   https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
+          MATCH_PASSWORD:  ${{ secrets.MATCH_PASSWORD }}
+          ASC_KEY_ID:      ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID:   ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: fastlane ios beta
+
+      # ---- Artifact ----
+      - name: Upload IPA artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: D5Coaching-build-${{ github.run_number }}.ipa
+          path: build/D5Coaching.ipa
+          retention-days: 30
