@@ -20,11 +20,23 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
 
+      - name: Prepare ASC API Key
+        env:
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          # Decode base64 p8 to file
+          printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_orig.p8
+          echo "Original key size: $(wc -c < /tmp/AuthKey_orig.p8) bytes"
+          # Convert PKCS8 EC key to traditional EC format (fixes invalid curve name)
+          openssl pkcs8 -in /tmp/AuthKey_orig.p8 -nocrypt 2>/dev/null | openssl ec -out /tmp/AuthKey_B32QRB7NPU.p8 2>/dev/null || cp /tmp/AuthKey_orig.p8 /tmp/AuthKey_B32QRB7NPU.p8
+          echo "Key ready: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8) bytes"
+          head -1 /tmp/AuthKey_B32QRB7NPU.p8
+
       - name: Creer et stocker les certificats
         env:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          ASC_KEY_FILEPATH: /tmp/AuthKey_B32QRB7NPU.p8
         run: bundle exec fastlane ios init_certs
