@@ -1,8 +1,8 @@
-name: Build Android APK
+name: Build and Deploy Android AAB
 
 on:
   push:
-    branches: [main]
+    branches: [claude/android-twa, main]
   workflow_dispatch:
 
 jobs:
@@ -23,6 +23,10 @@ jobs:
         with:
           gradle-version: '8.6'
 
+      - name: Decode Keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/d5coaching.keystore
+
       - name: Generate launcher icons
         run: |
           for density in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
@@ -35,22 +39,45 @@ jobs:
             esac
             dir="android/app/src/main/res/mipmap-$density"
             mkdir -p "$dir"
-            convert -size ${size}x${size} xc:"#FFC107" \
-              -fill "#1a1a1a" -gravity Center \
-              -font Liberation-Sans-Bold -pointsize $((size * 35 / 100)) \
-              -annotate 0 "d5" \
-              "$dir/ic_launcher.png" 2>/dev/null || \
-            convert -size ${size}x${size} xc:"#FFC107" "$dir/ic_launcher.png"
+            convert -size ${size}x${size} xc:"#FF6A00" -fill "#000000" -gravity Center -font Liberation-Sans-Bold -pointsize $((size * 40 / 100)) -annotate 0 "D5" "$dir/ic_launcher.png" 2>/dev/null || convert -size ${size}x${size} xc:"#FF6A00" "$dir/ic_launcher.png"
             cp "$dir/ic_launcher.png" "$dir/ic_launcher_round.png"
           done
 
-      - name: Build Debug APK
-        working-directory: android
-        run: gradle assembleDebug
+      - name: Create proguard-rules.pro
+        run: |
+          printf '-keep class com.google.androidbrowserhelper.** { *; }\n-dontwarn com.google.androidbrowserhelper.**\n' > android/app/proguard-rules.pro
 
-      - name: Upload APK
+      - name: Build Release AAB
+        working-directory: android
+        env:
+          KEYSTORE_PATH: app/d5coaching.keystore
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle bundleRelease
+
+      - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
-          name: D5Coaching-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: D5Coaching-release-aab
+          path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
+
+      - name: Setup Ruby and Install Fastlane
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/android-twa'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+
+      - name: Install Fastlane gem
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/android-twa'
+        run: gem install fastlane
+
+      - name: Deploy to Google Play Internal Track
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/claude/android-twa'
+        env:
+          GOOGLE_PLAY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_JSON_KEY }}
+        run: |
+          echo "$GOOGLE_PLAY_JSON_KEY" > /tmp/supply_key.json
+          fastlane supply --aab android/app/build/outputs/bundle/release/app-release.aab --package_name com.d5coaching.clients --track internal --json_key /tmp/supply_key.json --skip_upload_apk true --skip_upload_metadata true --skip_upload_screenshots true --skip_upload_images true
