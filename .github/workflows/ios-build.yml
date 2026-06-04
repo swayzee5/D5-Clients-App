@@ -114,7 +114,23 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: bundle exec fastlane ios beta
+        run: |
+          bundle exec fastlane ios build_only
+          echo "IPA built successfully"
+          ls -la ios/App/build/ || true
+
+      - name: Upload to TestFlight via xcrun altool
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcrun altool --upload-app \
+            --type ios \
+            --file "ios/App/build/D5Coaching.ipa" \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            --verbose
+        continue-on-error: false
 
       - name: Upload IPA artifact
         if: always()
