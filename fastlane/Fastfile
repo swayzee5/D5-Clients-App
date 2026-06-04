@@ -1,0 +1,30 @@
+# fastlane/Fastfile — D5 Coaching Android
+# Deploys AAB to Google Play Internal Track
+
+default_platform(:android)
+
+platform :android do
+  desc "Deploy to Google Play Internal Track"
+  lane :deploy do
+    supply(
+      aab: "android/app/build/outputs/bundle/release/app-release.aab",
+      package_name: "com.d5coaching.clients",
+      track: "internal",
+      json_key: "/tmp/supply_key.json",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_screenshots: true,
+      skip_upload_images: true,
+      release_status: "draft"
+    )
+  end
+
+  desc "Build Release AAB only (no deploy)"
+  lane :build do
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: "android/"
+    )
+  end
+end
