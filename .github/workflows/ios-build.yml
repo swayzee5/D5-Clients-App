@@ -1,4 +1,4 @@
-name: Build & Upload iOS — TestFlight
+name: Build & Upload iOS â TestFlight
 
 on:
   workflow_dispatch:
@@ -33,10 +33,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
       - name: Install npm dependencies
-        run: npm ci
+        run: npm install
 
       # ---- Capacitor ----
       - name: Add iOS platform (si absent)
