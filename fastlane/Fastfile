@@ -38,6 +38,15 @@ platform :ios do
       api_key: api_key,
       readonly: true
     )
+    # Force manual signing in the Xcode project
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "ios/App/App.xcodeproj",
+      team_id: "PH4CLA89XR",
+      bundle_identifier: "com.dayekaba.d5coaching",
+      code_sign_identity: "Apple Distribution",
+      profile_name: "match AppStore com.dayekaba.d5coaching"
+    )
   end
 
   lane :beta do
@@ -55,11 +64,13 @@ platform :ios do
       export_method: "app-store",
       output_directory: "ios/App/build",
       output_name: "D5Coaching.ipa",
-      xcargs: "DEVELOPMENT_TEAM=PH4CLA89XR CODE_SIGN_STYLE=Manual",
       export_options: {
         method: "app-store",
         teamID: "PH4CLA89XR",
-        signingStyle: "manual"
+        signingStyle: "manual",
+        provisioningProfiles: {
+          "com.dayekaba.d5coaching" => "match AppStore com.dayekaba.d5coaching"
+        }
       }
     )
     api_key = get_api_key
