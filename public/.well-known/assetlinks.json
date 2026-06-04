@@ -4,7 +4,8 @@
     "namespace": "android_app",
     "package_name": "com.d5coaching.clients",
     "sha256_cert_fingerprints": [
-      "REMPLACER_PAR_SHA256_APRES_UPLOAD_SUR_PLAY_STORE"
+      "REMPLACER_PAR_SHA256_KEYSTORE_LOCAL",
+      "REMPLACER_PAR_SHA256_GOOGLE_PLAY_APP_SIGNING"
     ]
   }
 }]
