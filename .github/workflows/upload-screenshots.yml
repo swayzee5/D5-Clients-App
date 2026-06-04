@@ -23,10 +23,13 @@ jobs:
         run: |
           git clone https://x-access-token:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git /tmp/d5-certs 2>/dev/null || true
           if [ -f /tmp/d5-certs/asc_key_b64.txt ]; then
-            ASC_B64=$(cat /tmp/d5-certs/asc_key_b64.txt)
             mkdir -p ~/.appstoreconnect/private_keys
-            echo "$ASC_B64" | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8
-            echo "ASC_KEY_FILEPATH=$HOME/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8" >> $GITHUB_ENV
+            cat /tmp/d5-certs/asc_key_b64.txt | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8
+            ls -la ~/.appstoreconnect/private_keys/
+            echo "Key file created successfully"
+          else
+            echo "ERROR: asc_key_b64.txt not found in d5-certs"
+            exit 1
           fi
 
       - name: Generate iPad Screenshot and Upload via ASC API
@@ -35,40 +38,72 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           APP_ID: "6776178608"
         run: |
+          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8"
+          echo "Key path: $KEY_PATH"
+          ls -la "$KEY_PATH" && echo "Key file exists" || echo "Key file NOT found"
           python3 - << 'PYEOF'
-          import os, time, json, io, requests
-          import jwt
-          from PIL import Image, ImageDraw, ImageFont
+          import os, time, json, io, subprocess
+          import requests
+
+          # Try PyJWT first, then fallback to manual JWT
+          try:
+              import jwt
+              def make_token(key_id, issuer_id, private_key):
+                  payload = {'iss': issuer_id, 'exp': int(time.time()) + 1200, 'aud': 'appstoreconnect-v1'}
+                  return jwt.encode(payload, private_key, algorithm='ES256', headers={'kid': key_id})
+          except ImportError:
+              print("PyJWT not available")
+              raise
 
           key_id = os.environ['ASC_KEY_ID']
           issuer_id = os.environ['ASC_ISSUER_ID']
-          key_path = os.environ.get('ASC_KEY_FILEPATH', '')
           app_id = os.environ['APP_ID']
+          home = os.path.expanduser('~')
+          key_path = f'{home}/.appstoreconnect/private_keys/AuthKey_{key_id}.p8'
+
+          print(f'Using key at: {key_path}')
+          print(f'Key exists: {os.path.exists(key_path)}')
+
+          if not os.path.exists(key_path):
+              # Try hardcoded path
+              key_path = f'{home}/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8'
+              print(f'Trying fallback: {key_path}, exists: {os.path.exists(key_path)}')
 
           with open(key_path) as f:
               private_key = f.read()
+          print(f'Key loaded, length: {len(private_key)}')
 
-          payload = {'iss': issuer_id, 'exp': int(time.time()) + 1200, 'aud': 'appstoreconnect-v1'}
-          token = jwt.encode(payload, private_key, algorithm='ES256', headers={'kid': key_id})
+          token = make_token(key_id, issuer_id, private_key)
           h = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
 
+          # Get inflight version
           r = requests.get(f'https://api.appstoreconnect.apple.com/v1/apps/{app_id}/appStoreVersions?filter[platform]=IOS&filter[appStoreState]=PREPARE_FOR_SUBMISSION', headers=h)
           d = r.json()
-          print('Versions response:', json.dumps(d)[:600])
+          print('Versions:', json.dumps(d)[:500])
+          if not d.get('data'):
+              print('No PREPARE_FOR_SUBMISSION version found, trying READY_FOR_REVIEW')
+              r = requests.get(f'https://api.appstoreconnect.apple.com/v1/apps/{app_id}/appStoreVersions?filter[platform]=IOS', headers=h)
+              d = r.json()
+              print('All versions:', json.dumps(d)[:800])
           version_id = d['data'][0]['id']
+          print(f'Version ID: {version_id}')
 
+          # Get localizations
           r2 = requests.get(f'https://api.appstoreconnect.apple.com/v1/appStoreVersionLocalizations?filter[appStoreVersion]={version_id}', headers=h)
           d2 = r2.json()
-          print('Localizations:', json.dumps(d2)[:600])
+          print('Locs:', json.dumps(d2)[:500])
           loc_id = d2['data'][0]['id']
 
+          # Get screenshot sets
           r3 = requests.get(f'https://api.appstoreconnect.apple.com/v1/appScreenshotSets?filter[appStoreVersionLocalization]={loc_id}', headers=h)
           d3 = r3.json()
-          print('Screenshot sets:', json.dumps(d3)[:800])
+          print('Sets:', json.dumps(d3)[:600])
 
           set_id = None
           for s in d3.get('data', []):
-              if s['attributes']['screenshotDisplayType'] == 'APP_IPAD_PRO_3GEN_129':
+              dtype = s['attributes']['screenshotDisplayType']
+              print(f'Found set: {dtype}')
+              if dtype == 'APP_IPAD_PRO_3GEN_129':
                   set_id = s['id']
                   break
 
@@ -77,21 +112,18 @@ jobs:
               rb = {'data': {'type': 'appScreenshotSets', 'attributes': {'screenshotDisplayType': 'APP_IPAD_PRO_3GEN_129'}, 'relationships': {'appStoreVersionLocalization': {'data': {'type': 'appStoreVersionLocalizations', 'id': loc_id}}}}}
               rc = requests.post('https://api.appstoreconnect.apple.com/v1/appScreenshotSets', headers=h, json=rb)
               dc = rc.json()
-              print('Created set:', json.dumps(dc)[:600])
+              print('Created:', json.dumps(dc)[:500])
               set_id = dc['data']['id']
+          print(f'Set ID: {set_id}')
 
-          print(f'Using set ID: {set_id}')
-
+          from PIL import Image, ImageDraw, ImageFont
           w, ht = 2064, 2752
           img = Image.new('RGB', (w, ht), (10, 10, 20))
           draw = ImageDraw.Draw(img)
-
           for y in range(ht):
               v = int(10 + (y/ht)*8)
               draw.line([(0,y),(w,y)], fill=(v, v, v+15))
-
           draw.rounded_rectangle([832,220,1232,620], radius=80, fill=(245,166,35))
-
           try:
               f160 = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 160)
               f55 = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 55)
@@ -101,41 +133,35 @@ jobs:
               f42 = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 42)
               f38 = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 38)
           except Exception as e:
-              print(f'Font error: {e}')
+              print(f'Font load error: {e}, using default')
               f160=f55=f90=f65=f50=f42=f38 = ImageFont.load_default()
-
-          draw.text((1032, 420), 'd5', fill=(0,0,0), font=f160, anchor='mm')
-          draw.text((1032, 570), 'coaching', fill=(0,0,0), font=f55, anchor='mm')
-          draw.text((1032, 750), 'D5 Coaching', fill=(255,255,255), font=f90, anchor='mm')
-          draw.text((1032, 840), 'Ton espace personnel de coaching', fill=(160,160,160), font=f55, anchor='mm')
-
-          draw.rounded_rectangle([200,920,1864,1040], radius=20, fill=(30,30,46))
-          draw.text((260,980), 'ton@email.com', fill=(100,100,100), font=f55, anchor='lm')
-          draw.rounded_rectangle([200,1090,1864,1210], radius=20, fill=(30,30,46))
-          draw.text((260,1150), chr(8226)*8, fill=(100,100,100), font=f55, anchor='lm')
-          draw.rounded_rectangle([200,1270,1864,1400], radius=25, fill=(245,166,35))
-          draw.text((1032,1335), 'Se connecter', fill=(0,0,0), font=f90, anchor='mm')
-
-          draw.text((200,1480), 'Mes exercices du jour', fill=(255,255,255), font=f65, anchor='la')
-
-          for title, cx, cy in [('1 - Abdos twists',80,1540),('2 - Bicep Curl',1084,1540),('3 - Zottman Curl',80,2100),('4 - Curl poulie',1084,2100)]:
-              draw.rounded_rectangle([cx,cy,cx+900,cy+480], radius=30, fill=(26,26,46))
-              draw.rectangle([cx,cy,cx+900,cy+260], fill=(50,50,70))
-              draw.rounded_rectangle([cx+20,cy+15,cx+220,cy+75], radius=30, fill=(245,166,35))
-              draw.text((cx+120,cy+45), '4 series', fill=(0,0,0), font=f38, anchor='mm')
-              draw.text((cx+20,cy+330), title, fill=(255,255,255), font=f50, anchor='la')
-              draw.text((cx+20,cy+395), 'Reps: 12  |  Recup. 1min', fill=(150,150,150), font=f42, anchor='la')
-
-          draw.rectangle([0,2652,2064,2752], fill=(17,17,24))
+          draw.text((1032,420),'d5',fill=(0,0,0),font=f160,anchor='mm')
+          draw.text((1032,570),'coaching',fill=(0,0,0),font=f55,anchor='mm')
+          draw.text((1032,750),'D5 Coaching',fill=(255,255,255),font=f90,anchor='mm')
+          draw.text((1032,840),'Ton espace personnel de coaching',fill=(160,160,160),font=f55,anchor='mm')
+          draw.rounded_rectangle([200,920,1864,1040],radius=20,fill=(30,30,46))
+          draw.text((260,980),'ton@email.com',fill=(100,100,100),font=f55,anchor='lm')
+          draw.rounded_rectangle([200,1090,1864,1210],radius=20,fill=(30,30,46))
+          draw.text((260,1150),chr(8226)*8,fill=(100,100,100),font=f55,anchor='lm')
+          draw.rounded_rectangle([200,1270,1864,1400],radius=25,fill=(245,166,35))
+          draw.text((1032,1335),'Se connecter',fill=(0,0,0),font=f90,anchor='mm')
+          draw.text((200,1480),'Mes exercices du jour',fill=(255,255,255),font=f65,anchor='la')
+          for title,cx,cy in [('1 - Abdos twists',80,1540),('2 - Bicep Curl',1084,1540),('3 - Zottman Curl',80,2100),('4 - Curl poulie',1084,2100)]:
+              draw.rounded_rectangle([cx,cy,cx+900,cy+480],radius=30,fill=(26,26,46))
+              draw.rectangle([cx,cy,cx+900,cy+260],fill=(50,50,70))
+              draw.rounded_rectangle([cx+20,cy+15,cx+220,cy+75],radius=30,fill=(245,166,35))
+              draw.text((cx+120,cy+45),'4 series',fill=(0,0,0),font=f38,anchor='mm')
+              draw.text((cx+20,cy+330),title,fill=(255,255,255),font=f50,anchor='la')
+              draw.text((cx+20,cy+395),'Reps: 12  |  Recup. 1min',fill=(150,150,150),font=f42,anchor='la')
+          draw.rectangle([0,2652,2064,2752],fill=(17,17,24))
           nw = 2064//5
-          for i, item in enumerate(['Accueil','Progres',None,'Messagerie','Profil']):
+          for i,item in enumerate(['Accueil','Progres',None,'Messagerie','Profil']):
               nx = nw*i + nw//2
               if item is None:
-                  draw.ellipse([nx-65,2625,nx+65,2755], fill=(245,166,35))
-                  draw.text((nx,2690), '+', fill=(0,0,0), font=f90, anchor='mm')
+                  draw.ellipse([nx-65,2625,nx+65,2755],fill=(245,166,35))
+                  draw.text((nx,2690),'+',fill=(0,0,0),font=f90,anchor='mm')
               else:
-                  draw.text((nx,2710), item, fill=(255,255,255), font=f42, anchor='mm')
-
+                  draw.text((nx,2710),item,fill=(255,255,255),font=f42,anchor='mm')
           buf = io.BytesIO()
           img.save(buf, format='PNG')
           img_data = buf.getvalue()
@@ -144,11 +170,9 @@ jobs:
           rb2 = {'data': {'type': 'appScreenshots', 'attributes': {'fileName': 'ipad_13inch.png', 'fileSize': len(img_data)}, 'relationships': {'appScreenshotSet': {'data': {'type': 'appScreenshotSets', 'id': set_id}}}}}
           rr = requests.post('https://api.appstoreconnect.apple.com/v1/appScreenshots', headers=h, json=rb2)
           dr = rr.json()
-          print('Reserve:', json.dumps(dr)[:800])
-
+          print('Reserve:', json.dumps(dr)[:600])
           sc_id = dr['data']['id']
           ops = dr['data']['attributes']['uploadOperations']
-
           for op in ops:
               offset, length = op['offset'], op['length']
               req_h = {x['name']: x['value'] for x in op['requestHeaders']}
@@ -158,10 +182,8 @@ jobs:
               else:
                   ur = requests.post(op['url'], headers=req_h, data=chunk)
               print(f'Upload offset={offset} status={ur.status_code}')
-
           cb = {'data': {'type': 'appScreenshots', 'id': sc_id, 'attributes': {'uploaded': True}}}
           cr = requests.patch(f'https://api.appstoreconnect.apple.com/v1/appScreenshots/{sc_id}', headers=h, json=cb)
-          print('Commit status:', cr.status_code)
-          print('Commit response:', cr.text[:500])
+          print('Commit:', cr.status_code, cr.text[:300])
           print('SUCCESS - iPad screenshot uploaded!')
           PYEOF
