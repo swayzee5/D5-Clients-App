@@ -1,6 +1,5 @@
 name: iOS — Init Certificats (une seule fois)
 
-# Declencher manuellement une seule fois pour creer les certificats
 on:
   workflow_dispatch:
 
@@ -20,16 +19,26 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
 
-      - name: Prepare ASC API Key
+      - name: Get ASC Key from d5-certs
         env:
+          GH_PAT: ${{ secrets.GH_PAT }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
         run: |
-          # Decode base64 p8 to file
-          printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_orig.p8
-          echo "Original key size: $(wc -c < /tmp/AuthKey_orig.p8) bytes"
-          # Convert PKCS8 EC key to traditional EC format (fixes invalid curve name)
+          # Try d5-certs first
+          git clone https://${GH_PAT}@github.com/swayzee5/d5-certs.git /tmp/d5-certs 2>&1 | tail -1
+          if [ -f /tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64 ]; then
+            echo "Using key from d5-certs"
+            cat /tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64 | tr -d '\n' | base64 -d > /tmp/AuthKey_orig.p8
+          elif [ -n "$ASC_KEY_CONTENT" ]; then
+            echo "Using ASC_KEY_CONTENT secret"
+            printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_orig.p8
+          else
+            echo "ERROR: No key available. Run bootstrap-key.yml first!"
+            exit 1
+          fi
+          echo "Key size: $(wc -c < /tmp/AuthKey_orig.p8) bytes"
+          # Convert to EC format to fix invalid curve name
           openssl pkcs8 -in /tmp/AuthKey_orig.p8 -nocrypt 2>/dev/null | openssl ec -out /tmp/AuthKey_B32QRB7NPU.p8 2>/dev/null || cp /tmp/AuthKey_orig.p8 /tmp/AuthKey_B32QRB7NPU.p8
-          echo "Key ready: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8) bytes"
           head -1 /tmp/AuthKey_B32QRB7NPU.p8
 
       - name: Creer et stocker les certificats
