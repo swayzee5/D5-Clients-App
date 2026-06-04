@@ -45,6 +45,22 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync ios
 
+      - name: Configure Xcode signing
+        run: |
+          PBXPROJ="ios/App/App.xcodeproj/project.pbxproj"
+          if [ -f "$PBXPROJ" ]; then
+            # Set Team ID
+            sed -i "" "s/DEVELOPMENT_TEAM = \"\";/DEVELOPMENT_TEAM = PH4CLA89XR;/g" "$PBXPROJ"
+            sed -i "" "s/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = PH4CLA89XR;/g" "$PBXPROJ"
+            # Add Team ID if not present
+            if ! grep -q "DEVELOPMENT_TEAM = PH4CLA89XR" "$PBXPROJ"; then
+              sed -i "" "/CODE_SIGN_STYLE = Automatic/a\\
+\t\t\t\tDEVELOPMENT_TEAM = PH4CLA89XR;" "$PBXPROJ"
+            fi
+            echo "Team ID configured:"
+            grep -n "DEVELOPMENT_TEAM" "$PBXPROJ" | head -5
+          fi
+
       - name: Setup Ruby 3.2
         uses: ruby/setup-ruby@v1
         with:
