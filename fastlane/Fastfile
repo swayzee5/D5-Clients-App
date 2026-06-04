@@ -38,7 +38,6 @@ platform :ios do
       api_key: api_key,
       readonly: true
     )
-    # Force manual signing in the Xcode project
     update_code_signing_settings(
       use_automatic_signing: false,
       path: "ios/App/App.xcodeproj",
@@ -73,13 +72,11 @@ platform :ios do
         }
       }
     )
-    api_key = get_api_key
-    upload_to_testflight(
-      api_key: api_key,
-      app_identifier: "com.dayekaba.d5coaching",
-      ipa: "ios/App/build/D5Coaching.ipa",
-      skip_waiting_for_build_processing: true
-    )
+    # Upload via xcrun altool directly with API key
+    key_path = ENV["ASC_KEY_FILEPATH"]
+    key_id = ENV["ASC_KEY_ID"]
+    issuer_id = ENV["ASC_ISSUER_ID"]
+    sh("xcrun altool --upload-app --type ios --file ios/App/build/D5Coaching.ipa --apiKey #{key_id} --apiIssuer #{issuer_id} --asc-provider PH4CLA89XR")
     UI.success "Upload TestFlight reussi!"
   end
 
