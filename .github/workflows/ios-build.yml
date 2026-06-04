@@ -89,6 +89,10 @@ jobs:
           echo "Key ready: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8) bytes"
           head -1 /tmp/AuthKey_B32QRB7NPU.p8
           echo "ASC_KEY_FILEPATH=/tmp/AuthKey_B32QRB7NPU.p8" >> $GITHUB_ENV
+          # Also copy to altool private_keys directory
+          mkdir -p ~/.appstoreconnect/private_keys
+          cp /tmp/AuthKey_B32QRB7NPU.p8 ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8
+          echo "Key also copied to altool dir"
 
       - name: Cache CocoaPods
         uses: actions/cache@v4
