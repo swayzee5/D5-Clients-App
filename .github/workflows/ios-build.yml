@@ -51,6 +51,16 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
 
+      - name: Prepare ASC API Key
+        env:
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_orig.p8
+          echo "Original key size: $(wc -c < /tmp/AuthKey_orig.p8) bytes"
+          openssl pkcs8 -in /tmp/AuthKey_orig.p8 -nocrypt 2>/dev/null | openssl ec -out /tmp/AuthKey_B32QRB7NPU.p8 2>/dev/null || cp /tmp/AuthKey_orig.p8 /tmp/AuthKey_B32QRB7NPU.p8
+          echo "Key ready: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8) bytes"
+          head -1 /tmp/AuthKey_B32QRB7NPU.p8
+
       - name: Cache CocoaPods
         uses: actions/cache@v4
         with:
@@ -68,7 +78,7 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          ASC_KEY_FILEPATH: /tmp/AuthKey_B32QRB7NPU.p8
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           GH_PAT: ${{ secrets.GH_PAT }}
         run: bundle exec fastlane ios beta
