@@ -22,13 +22,17 @@ jobs:
       - name: Bootstrap ASC Key
         run: |
           git clone https://x-access-token:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git /tmp/d5-certs 2>/dev/null || true
-          if [ -f /tmp/d5-certs/asc_key_b64.txt ]; then
+          echo "Files in d5-certs:"
+          ls -la /tmp/d5-certs/ || echo "Repo not cloned"
+          KEY_FILE="/tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64"
+          if [ -f "$KEY_FILE" ]; then
             mkdir -p ~/.appstoreconnect/private_keys
-            cat /tmp/d5-certs/asc_key_b64.txt | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8
+            cat "$KEY_FILE" | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8
             ls -la ~/.appstoreconnect/private_keys/
             echo "Key file created successfully"
           else
-            echo "ERROR: asc_key_b64.txt not found in d5-certs"
+            echo "ERROR: AuthKey_B32QRB7NPU.p8.b64 not found in d5-certs"
+            ls -la /tmp/d5-certs/ || true
             exit 1
           fi
 
@@ -38,22 +42,11 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           APP_ID: "6776178608"
         run: |
-          KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8"
-          echo "Key path: $KEY_PATH"
-          ls -la "$KEY_PATH" && echo "Key file exists" || echo "Key file NOT found"
           python3 - << 'PYEOF'
-          import os, time, json, io, subprocess
+          import os, time, json, io
           import requests
-
-          # Try PyJWT first, then fallback to manual JWT
-          try:
-              import jwt
-              def make_token(key_id, issuer_id, private_key):
-                  payload = {'iss': issuer_id, 'exp': int(time.time()) + 1200, 'aud': 'appstoreconnect-v1'}
-                  return jwt.encode(payload, private_key, algorithm='ES256', headers={'kid': key_id})
-          except ImportError:
-              print("PyJWT not available")
-              raise
+          import jwt
+          from PIL import Image, ImageDraw, ImageFont
 
           key_id = os.environ['ASC_KEY_ID']
           issuer_id = os.environ['ASC_ISSUER_ID']
@@ -61,40 +54,32 @@ jobs:
           home = os.path.expanduser('~')
           key_path = f'{home}/.appstoreconnect/private_keys/AuthKey_{key_id}.p8'
 
-          print(f'Using key at: {key_path}')
-          print(f'Key exists: {os.path.exists(key_path)}')
-
-          if not os.path.exists(key_path):
-              # Try hardcoded path
-              key_path = f'{home}/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8'
-              print(f'Trying fallback: {key_path}, exists: {os.path.exists(key_path)}')
+          print(f'Key path: {key_path}')
+          print(f'Exists: {os.path.exists(key_path)}')
 
           with open(key_path) as f:
               private_key = f.read()
-          print(f'Key loaded, length: {len(private_key)}')
+          print(f'Key length: {len(private_key)}')
 
-          token = make_token(key_id, issuer_id, private_key)
+          payload = {'iss': issuer_id, 'exp': int(time.time()) + 1200, 'aud': 'appstoreconnect-v1'}
+          token = jwt.encode(payload, private_key, algorithm='ES256', headers={'kid': key_id})
           h = {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}
 
-          # Get inflight version
           r = requests.get(f'https://api.appstoreconnect.apple.com/v1/apps/{app_id}/appStoreVersions?filter[platform]=IOS&filter[appStoreState]=PREPARE_FOR_SUBMISSION', headers=h)
           d = r.json()
           print('Versions:', json.dumps(d)[:500])
           if not d.get('data'):
-              print('No PREPARE_FOR_SUBMISSION version found, trying READY_FOR_REVIEW')
               r = requests.get(f'https://api.appstoreconnect.apple.com/v1/apps/{app_id}/appStoreVersions?filter[platform]=IOS', headers=h)
               d = r.json()
               print('All versions:', json.dumps(d)[:800])
           version_id = d['data'][0]['id']
           print(f'Version ID: {version_id}')
 
-          # Get localizations
           r2 = requests.get(f'https://api.appstoreconnect.apple.com/v1/appStoreVersionLocalizations?filter[appStoreVersion]={version_id}', headers=h)
           d2 = r2.json()
-          print('Locs:', json.dumps(d2)[:500])
           loc_id = d2['data'][0]['id']
+          print(f'Loc ID: {loc_id}')
 
-          # Get screenshot sets
           r3 = requests.get(f'https://api.appstoreconnect.apple.com/v1/appScreenshotSets?filter[appStoreVersionLocalization]={loc_id}', headers=h)
           d3 = r3.json()
           print('Sets:', json.dumps(d3)[:600])
@@ -102,7 +87,7 @@ jobs:
           set_id = None
           for s in d3.get('data', []):
               dtype = s['attributes']['screenshotDisplayType']
-              print(f'Found set: {dtype}')
+              print(f'  Found set: {dtype}')
               if dtype == 'APP_IPAD_PRO_3GEN_129':
                   set_id = s['id']
                   break
@@ -112,17 +97,16 @@ jobs:
               rb = {'data': {'type': 'appScreenshotSets', 'attributes': {'screenshotDisplayType': 'APP_IPAD_PRO_3GEN_129'}, 'relationships': {'appStoreVersionLocalization': {'data': {'type': 'appStoreVersionLocalizations', 'id': loc_id}}}}}
               rc = requests.post('https://api.appstoreconnect.apple.com/v1/appScreenshotSets', headers=h, json=rb)
               dc = rc.json()
-              print('Created:', json.dumps(dc)[:500])
+              print('Created set:', json.dumps(dc)[:400])
               set_id = dc['data']['id']
           print(f'Set ID: {set_id}')
 
-          from PIL import Image, ImageDraw, ImageFont
           w, ht = 2064, 2752
           img = Image.new('RGB', (w, ht), (10, 10, 20))
           draw = ImageDraw.Draw(img)
-          for y in range(ht):
+          for y in range(0, ht, 4):
               v = int(10 + (y/ht)*8)
-              draw.line([(0,y),(w,y)], fill=(v, v, v+15))
+              draw.rectangle([(0,y),(w,y+4)], fill=(v, v, v+15))
           draw.rounded_rectangle([832,220,1232,620], radius=80, fill=(245,166,35))
           try:
               f160 = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 160)
@@ -133,7 +117,7 @@ jobs:
               f42 = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 42)
               f38 = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 38)
           except Exception as e:
-              print(f'Font load error: {e}, using default')
+              print(f'Font: {e}')
               f160=f55=f90=f65=f50=f42=f38 = ImageFont.load_default()
           draw.text((1032,420),'d5',fill=(0,0,0),font=f160,anchor='mm')
           draw.text((1032,570),'coaching',fill=(0,0,0),font=f55,anchor='mm')
@@ -154,36 +138,36 @@ jobs:
               draw.text((cx+20,cy+330),title,fill=(255,255,255),font=f50,anchor='la')
               draw.text((cx+20,cy+395),'Reps: 12  |  Recup. 1min',fill=(150,150,150),font=f42,anchor='la')
           draw.rectangle([0,2652,2064,2752],fill=(17,17,24))
-          nw = 2064//5
+          nw=2064//5
           for i,item in enumerate(['Accueil','Progres',None,'Messagerie','Profil']):
-              nx = nw*i + nw//2
+              nx=nw*i+nw//2
               if item is None:
                   draw.ellipse([nx-65,2625,nx+65,2755],fill=(245,166,35))
                   draw.text((nx,2690),'+',fill=(0,0,0),font=f90,anchor='mm')
               else:
                   draw.text((nx,2710),item,fill=(255,255,255),font=f42,anchor='mm')
-          buf = io.BytesIO()
-          img.save(buf, format='PNG')
-          img_data = buf.getvalue()
+          buf=io.BytesIO()
+          img.save(buf,format='PNG')
+          img_data=buf.getvalue()
           print(f'Image: {len(img_data)} bytes')
 
-          rb2 = {'data': {'type': 'appScreenshots', 'attributes': {'fileName': 'ipad_13inch.png', 'fileSize': len(img_data)}, 'relationships': {'appScreenshotSet': {'data': {'type': 'appScreenshotSets', 'id': set_id}}}}}
-          rr = requests.post('https://api.appstoreconnect.apple.com/v1/appScreenshots', headers=h, json=rb2)
-          dr = rr.json()
-          print('Reserve:', json.dumps(dr)[:600])
-          sc_id = dr['data']['id']
-          ops = dr['data']['attributes']['uploadOperations']
+          rb2={'data':{'type':'appScreenshots','attributes':{'fileName':'ipad_13inch.png','fileSize':len(img_data)},'relationships':{'appScreenshotSet':{'data':{'type':'appScreenshotSets','id':set_id}}}}}
+          rr=requests.post('https://api.appstoreconnect.apple.com/v1/appScreenshots',headers=h,json=rb2)
+          dr=rr.json()
+          print('Reserve:',json.dumps(dr)[:600])
+          sc_id=dr['data']['id']
+          ops=dr['data']['attributes']['uploadOperations']
           for op in ops:
-              offset, length = op['offset'], op['length']
-              req_h = {x['name']: x['value'] for x in op['requestHeaders']}
-              chunk = img_data[offset:offset+length]
-              if op['method'] == 'PUT':
-                  ur = requests.put(op['url'], headers=req_h, data=chunk)
+              offset,length=op['offset'],op['length']
+              req_h={x['name']:x['value'] for x in op['requestHeaders']}
+              chunk=img_data[offset:offset+length]
+              if op['method']=='PUT':
+                  ur=requests.put(op['url'],headers=req_h,data=chunk)
               else:
-                  ur = requests.post(op['url'], headers=req_h, data=chunk)
+                  ur=requests.post(op['url'],headers=req_h,data=chunk)
               print(f'Upload offset={offset} status={ur.status_code}')
-          cb = {'data': {'type': 'appScreenshots', 'id': sc_id, 'attributes': {'uploaded': True}}}
-          cr = requests.patch(f'https://api.appstoreconnect.apple.com/v1/appScreenshots/{sc_id}', headers=h, json=cb)
-          print('Commit:', cr.status_code, cr.text[:300])
+          cb={'data':{'type':'appScreenshots','id':sc_id,'attributes':{'uploaded':True}}}
+          cr=requests.patch(f'https://api.appstoreconnect.apple.com/v1/appScreenshots/{sc_id}',headers=h,json=cb)
+          print('Commit:',cr.status_code,cr.text[:300])
           print('SUCCESS - iPad screenshot uploaded!')
           PYEOF
