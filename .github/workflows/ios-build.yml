@@ -51,12 +51,33 @@ jobs:
           ruby-version: '3.2'
           bundler-cache: true
 
-      - name: Prepare ASC API Key
+      - name: Prepare ASC API Key from d5-certs
         env:
+          GH_PAT: ${{ secrets.GH_PAT }}
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
         run: |
-          printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_orig.p8
-          echo "Original key size: $(wc -c < /tmp/AuthKey_orig.p8) bytes"
+          KEY_LOADED=false
+          # Try d5-certs first
+          git clone https://${GH_PAT}@github.com/swayzee5/d5-certs.git /tmp/d5-certs 2>/dev/null || true
+          if [ -f "/tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64" ]; then
+            KEY_B64=$(cat /tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64)
+            if [ -n "$KEY_B64" ]; then
+              printf '%s' "$KEY_B64" | base64 -d > /tmp/AuthKey_orig.p8
+              echo "Key loaded from d5-certs: $(wc -c < /tmp/AuthKey_orig.p8) bytes"
+              KEY_LOADED=true
+            fi
+          fi
+          # Fallback to secret
+          if [ "$KEY_LOADED" = "false" ] && [ -n "$ASC_KEY_CONTENT" ]; then
+            printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_orig.p8
+            echo "Key loaded from secret: $(wc -c < /tmp/AuthKey_orig.p8) bytes"
+            KEY_LOADED=true
+          fi
+          if [ "$KEY_LOADED" = "false" ]; then
+            echo "ERROR: No ASC key available!"
+            exit 1
+          fi
+          # Convert EC format if needed
           openssl pkcs8 -in /tmp/AuthKey_orig.p8 -nocrypt 2>/dev/null | openssl ec -out /tmp/AuthKey_B32QRB7NPU.p8 2>/dev/null || cp /tmp/AuthKey_orig.p8 /tmp/AuthKey_B32QRB7NPU.p8
           echo "Key ready: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8) bytes"
           head -1 /tmp/AuthKey_B32QRB7NPU.p8
@@ -66,27 +87,29 @@ jobs:
         with:
           path: ios/App/Pods
           key: ${{ runner.os }}-pods-${{ hashFiles('ios/App/Podfile.lock') }}
-          restore-keys: ${{ runner.os }}-pods-
+          restore-keys: |
+            ${{ runner.os }}-pods-
 
       - name: Install CocoaPods dependencies
-        working-directory: ios/App
-        run: pod install
+        run: |
+          cd ios/App
+          pod install --repo-update
 
       - name: Build Release and Upload to TestFlight
         env:
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_FILEPATH: /tmp/AuthKey_B32QRB7NPU.p8
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-          GH_PAT: ${{ secrets.GH_PAT }}
         run: bundle exec fastlane ios beta
 
       - name: Upload IPA artifact
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: D5Coaching-${{ github.run_number }}.ipa
-          path: ios/App/build/**/*.ipa
-          retention-days: 30
+          name: D5Coaching-IPA
+          path: |
+            ios/build/*.ipa
+            ios/App/build/**/*.ipa
+          if-no-files-found: ignore
