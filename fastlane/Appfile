@@ -1,0 +1,3 @@
+# Fastlane Appfile for D5 Coaching Android
+json_key_file("/tmp/supply_key.json")
+package_name("com.d5coaching.clients")
