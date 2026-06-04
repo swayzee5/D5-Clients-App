@@ -2,17 +2,15 @@ default_platform(:ios)
 
 platform :ios do
 
-  # --- Helpers ---
-
   def get_api_key
-    # Use key file path if provided (more reliable than base64 content)
-    if ENV["ASC_KEY_FILEPATH"] && File.exist?(ENV["ASC_KEY_FILEPATH"])
+    key_path = ENV["ASC_KEY_FILEPATH"]
+    if key_path && File.exist?(key_path)
       app_store_connect_api_key(
-        key_id:    ENV["ASC_KEY_ID"],
-        issuer_id: ENV["ASC_ISSUER_ID"],
-        key_filepath: ENV["ASC_KEY_FILEPATH"],
-        duration:  1200,
-        in_house:  false
+        key_id:       ENV["ASC_KEY_ID"],
+        issuer_id:    ENV["ASC_ISSUER_ID"],
+        key_filepath: key_path,
+        duration:     1200,
+        in_house:     false
       )
     else
       app_store_connect_api_key(
@@ -26,23 +24,18 @@ platform :ios do
     end
   end
 
-  # --- Lanes ---
-
-  desc "Creer et stocker les certificats dans d5-certs (UNE SEULE FOIS)"
   lane :init_certs do
     setup_ci if ENV["CI"]
     api_key = get_api_key
     match(
-      type:                  "appstore",
-      app_identifier:        "com.dayekaba.d5coaching",
-      api_key:               api_key,
-      readonly:              false,
-      force_for_new_devices: false
+      type:           "appstore",
+      app_identifier: "com.dayekaba.d5coaching",
+      api_key:        api_key,
+      readonly:       false
     )
-    UI.success "Certificats crees et stockes dans d5-certs."
+    UI.success "Certificats crees!"
   end
 
-  desc "Recuperer les certificats depuis d5-certs (CI)"
   lane :certificates do
     setup_ci if ENV["CI"]
     api_key = get_api_key
@@ -54,14 +47,13 @@ platform :ios do
     )
   end
 
-  desc "Build et upload vers TestFlight"
   lane :beta do
     setup_ci if ENV["CI"]
     certificates
     build_number = ENV["GITHUB_RUN_NUMBER"] || "1"
     increment_build_number(
       build_number: build_number,
-      xcodeproj: "ios/App/App.xcodeproj"
+      xcodeproj:    "ios/App/App.xcodeproj"
     )
     build_app(
       workspace:        "ios/App/App.xcworkspace",
@@ -73,12 +65,12 @@ platform :ios do
     )
     api_key = get_api_key
     upload_to_testflight(
-      api_key:         api_key,
-      app_identifier:  "com.dayekaba.d5coaching",
-      ipa:             "ios/App/build/D5Coaching.ipa",
+      api_key:        api_key,
+      app_identifier: "com.dayekaba.d5coaching",
+      ipa:            "ios/App/build/D5Coaching.ipa",
       skip_waiting_for_build_processing: true
     )
-    UI.success "Build uploade sur TestFlight!"
+    UI.success "Upload TestFlight reussi!"
   end
 
 end
