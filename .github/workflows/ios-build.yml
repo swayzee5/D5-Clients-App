@@ -54,6 +54,14 @@ jobs:
       - name: Install Fastlane
         run: gem install fastlane
 
+      - name: Decode and write .p8 key file
+        env:
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_B32QRB7NPU.p8
+          echo "Key written: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8) bytes"
+          head -1 /tmp/AuthKey_B32QRB7NPU.p8
+
       - name: Cache CocoaPods
         uses: actions/cache@v4
         with:
@@ -71,7 +79,7 @@ jobs:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          ASC_KEY_FILEPATH: /tmp/AuthKey_B32QRB7NPU.p8
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           GH_PAT: ${{ secrets.GH_PAT }}
         run: fastlane ios beta
