@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#FFC107</color>
-    <color name="backgroundColor">#FFC107</color>
+    <!-- D5 Coaching brand orange -->
+    <color name="colorPrimary">#FF6A00</color>
+    <color name="backgroundColor">#FF6A00</color>
+    <color name="colorOnPrimary">#000000</color>
 </resources>
