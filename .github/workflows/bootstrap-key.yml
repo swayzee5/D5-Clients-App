@@ -1,0 +1,30 @@
+name: Bootstrap ASC Key (one-time setup)
+
+on:
+  workflow_dispatch:
+    inputs:
+      asc_key_b64:
+        description: "Base64 content of AuthKey_B32QRB7NPU.p8 (run: base64 -i ~/Downloads/AuthKey_B32QRB7NPU.p8 | tr -d '\\n')"
+        required: true
+
+jobs:
+  store-key:
+    name: Store ASC key in d5-certs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Store key in d5-certs
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          ASC_KEY_B64: ${{ inputs.asc_key_b64 }}
+        run: |
+          git clone https://${GH_PAT}@github.com/swayzee5/d5-certs.git /tmp/d5-certs
+          echo "$ASC_KEY_B64" > /tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64
+          cd /tmp/d5-certs
+          git config user.email "ci@d5coaching.com"
+          git config user.name "D5 CI"
+          git add AuthKey_B32QRB7NPU.p8.b64
+          git commit -m "Store ASC key for CI" || echo "No changes"
+          git push origin main
+          echo "Key stored in d5-certs successfully"
+          # Verify
+          wc -c AuthKey_B32QRB7NPU.p8.b64
