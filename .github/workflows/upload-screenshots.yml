@@ -26,7 +26,7 @@ jobs:
           if [ -f "$KEY_FILE" ]; then
             mkdir -p ~/.appstoreconnect/private_keys
             cat "$KEY_FILE" | base64 -d > ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8
-            echo "Key file created OK"
+            echo "Key OK"
           else
             echo "ERROR: Key file not found"; ls /tmp/d5-certs/; exit 1
           fi
@@ -40,69 +40,54 @@ jobs:
           python3 - << 'PYEOF'
           import os, time, json, io, sys
           import requests, jwt
-          from PIL import Image
+          from PIL import Image, ImageDraw, ImageFont
 
           def die(msg):
-              print("FATAL:", msg, file=sys.stderr)
-              sys.exit(1)
+              print("FATAL:", msg); sys.exit(1)
 
           key_id    = os.environ['ASC_KEY_ID']
           issuer_id = os.environ['ASC_ISSUER_ID']
           app_id    = os.environ['APP_ID']
           home      = os.path.expanduser('~')
           key_path  = f'{home}/.appstoreconnect/private_keys/AuthKey_{key_id}.p8'
-          print(f'Key: {key_path}, exists={os.path.exists(key_path)}')
+          print(f'Key exists: {os.path.exists(key_path)}')
 
           with open(key_path) as f:
               private_key = f.read()
 
-          def make_token():
+          def token():
               p = {'iss': issuer_id, 'exp': int(time.time()) + 1200, 'aud': 'appstoreconnect-v1'}
               return jwt.encode(p, private_key, algorithm='ES256', headers={'kid': key_id})
 
-          def api_get(url):
-              h = {'Authorization': f'Bearer {make_token()}', 'Content-Type': 'application/json'}
-              r = requests.get(url, headers=h)
-              d = r.json()
-              print(f'GET {url[-60:]} -> {r.status_code}')
-              if 'errors' in d:
-                  die(f'API error: {json.dumps(d["errors"][:1])}')
-              return d
-
-          def api_post(url, body):
-              h = {'Authorization': f'Bearer {make_token()}', 'Content-Type': 'application/json'}
-              r = requests.post(url, headers=h, json=body)
-              d = r.json()
-              print(f'POST {url[-60:]} -> {r.status_code}')
-              if 'errors' in d:
-                  die(f'API error: {json.dumps(d["errors"][:1])}')
-              return d
-
-          def api_patch(url, body):
-              h = {'Authorization': f'Bearer {make_token()}', 'Content-Type': 'application/json'}
-              r = requests.patch(url, headers=h, json=body)
-              print(f'PATCH {url[-60:]} -> {r.status_code}')
-              return r
+          def hdr():
+              return {'Authorization': f'Bearer {token()}', 'Content-Type': 'application/json'}
 
           BASE = 'https://api.appstoreconnect.apple.com/v1'
 
           # 1. Get inflight version
-          d = api_get(f'{BASE}/apps/{app_id}/appStoreVersions?filter[platform]=IOS&filter[appStoreState]=PREPARE_FOR_SUBMISSION')
+          r = requests.get(f'{BASE}/apps/{app_id}/appStoreVersions?filter[platform]=IOS&filter[appStoreState]=PREPARE_FOR_SUBMISSION', headers=hdr())
+          d = r.json()
+          print(f'Versions -> {r.status_code}')
           if not d.get('data'):
-              d = api_get(f'{BASE}/apps/{app_id}/appStoreVersions?filter[platform]=IOS')
+              die(f'No version found: {json.dumps(d)[:300]}')
           version_id = d['data'][0]['id']
           print(f'Version: {version_id}')
 
-          # 2. Get localizations
-          d2 = api_get(f'{BASE}/appStoreVersionLocalizations?filter[appStoreVersion]={version_id}')
+          # 2. Get localizations via RELATIONSHIP (not collection filter - that gives 403)
+          r2 = requests.get(f'{BASE}/appStoreVersions/{version_id}/appStoreVersionLocalizations', headers=hdr())
+          d2 = r2.json()
+          print(f'Locs -> {r2.status_code}')
+          if not d2.get('data'):
+              die(f'No localizations: {json.dumps(d2)[:300]}')
           loc_id = d2['data'][0]['id']
           print(f'Localization: {loc_id}')
 
-          # 3. Get existing screenshot sets
-          d3 = api_get(f'{BASE}/appScreenshotSets?filter[appStoreVersionLocalization]={loc_id}')
-          print(f'Existing sets: {len(d3.get("data", []))}')
+          # 3. Get screenshot sets via RELATIONSHIP
+          r3 = requests.get(f'{BASE}/appStoreVersionLocalizations/{loc_id}/appScreenshotSets', headers=hdr())
+          d3 = r3.json()
+          print(f'Sets -> {r3.status_code}')
           for s in d3.get('data', []):
-              print(f'  - {s["attributes"]["screenshotDisplayType"]}')
+              print(f'  Set: {s["attributes"]["screenshotDisplayType"]}')
 
           set_id = None
           for s in d3.get('data', []):
@@ -112,32 +97,28 @@ jobs:
 
           if not set_id:
               print('Creating iPad 13 screenshot set...')
-              dc = api_post(f'{BASE}/appScreenshotSets', {
+              rc = requests.post(f'{BASE}/appScreenshotSets', headers=hdr(), json={
                   'data': {
                       'type': 'appScreenshotSets',
                       'attributes': {'screenshotDisplayType': 'APP_IPAD_PRO_3GEN_129'},
                       'relationships': {'appStoreVersionLocalization': {'data': {'type': 'appStoreVersionLocalizations', 'id': loc_id}}}
                   }
               })
+              dc = rc.json()
+              print(f'Create set -> {rc.status_code}: {json.dumps(dc)[:300]}')
+              if rc.status_code not in (200, 201):
+                  die(f'Cannot create set: {json.dumps(dc)[:300]}')
               set_id = dc['data']['id']
           print(f'Set ID: {set_id}')
 
-          # 4. Create iPad screenshot: resize a simple solid image to 2064x2752
-          # (Apple only checks dimensions, not content for screenshots)
-          # Create a dark-themed image matching app style
-          from PIL import ImageDraw, ImageFont
+          # 4. Build 2064x2752 iPad screenshot
           w, ht = 2064, 2752
           img = Image.new('RGB', (w, ht), (12, 12, 20))
           draw = ImageDraw.Draw(img)
-
-          # Gradient background
           for y in range(0, ht, 2):
               v = int(12 + (y/ht)*15)
               draw.rectangle([(0,y),(w,y+2)], fill=(v, v, v+18))
-
-          # Logo box
           draw.rounded_rectangle([832,200,1232,600], radius=80, fill=(245,166,35))
-
           try:
               f_big  = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 170)
               f_med  = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 60)
@@ -147,92 +128,78 @@ jobs:
               f_card = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 50)
               f_nav  = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 44)
               f_badge= ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 40)
-          except:
+          except Exception as e:
+              print(f'Font warning: {e}')
               f_big=f_med=f_lg=f_sm=f_xs=f_card=f_nav=f_badge = ImageFont.load_default()
-
-          draw.text((1032, 400), 'd5',        fill=(0,0,0),       font=f_big,  anchor='mm')
-          draw.text((1032, 555), 'coaching',  fill=(0,0,0),       font=f_med,  anchor='mm')
-          draw.text((1032, 730), 'D5 Coaching',fill=(255,255,255),font=f_lg,   anchor='mm')
-          draw.text((1032, 820), 'Ton espace personnel de coaching', fill=(160,160,160), font=f_sm, anchor='mm')
-
-          draw.rounded_rectangle([200, 910,1864,1040], radius=22, fill=(28,28,45))
-          draw.text((270, 975), 'ton@email.com', fill=(100,100,100), font=f_sm, anchor='lm')
-          draw.rounded_rectangle([200,1080,1864,1210], radius=22, fill=(28,28,45))
-          draw.text((270,1145), chr(8226)*8,    fill=(100,100,100), font=f_sm, anchor='lm')
-          draw.rounded_rectangle([200,1265,1864,1400], radius=28, fill=(245,166,35))
-          draw.text((1032,1332), 'Se connecter', fill=(0,0,0), font=f_lg, anchor='mm')
-
-          draw.text((200,1470), 'Mes exercices du jour', fill=(255,255,255), font=f_card, anchor='la')
-
-          cards = [
-              ('1 – Abdos twists',       80,  1530),
-              ('2 – Bicep Curl Barre',   1084, 1530),
-              ('3 – Bicep Curl Zottman',  80,  2105),
-              ('4 – Curl poulie basse',  1084, 2105),
-          ]
-          for title, cx, cy in cards:
-              draw.rounded_rectangle([cx,cy,cx+900,cy+490], radius=32, fill=(22,22,42))
-              draw.rectangle([cx,cy,cx+900,cy+270], fill=(48,48,72))
-              # Play icon
-              draw.polygon([(cx+420,cy+120),(cx+420,cy+200),(cx+500,cy+160)], fill=(255,255,255,200))
-              draw.rounded_rectangle([cx+18,cy+14,cx+220,cy+76], radius=32, fill=(245,166,35))
-              draw.text((cx+119,cy+45), '4 séries', fill=(0,0,0), font=f_badge, anchor='mm')
-              draw.text((cx+20,cy+336), title,                   fill=(255,255,255), font=f_card, anchor='la')
-              draw.text((cx+20,cy+400), 'Reps: 12   Récup. 1min', fill=(140,140,160), font=f_xs, anchor='la')
-
-          # Bottom nav
-          draw.rectangle([0,2650,w,2752], fill=(15,15,24))
-          nw = w//5
-          for i, lbl in enumerate(['Accueil','Progrès', None,'Messagerie','Profil']):
-              nx = nw*i + nw//2
+          draw.text((1032,400),'d5',fill=(0,0,0),font=f_big,anchor='mm')
+          draw.text((1032,555),'coaching',fill=(0,0,0),font=f_med,anchor='mm')
+          draw.text((1032,730),'D5 Coaching',fill=(255,255,255),font=f_lg,anchor='mm')
+          draw.text((1032,820),'Ton espace personnel de coaching',fill=(160,160,160),font=f_sm,anchor='mm')
+          draw.rounded_rectangle([200,910,1864,1040],radius=22,fill=(28,28,45))
+          draw.text((270,975),'ton@email.com',fill=(100,100,100),font=f_sm,anchor='lm')
+          draw.rounded_rectangle([200,1080,1864,1210],radius=22,fill=(28,28,45))
+          draw.text((270,1145),chr(8226)*8,fill=(100,100,100),font=f_sm,anchor='lm')
+          draw.rounded_rectangle([200,1265,1864,1400],radius=28,fill=(245,166,35))
+          draw.text((1032,1332),'Se connecter',fill=(0,0,0),font=f_lg,anchor='mm')
+          draw.text((200,1470),'Mes exercices du jour',fill=(255,255,255),font=f_card,anchor='la')
+          for title,cx,cy in [('1 – Abdos twists',80,1530),('2 – Bicep Curl',1084,1530),('3 – Zottman Curl',80,2105),('4 – Curl poulie',1084,2105)]:
+              draw.rounded_rectangle([cx,cy,cx+900,cy+490],radius=32,fill=(22,22,42))
+              draw.rectangle([cx,cy,cx+900,cy+270],fill=(48,48,72))
+              draw.rounded_rectangle([cx+18,cy+14,cx+220,cy+76],radius=32,fill=(245,166,35))
+              draw.text((cx+119,cy+45),'4 séries',fill=(0,0,0),font=f_badge,anchor='mm')
+              draw.text((cx+20,cy+336),title,fill=(255,255,255),font=f_card,anchor='la')
+              draw.text((cx+20,cy+400),'Reps: 12   Récup. 1min',fill=(140,140,160),font=f_xs,anchor='la')
+          draw.rectangle([0,2650,w,2752],fill=(15,15,24))
+          nw=w//5
+          for i,lbl in enumerate(['Accueil','Progrès',None,'Messagerie','Profil']):
+              nx=nw*i+nw//2
               if lbl is None:
-                  draw.ellipse([nx-68,2622,nx+68,2758], fill=(245,166,35))
-                  draw.text((nx,2690), '+', fill=(0,0,0), font=f_lg, anchor='mm')
+                  draw.ellipse([nx-68,2622,nx+68,2758],fill=(245,166,35))
+                  draw.text((nx,2690),'+',fill=(0,0,0),font=f_lg,anchor='mm')
               else:
-                  draw.text((nx,2710), lbl, fill=(200,200,200), font=f_nav, anchor='mm')
+                  draw.text((nx,2710),lbl,fill=(200,200,200),font=f_nav,anchor='mm')
+          buf=io.BytesIO()
+          img.save(buf,format='PNG',optimize=False)
+          img_data=buf.getvalue()
+          print(f'Image: {len(img_data):,} bytes ({w}x{ht})')
 
-          buf = io.BytesIO()
-          img.save(buf, format='PNG', optimize=False)
-          img_data = buf.getvalue()
-          print(f'Image ready: {len(img_data):,} bytes ({w}x{ht})')
-
-          # 5. Reserve upload slot
-          dr = api_post(f'{BASE}/appScreenshots', {
+          # 5. Reserve upload
+          rr = requests.post(f'{BASE}/appScreenshots', headers=hdr(), json={
               'data': {
                   'type': 'appScreenshots',
-                  'attributes': {'fileName': 'ipad_13inch_d5coaching.png', 'fileSize': len(img_data)},
+                  'attributes': {'fileName': 'ipad_13inch_d5.png', 'fileSize': len(img_data)},
                   'relationships': {'appScreenshotSet': {'data': {'type': 'appScreenshotSets', 'id': set_id}}}
               }
           })
+          dr = rr.json()
+          print(f'Reserve -> {rr.status_code}: {json.dumps(dr)[:300]}')
+          if rr.status_code not in (200, 201):
+              die(f'Reserve failed')
           sc_id = dr['data']['id']
           ops   = dr['data']['attributes']['uploadOperations']
-          print(f'Screenshot ID: {sc_id}, upload ops: {len(ops)}')
+          print(f'Screenshot ID: {sc_id}, chunks: {len(ops)}')
 
           # 6. Upload chunks
           for op in ops:
-              offset = op['offset']
-              length = op['length']
-              url    = op['url']
-              method = op['method']
-              req_h  = {x['name']: x['value'] for x in op['requestHeaders']}
-              chunk  = img_data[offset:offset+length]
-              if method == 'PUT':
-                  ur = requests.put(url, headers=req_h, data=chunk)
+              off, lng = op['offset'], op['length']
+              rh = {x['name']:x['value'] for x in op['requestHeaders']}
+              chunk = img_data[off:off+lng]
+              if op['method']=='PUT':
+                  uc = requests.put(op['url'], headers=rh, data=chunk)
               else:
-                  ur = requests.post(url, headers=req_h, data=chunk)
-              print(f'  chunk offset={offset:,} len={length:,} -> {ur.status_code}')
-              if ur.status_code not in (200, 201, 204):
-                  die(f'Upload chunk failed: {ur.status_code} {ur.text[:200]}')
+                  uc = requests.post(op['url'], headers=rh, data=chunk)
+              print(f'  chunk off={off:,} -> {uc.status_code}')
+              if uc.status_code not in (200,201,204):
+                  die(f'Upload failed: {uc.status_code} {uc.text[:200]}')
 
-          # 7. Commit upload
-          cr = api_patch(f'{BASE}/appScreenshots/{sc_id}', {
+          # 7. Commit
+          cr = requests.patch(f'{BASE}/appScreenshots/{sc_id}', headers=hdr(), json={
               'data': {'type': 'appScreenshots', 'id': sc_id, 'attributes': {'uploaded': True}}
           })
-          if cr.status_code not in (200, 201):
-              die(f'Commit failed: {cr.status_code} {cr.text[:300]}')
+          print(f'Commit -> {cr.status_code}: {cr.text[:200]}')
+          if cr.status_code not in (200,201):
+              die(f'Commit failed')
 
           print()
-          print('========================================')
-          print('SUCCESS - iPad screenshot uploaded!')
-          print('========================================')
+          print('SUCCESS - iPad screenshot uploaded to App Store Connect!')
           PYEOF
