@@ -57,7 +57,6 @@ jobs:
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
         run: |
           KEY_LOADED=false
-          # Try d5-certs first
           git clone https://${GH_PAT}@github.com/swayzee5/d5-certs.git /tmp/d5-certs 2>/dev/null || true
           if [ -f "/tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64" ]; then
             KEY_B64=$(cat /tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64)
@@ -67,7 +66,6 @@ jobs:
               KEY_LOADED=true
             fi
           fi
-          # Fallback to secret
           if [ "$KEY_LOADED" = "false" ] && [ -n "$ASC_KEY_CONTENT" ]; then
             printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_orig.p8
             echo "Key loaded from secret: $(wc -c < /tmp/AuthKey_orig.p8) bytes"
@@ -77,10 +75,10 @@ jobs:
             echo "ERROR: No ASC key available!"
             exit 1
           fi
-          # Convert EC format if needed
           openssl pkcs8 -in /tmp/AuthKey_orig.p8 -nocrypt 2>/dev/null | openssl ec -out /tmp/AuthKey_B32QRB7NPU.p8 2>/dev/null || cp /tmp/AuthKey_orig.p8 /tmp/AuthKey_B32QRB7NPU.p8
           echo "Key ready: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8) bytes"
           head -1 /tmp/AuthKey_B32QRB7NPU.p8
+          echo "ASC_KEY_FILEPATH=/tmp/AuthKey_B32QRB7NPU.p8" >> $GITHUB_ENV
 
       - name: Cache CocoaPods
         uses: actions/cache@v4
