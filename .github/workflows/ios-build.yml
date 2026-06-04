@@ -54,13 +54,28 @@ jobs:
       - name: Install Fastlane
         run: gem install fastlane
 
-      - name: Decode and write .p8 key file
+      - name: Debug secrets presence
         env:
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
         run: |
-          printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_B32QRB7NPU.p8
-          echo "Key written: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8) bytes"
-          head -1 /tmp/AuthKey_B32QRB7NPU.p8
+          echo "ASC_KEY_ID length: ${#ASC_KEY_ID}"
+          echo "ASC_KEY_CONTENT length: ${#ASC_KEY_CONTENT}"
+          if [ -n "$ASC_KEY_CONTENT" ]; then
+            echo "ASC_KEY_CONTENT is NOT empty"
+            echo "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_B32QRB7NPU.p8 2>&1 || echo "base64 decode failed"
+            echo "File size: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8 2>/dev/null || echo 'file missing')"
+          else
+            echo "ASC_KEY_CONTENT IS EMPTY - cloning d5-certs for key"
+            git clone https://${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git /tmp/d5-certs 2>&1 | tail -1
+            if [ -f /tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64 ]; then
+              base64 -d /tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64 > /tmp/AuthKey_B32QRB7NPU.p8
+              echo "Key from d5-certs: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8) bytes"
+            else
+              echo "ERROR: Key not found in d5-certs either!"
+              exit 1
+            fi
+          fi
 
       - name: Cache CocoaPods
         uses: actions/cache@v4
@@ -80,6 +95,7 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_FILEPATH: /tmp/AuthKey_B32QRB7NPU.p8
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           GH_PAT: ${{ secrets.GH_PAT }}
         run: fastlane ios beta
