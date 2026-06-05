@@ -70,7 +70,7 @@ jobs:
       - name: Build Release AAB
         working-directory: android
         env:
-          KEYSTORE_PATH: app/d5coaching.keystore
+          KEYSTORE_PATH: d5coaching.keystore
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
