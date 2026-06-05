@@ -62,7 +62,10 @@ jobs:
 
       - name: Create proguard-rules.pro
         run: |
-          printf '-keep class com.google.androidbrowserhelper.** { *; }\n-dontwarn com.google.androidbrowserhelper.**\n' > android/app/proguard-rules.pro
+          cat > android/app/proguard-rules.pro << 'EOF'
+          -keep class com.google.androidbrowserhelper.** { *; }
+          -dontwarn com.google.androidbrowserhelper.**
+          EOF
 
       - name: Build Release AAB
         working-directory: android
