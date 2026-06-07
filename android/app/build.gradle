@@ -4,12 +4,12 @@ plugins {
 
 android {
     namespace 'com.d5coaching.clients'
-    compileSdk 34
+    compileSdk 35
 
     defaultConfig {
         applicationId 'com.d5coaching.clients'
         minSdk 21
-        targetSdk 34
+        targetSdk 35
         versionCode 1
         versionName '1.0'
     }
@@ -35,13 +35,7 @@ android {
         }
     }
 
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+    dependencies {
+        implementation 'androidx.appcompat:appcompat:1.6.1'
     }
-}
-
-dependencies {
-    implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
-    implementation 'androidx.appcompat:appcompat:1.6.1'
 }
