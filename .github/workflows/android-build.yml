@@ -29,14 +29,32 @@ jobs:
 
       - name: Generate launcher icons
         run: |
-          # Valid 1x1 orange PNG in base64
-          ICON_B64="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwADhQGAWjR9awAAAABJRU5ErkJggg=="
-          for DPI in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
-            mkdir -p android/app/src/main/res/mipmap-${DPI}
-            echo "$ICON_B64" | base64 -d > android/app/src/main/res/mipmap-${DPI}/ic_launcher.png
-            echo "$ICON_B64" | base64 -d > android/app/src/main/res/mipmap-${DPI}/ic_launcher_round.png
-          done
-          echo "Icons generated"
+          python3 - <<'PYEOF'
+          import struct, zlib, os
+
+          def make_png(width, height, r, g, b):
+              def chunk(name, data):
+                  c = zlib.crc32(name + data) & 0xFFFFFFFF
+                  return struct.pack('>I', len(data)) + name + data + struct.pack('>I', c)
+              sig = b'\x89PNG\r\n\x1a\n'
+              ihdr = chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0))
+              raw = b''
+              for _ in range(height):
+                  raw += b'\x00' + bytes([r, g, b] * width)
+              comp = zlib.compress(raw)
+              idat = chunk(b'IDAT', comp)
+              iend = chunk(b'IEND', b'')
+              return sig + ihdr + idat + iend
+
+          sizes = {'mdpi': 48, 'hdpi': 72, 'xhdpi': 96, 'xxhdpi': 144, 'xxxhdpi': 192}
+          for dpi, size in sizes.items():
+              d = f'android/app/src/main/res/mipmap-{dpi}'
+              os.makedirs(d, exist_ok=True)
+              png = make_png(size, size, 255, 106, 0)
+              open(f'{d}/ic_launcher.png', 'wb').write(png)
+              open(f'{d}/ic_launcher_round.png', 'wb').write(png)
+          print('Icons generated successfully')
+          PYEOF
 
       - name: Create proguard-rules.pro
         run: |
