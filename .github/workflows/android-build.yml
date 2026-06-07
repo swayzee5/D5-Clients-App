@@ -85,7 +85,7 @@ jobs:
           bundler-cache: false
 
       - name: Install Fastlane gem
-        run: gem install fastlane
+        run: gem install fastlane multi_json
 
       - name: Deploy to Google Play Internal Track
         continue-on-error: true
