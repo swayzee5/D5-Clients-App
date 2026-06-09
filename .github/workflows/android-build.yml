@@ -24,41 +24,17 @@ jobs:
           gradle-version: '8.9'
 
       - name: Decode Keystore
-        run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/d5coaching.keystore
+        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/d5coaching.keystore
 
       - name: Generate launcher icons
         run: |
           pip install Pillow --quiet
-          python3 - <<'PYEOF'
-import urllib.request, os, io
-from PIL import Image
-
-logo_url = "https://raw.githubusercontent.com/swayzee5/D5-Clients-App/claude/android-twa/Logo%20D5%20App.jpeg"
-with urllib.request.urlopen(logo_url) as r:
-    logo_data = r.read()
-
-img = Image.open(io.BytesIO(logo_data)).convert("RGBA")
-w, h = img.size
-s = min(w, h)
-img = img.crop(((w-s)//2, (h-s)//2, (w+s)//2, (h+s)//2))
-
-sizes = {'mdpi': 48, 'hdpi': 72, 'xhdpi': 96, 'xxhdpi': 144, 'xxxhdpi': 192}
-for dpi, size in sizes.items():
-    d = f'android/app/src/main/res/mipmap-{dpi}'
-    os.makedirs(d, exist_ok=True)
-    resized = img.resize((size, size), Image.LANCZOS).convert("RGB")
-    resized.save(f'{d}/ic_launcher.png', 'PNG')
-    resized.save(f'{d}/ic_launcher_round.png', 'PNG')
-print('Real D5 logo icons generated successfully')
-PYEOF
+          python3 scripts/generate_icons.py
 
       - name: Create proguard-rules.pro
         run: |
-          cat > android/app/proguard-rules.pro << 'EOF'
-          # Add project specific ProGuard rules here.
-          -keep class com.d5coaching.clients.** { *; }
-          EOF
+          echo "# ProGuard rules" > android/app/proguard-rules.pro
+          echo "-keep class com.d5coaching.clients.** { *; }" >> android/app/proguard-rules.pro
 
       - name: Build Release AAB
         working-directory: android
@@ -90,12 +66,4 @@ PYEOF
           GOOGLE_PLAY_JSON_KEY: ${{ secrets.GOOGLE_PLAY_JSON_KEY }}
         run: |
           echo "$GOOGLE_PLAY_JSON_KEY" > /tmp/supply_key.json
-          fastlane supply \
-            --aab android/app/build/outputs/bundle/release/app-release.aab \
-            --package_name com.d5coaching.clients \
-            --track internal \
-            --json_key /tmp/supply_key.json \
-            --skip_upload_apk true \
-            --skip_upload_metadata true \
-            --skip_upload_screenshots true \
-            --skip_upload_images true
+          fastlane supply --aab android/app/build/outputs/bundle/release/app-release.aab --package_name com.d5coaching.clients --track internal --json_key /tmp/supply_key.json --skip_upload_apk true --skip_upload_metadata true --skip_upload_screenshots true --skip_upload_images true
