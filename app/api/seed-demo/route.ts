@@ -1,4 +1,4 @@
-—import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 import bcrypt from 'bcryptjs'
 
@@ -34,8 +34,8 @@ export async function POST(req: NextRequest) {
 
         const { rows } = await pool.query(
                   `INSERT INTO clients
-                          (first_name, last_name, email, password_hash, is_active, is_reboot_only, created_at)
-                                  VALUES ($1, $2, $3, $4, $5, $6, NOW())
+                          (first_name, last_name, email, password_hash, is_active, is_reboot_only, created_at, updated_at)
+                                  VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
                                           RETURNING id`,
                   ['Apple', 'Reviewer', email, hashed, true, false]
                 )
