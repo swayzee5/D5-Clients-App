@@ -1,0 +1,25 @@
+name: Generate Play Store Screenshots
+
+on:
+  workflow_dispatch:
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pillow
+        run: pip install Pillow
+
+      - name: Generate screenshots
+        run: python3 scripts/create_screenshots.py
+
+      - name: Upload screenshots as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: play-store-screenshots
+          path: |
+            screenshot_1_login.png
+            screenshot_2_dashboard.png
+            screenshot_3_workout.png
