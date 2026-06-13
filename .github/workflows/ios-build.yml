@@ -56,6 +56,8 @@ jobs:
           if [ -f "$PBXPROJ" ]; then
             sed -i "" 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = PH4CLA89XR;/g' "$PBXPROJ"
             sed -i "" 's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = PH4CLA89XR;/g' "$PBXPROJ"
+            sed -i "" 's/TARGETED_DEVICE_FAMILY = "1,2";/TARGETED_DEVICE_FAMILY = "1";/g' "$PBXPROJ"
+            sed -i "" 's/TARGETED_DEVICE_FAMILY = 1,2;/TARGETED_DEVICE_FAMILY = "1";/g' "$PBXPROJ"            
             echo "Team ID check:"
             grep -n "DEVELOPMENT_TEAM" "$PBXPROJ" | head -5 || echo "Not found yet"
           fi
