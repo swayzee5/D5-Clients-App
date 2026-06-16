@@ -47,6 +47,18 @@ jobs:
 
       - name: Generate iOS app icon
         run: |
+          ICONSET="ios/App/App/Assets.xcassets/AppIcon.appiconset"
+          if [ -f resources/icon.png ] && [ -d "$ICONSET" ]; then
+            cp resources/icon.png "$ICONSET/Icon-App-1024x1024@1x.png"
+            sips -z 180 180 resources/icon.png --out "$ICONSET/Icon-App-60x60@3x.png" 2>/dev/null
+            sips -z 120 120 resources/icon.png --out "$ICONSET/Icon-App-60x60@2x.png" 2>/dev/null
+            sips -z 87 87 resources/icon.png --out "$ICONSET/Icon-App-29x29@3x.png" 2>/dev/null
+            sips -z 80 80 resources/icon.png --out "$ICONSET/Icon-App-40x40@2x.png" 2>/dev/null
+            echo Icon OK
+          fi
+
+      - name: Generate iOS app icon
+        run: |
           ICON="resources/icon.png"
           ICONSET="ios/App/App/Assets.xcassets/AppIcon.appiconset"
           if [ -f "$ICON" ] && [ -d "$ICONSET" ]; then
