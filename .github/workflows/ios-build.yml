@@ -45,6 +45,20 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync ios
 
+      - name: Generate iOS app icon
+        run: |
+          ICON="resources/icon.png"
+          ICONSET="ios/App/App/Assets.xcassets/AppIcon.appiconset"
+          if [ -f "$ICON" ] && [ -d "$ICONSET" ]; then
+            for s in 20 29 40 58 60 76 80 87 120 152 167 180; do
+              sips -z $s $s "$ICON" --out "$ICONSET/Icon-$s.png" 2>/dev/null || true
+            done
+            sips -z 1024 1024 "$ICON" --out "$ICONSET/Icon-App-1024x1024@1x.png" 2>/dev/null || true
+            echo "Icons injected successfully"
+          else
+            echo "Icon or iconset not found, skipping"
+          fi
+
       - name: Select Xcode 26.3
         run: |
           sudo xcode-select -s /Applications/Xcode_26.3.app
@@ -57,7 +71,7 @@ jobs:
             sed -i "" 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = PH4CLA89XR;/g' "$PBXPROJ"
             sed -i "" 's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = PH4CLA89XR;/g' "$PBXPROJ"
             sed -i "" 's/TARGETED_DEVICE_FAMILY = "1,2";/TARGETED_DEVICE_FAMILY = "1";/g' "$PBXPROJ"
-            sed -i "" 's/TARGETED_DEVICE_FAMILY = 1,2;/TARGETED_DEVICE_FAMILY = "1";/g' "$PBXPROJ"            
+            sed -i "" 's/TARGETED_DEVICE_FAMILY = 1,2;/TARGETED_DEVICE_FAMILY = "1";/g' "$PBXPROJ"
             echo "Team ID check:"
             grep -n "DEVELOPMENT_TEAM" "$PBXPROJ" | head -5 || echo "Not found yet"
           fi
@@ -96,7 +110,6 @@ jobs:
           echo "Key ready: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8) bytes"
           head -1 /tmp/AuthKey_B32QRB7NPU.p8
           echo "ASC_KEY_FILEPATH=/tmp/AuthKey_B32QRB7NPU.p8" >> $GITHUB_ENV
-          # Copy ORIGINAL key (before EC conversion) to altool private_keys directory
           mkdir -p ~/.appstoreconnect/private_keys
           cp /tmp/AuthKey_orig.p8 ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8
           echo "Original key copied to altool dir: $(wc -c < ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8) bytes"
