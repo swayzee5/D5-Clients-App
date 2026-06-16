@@ -1,7 +1,7 @@
 apply plugin: 'com.android.application'
 
 android {
-        namespace 'com.d5coachingdistance.app'
+        namespace 'com.d5coaching.clients'
         compileSdkVersion 35
 
         signingConfigs {
@@ -14,10 +14,10 @@ android {
         }
 
         defaultConfig {
-                    applicationId 'com.d5coachingdistance.app'
+                    applicationId 'com.d5coaching.clients'
                     minSdkVersion 21
                     targetSdkVersion 35
-                    versionCode 3
+                    versionCode 4
                     versionName '1.0'
         }
 
