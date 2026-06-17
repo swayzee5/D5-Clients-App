@@ -6,7 +6,7 @@ android {
 
         signingConfigs {
                     release {
-                                    storeFile file('../keystohre.jks')
+                                    storeFile file('../keystore.jks')
                                     storePassword System.getenv('STORE_PASSWORD') ?: 'd5coaching2024'
                                     keyAlias System.getenv('KEY_ALIAS') ?: 'd5coaching'
                                     keyPassword System.getenv('KEY_PASSWORD') ?: 'd5coaching2024'
