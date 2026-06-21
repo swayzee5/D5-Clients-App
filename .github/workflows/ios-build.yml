@@ -45,31 +45,71 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync ios
 
-      - name: Generate iOS app icon
-        run: |
-          ICONSET="ios/App/App/Assets.xcassets/AppIcon.appiconset"
-          if [ -f resources/icon.png ] && [ -d "$ICONSET" ]; then
-            cp resources/icon.png "$ICONSET/Icon-App-1024x1024@1x.png"
-            sips -z 180 180 resources/icon.png --out "$ICONSET/Icon-App-60x60@3x.png" 2>/dev/null
-            sips -z 120 120 resources/icon.png --out "$ICONSET/Icon-App-60x60@2x.png" 2>/dev/null
-            sips -z 87 87 resources/icon.png --out "$ICONSET/Icon-App-29x29@3x.png" 2>/dev/null
-            sips -z 80 80 resources/icon.png --out "$ICONSET/Icon-App-40x40@2x.png" 2>/dev/null
-            echo Icon OK
-          fi
-
-      - name: Generate iOS app icon
+      - name: Inject app icon using Contents.json filenames
         run: |
           ICON="resources/icon.png"
           ICONSET="ios/App/App/Assets.xcassets/AppIcon.appiconset"
-          if [ -f "$ICON" ] && [ -d "$ICONSET" ]; then
-            for s in 20 29 40 58 60 76 80 87 120 152 167 180; do
-              sips -z $s $s "$ICON" --out "$ICONSET/Icon-$s.png" 2>/dev/null || true
-            done
-            sips -z 1024 1024 "$ICON" --out "$ICONSET/Icon-App-1024x1024@1x.png" 2>/dev/null || true
-            echo "Icons injected successfully"
-          else
-            echo "Icon or iconset not found, skipping"
+          CONTENTS="${ICONSET}/Contents.json"
+
+          if [ ! -f "$ICON" ]; then
+            echo "ERROR: resources/icon.png not found!"
+            exit 1
           fi
+
+          if [ ! -f "$CONTENTS" ]; then
+            echo "ERROR: Contents.json not found"
+            exit 1
+          fi
+
+          echo "=== Contents.json ==="
+          cat "$CONTENTS"
+          echo "=== Injecting icons ==="
+
+          python3 - <<'PYEOF'
+import json, subprocess, os, sys
+
+icon_src = "resources/icon.png"
+iconset = "ios/App/App/Assets.xcassets/AppIcon.appiconset"
+contents_path = os.path.join(iconset, "Contents.json")
+
+with open(contents_path) as f:
+    contents = json.load(f)
+
+errors = []
+done = set()
+for image in contents.get("images", []):
+    filename = image.get("filename")
+    if not filename or filename in done:
+        continue
+    done.add(filename)
+    size_str = image.get("size", "")
+    scale_str = image.get("scale", "1x")
+    if not size_str:
+        continue
+    try:
+        base_size = float(size_str.split("x")[0])
+        scale = int(scale_str.replace("x", ""))
+        pixel_size = int(base_size * scale)
+    except Exception as e:
+        print(f"SKIP: {filename} - {e}")
+        continue
+    out_path = os.path.join(iconset, filename)
+    result = subprocess.run(
+        ["sips", "-z", str(pixel_size), str(pixel_size), icon_src, "--out", out_path],
+        capture_output=True, text=True
+    )
+    if result.returncode == 0:
+        print(f"OK: {filename} ({pixel_size}x{pixel_size}px)")
+    else:
+        errors.append(f"FAIL: {filename} - {result.stderr.strip()}")
+
+if errors:
+    for e in errors:
+        print(e, file=sys.stderr)
+    sys.exit(1)
+else:
+    print(f"SUCCESS: {len(done)} icons injected with correct filenames!")
+PYEOF
 
       - name: Select Xcode 26.3
         run: |
@@ -85,7 +125,7 @@ jobs:
             sed -i "" 's/TARGETED_DEVICE_FAMILY = "1,2";/TARGETED_DEVICE_FAMILY = "1";/g' "$PBXPROJ"
             sed -i "" 's/TARGETED_DEVICE_FAMILY = 1,2;/TARGETED_DEVICE_FAMILY = "1";/g' "$PBXPROJ"
             echo "Team ID check:"
-            grep -n "DEVELOPMENT_TEAM" "$PBXPROJ" | head -5 || echo "Not found yet"
+            grep -n "DEVELOPMENT_TEAM" "$PBXPROJ" | head -5
           fi
 
       - name: Setup Ruby 3.2
@@ -105,13 +145,11 @@ jobs:
             KEY_B64=$(cat /tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64)
             if [ -n "$KEY_B64" ]; then
               printf '%s' "$KEY_B64" | base64 -d > /tmp/AuthKey_orig.p8
-              echo "Key loaded from d5-certs: $(wc -c < /tmp/AuthKey_orig.p8) bytes"
               KEY_LOADED=true
             fi
           fi
           if [ "$KEY_LOADED" = "false" ] && [ -n "$ASC_KEY_CONTENT" ]; then
             printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_orig.p8
-            echo "Key loaded from secret: $(wc -c < /tmp/AuthKey_orig.p8) bytes"
             KEY_LOADED=true
           fi
           if [ "$KEY_LOADED" = "false" ]; then
@@ -119,13 +157,9 @@ jobs:
             exit 1
           fi
           openssl pkcs8 -in /tmp/AuthKey_orig.p8 -nocrypt 2>/dev/null | openssl ec -out /tmp/AuthKey_B32QRB7NPU.p8 2>/dev/null || cp /tmp/AuthKey_orig.p8 /tmp/AuthKey_B32QRB7NPU.p8
-          echo "Key ready: $(wc -c < /tmp/AuthKey_B32QRB7NPU.p8) bytes"
-          head -1 /tmp/AuthKey_B32QRB7NPU.p8
           echo "ASC_KEY_FILEPATH=/tmp/AuthKey_B32QRB7NPU.p8" >> $GITHUB_ENV
           mkdir -p ~/.appstoreconnect/private_keys
           cp /tmp/AuthKey_orig.p8 ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8
-          echo "Original key copied to altool dir: $(wc -c < ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8) bytes"
-          head -1 ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8
 
       - name: Cache CocoaPods
         uses: actions/cache@v4
@@ -140,7 +174,7 @@ jobs:
           cd ios/App
           pod install --repo-update
 
-      - name: Build Release and Upload to TestFlight
+      - name: Build Release
         env:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
@@ -152,7 +186,7 @@ jobs:
           echo "IPA built successfully"
           ls -la ios/App/build/ || true
 
-      - name: Upload to TestFlight via xcrun altool
+      - name: Upload to TestFlight
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
