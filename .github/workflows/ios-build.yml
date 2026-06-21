@@ -45,6 +45,151 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync ios
 
+      - name: Inject app icon
+        run: python3 scripts/inject_icon.py
+
+      - name: Select Xcode 26.3
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app
+          xcodebuild -version
+
+      - name: Configure Xcode signing
+        run: |
+          PBXPROJ="ios/App/App.xcodeproj/project.pbxproj"
+          if [ -f "$PBXPROJ" ]; then
+            sed -i "" 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = PH4CLA89XR;/g' "$PBXPROJ"
+            sed -i "" 's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = PH4CLA89XR;/g' "$PBXPROJ"
+            sed -i "" 's/TARGETED_DEVICE_FAMILY = "1,2";/TARGETED_DEVICE_FAMILY = "1";/g' "$PBXPROJ"
+            sed -i "" 's/TARGETED_DEVICE_FAMILY = 1,2;/TARGETED_DEVICE_FAMILY = "1";/g' "$PBXPROJ"
+            grep -n "DEVELOPMENT_TEAM" "$PBXPROJ" | head -5
+          fi
+
+      - name: Setup Ruby 3.2
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      - name: Prepare ASC API Key from d5-certs
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          KEY_LOADED=false
+          git clone https://${GH_PAT}@github.com/swayzee5/d5-certs.git /tmp/d5-certs 2>/dev/null || true
+          if [ -f "/tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64" ]; then
+            KEY_B64=$(cat /tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64)
+            if [ -n "$KEY_B64" ]; then
+              printf '%s' "$KEY_B64" | base64 -d > /tmp/AuthKey_orig.p8
+              KEY_LOADED=true
+            fi
+          fi
+          if [ "$KEY_LOADED" = "false" ] && [ -n "$ASC_KEY_CONTENT" ]; then
+            printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_orig.p8
+            KEY_LOADED=true
+          fi
+          if [ "$KEY_LOADED" = "false" ]; then
+            echo "ERROR: No ASC key available!"
+            exit 1
+          fi
+          openssl pkcs8 -in /tmp/AuthKey_orig.p8 -nocrypt 2>/dev/null | openssl ec -out /tmp/AuthKey_B32QRB7NPU.p8 2>/dev/null || cp /tmp/AuthKey_orig.p8 /tmp/AuthKey_B32QRB7NPU.p8
+          echo "ASC_KEY_FILEPATH=/tmp/AuthKey_B32QRB7NPU.p8" >> $GITHUB_ENV
+          mkdir -p ~/.appstoreconnect/private_keys
+          cp /tmp/AuthKey_orig.p8 ~/.appstoreconnect/private_keys/AuthKey_B32QRB7NPU.p8
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/App/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ios/App/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
+      - name: Install CocoaPods dependencies
+        run: |
+          cd ios/App
+          pod install --repo-update
+
+      - name: Build Release
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          bundle exec fastlane ios build_only
+          echo "IPA built successfully"
+          ls -la ios/App/build/ || true
+
+      - name: Upload to TestFlight
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          xcrun altool --upload-app \
+            --type ios \
+            --file "ios/App/build/D5Coaching.ipa" \
+            --apiKey "$ASC_KEY_ID" \
+            --apiIssuer "$ASC_ISSUER_ID" \
+            --verbose
+        continue-on-error: false
+
+      - name: Upload IPA artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: D5Coaching-IPA
+          path: |
+            ios/build/*.ipa
+            ios/App/build/**/*.ipa
+          if-no-files-found: ignorename: Build and Upload iOS to TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Raison du build"
+        required: false
+        default: "Manuel"
+  push:
+    branches:
+      - main
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'public/**'
+      - 'capacitor.config.ts'
+      - 'package.json'
+
+jobs:
+  build-ios:
+    name: Build iOS Release
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Add iOS platform (if missing)
+        run: |
+          if [ ! -d "ios" ]; then
+            npx cap add ios
+          fi
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
       - name: Inject app icon using Contents.json filenames
         run: |
           ICON="resources/icon.png"
