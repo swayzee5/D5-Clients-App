@@ -21,7 +21,7 @@ on:
 jobs:
   build-ios:
     name: Build iOS Release
-    runs-on: macos-14
+    runs-on: macos-latest
     timeout-minutes: 60
 
     steps:
@@ -57,13 +57,10 @@ jobs:
           fi
 
           if [ ! -f "$CONTENTS" ]; then
-            echo "ERROR: Contents.json not found at $CONTENTS"
-            ls -la "$ICONSET" 2>/dev/null || echo "Dir not found"
+            echo "ERROR: Contents.json not found"
             exit 1
           fi
 
-          echo "=== Contents.json ==="
-          cat "$CONTENTS"
           echo "=== Injecting icons ==="
 
           python3 - <<'PYEOF'
@@ -112,14 +109,11 @@ jobs:
               print(f"SUCCESS: {len(done)} icons injected!")
           PYEOF
 
-      - name: Fix iOS Deployment Target
+      - name: Select Xcode
         run: |
-          PBXPROJ="ios/App/App.xcodeproj/project.pbxproj"
-          if [ -f "$PBXPROJ" ]; then
-            sed -i "" 's/IPHONEOS_DEPLOYMENT_TARGET = [0-9.]*/IPHONEOS_DEPLOYMENT_TARGET = 16.0/g' "$PBXPROJ"
-            echo "Deployment target set to 16.0:"
-            grep "IPHONEOS_DEPLOYMENT_TARGET" "$PBXPROJ" | head -5
-          fi
+          sudo xcode-select -s /Applications/Xcode_16.app 2>/dev/null || \
+          sudo xcode-select -s /Applications/Xcode.app
+          xcodebuild -version
 
       - name: Configure Xcode signing
         run: |
@@ -178,7 +172,7 @@ jobs:
           cd ios/App
           pod install --repo-update
 
-      - name: Build Release
+      - name: Build and Upload to TestFlight
         env:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
@@ -186,22 +180,8 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          bundle exec fastlane ios build_only
-          echo "IPA built successfully"
-          ls -la ios/App/build/ || true
-
-      - name: Upload to TestFlight
-        env:
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-        run: |
-          xcrun altool --upload-app \
-            --type ios \
-            --file "ios/App/build/D5Coaching.ipa" \
-            --apiKey "$ASC_KEY_ID" \
-            --apiIssuer "$ASC_ISSUER_ID" \
-            --verbose
-        continue-on-error: false
+          bundle exec fastlane ios beta
+          echo "Build and upload reussis!"
 
       - name: Upload IPA artifact
         if: always()
@@ -209,6 +189,5 @@ jobs:
         with:
           name: D5Coaching-IPA
           path: |
-            ios/build/*.ipa
             ios/App/build/**/*.ipa
           if-no-files-found: ignore
