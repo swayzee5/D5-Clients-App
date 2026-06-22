@@ -15,6 +15,7 @@ on:
       - 'components/**'
       - 'lib/**'
       - 'public/**'
+      - 'resources/**'
       - 'capacitor.config.ts'
       - 'package.json'
 
@@ -28,6 +29,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ---- Verify logo exists (fail fast) ----
+      - name: Verify D5 icon source exists
+        run: |
+          if [ ! -f "resources/icon.png" ]; then
+            echo "❌ ERREUR : resources/icon.png introuvable."
+            echo "Push ton logo PNG dans le repo avant de lancer ce workflow."
+            echo "Commande : gh api repos/swayzee5/D5-Clients-App/contents/resources/icon.png --method PUT ..."
+            exit 1
+          fi
+          echo "✅ Logo found: resources/icon.png"
+          sips -g pixelWidth -g pixelHeight resources/icon.png
+
       # ---- Node ----
       - name: Setup Node.js 20
         uses: actions/setup-node@v4
@@ -39,27 +52,23 @@ jobs:
         run: npm ci
 
       # ---- Capacitor iOS ----
-      - name: Add iOS platform (si absent)
+      - name: Add iOS platform
         run: |
           if [ ! -d "ios" ] || [ -z "$(ls -A ios 2>/dev/null)" ]; then
-            echo "Generating Capacitor iOS project..."
             npx cap add ios
-          else
-            echo "iOS project already present."
           fi
 
-      # ---- App Icons (fix refus Apple 2.3.8) ----
-      - name: Install ImageMagick
-        run: brew install imagemagick
+      # ---- App Icons (AVANT cap sync) ----
+      - name: Generate all iOS icon sizes from D5 logo
+        run: bash scripts/generate-icons.sh
 
-      - name: Generate D5 app icons
-        run: |
-          chmod +x scripts/generate-icons.sh
-          bash scripts/generate-icons.sh
-
-      # ---- Sync Capacitor ----
+      # ---- Sync Capacitor (APRES les icones) ----
       - name: Sync Capacitor
         run: npx cap sync ios
+
+      # Restaure les icones si cap sync les a ecrasees
+      - name: Re-apply icons after cap sync
+        run: bash scripts/generate-icons.sh
 
       # ---- Ruby / Fastlane ----
       - name: Setup Ruby 3.2
@@ -78,7 +87,7 @@ jobs:
           key: ${{ runner.os }}-pods-${{ hashFiles('ios/App/Podfile.lock') }}
           restore-keys: ${{ runner.os }}-pods-
 
-      - name: Install CocoaPods dependencies
+      - name: Install CocoaPods
         working-directory: ios/App
         run: pod install
 
@@ -93,7 +102,7 @@ jobs:
         run: fastlane ios beta
 
       # ---- Artifact ----
-      - name: Upload IPA artifact
+      - name: Upload IPA
         if: success()
         uses: actions/upload-artifact@v4
         with:
