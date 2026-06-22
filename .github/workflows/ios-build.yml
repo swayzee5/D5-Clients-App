@@ -28,17 +28,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # ---- Verify logo exists (fail fast) ----
-      - name: Verify D5 icon source exists
+      # ---- Fetch logo from main if not on this branch ----
+      - name: Ensure D5 icon source exists
         run: |
           if [ ! -f "resources/icon.png" ]; then
-            echo "❌ ERREUR : resources/icon.png introuvable."
-            echo "Push ton logo PNG dans le repo avant de lancer ce workflow."
-            echo "Commande : gh api repos/swayzee5/D5-Clients-App/contents/resources/icon.png --method PUT ..."
-            exit 1
+            echo "⚠️  resources/icon.png absent de cette branche, récupération depuis main..."
+            git fetch origin main
+            mkdir -p resources
+            git checkout origin/main -- resources/icon.png
+            echo "✅ Logo récupéré depuis main"
+          else
+            echo "✅ Logo trouvé : resources/icon.png"
           fi
-          echo "✅ Logo found: resources/icon.png"
           sips -g pixelWidth -g pixelHeight resources/icon.png
 
       # ---- Node ----
@@ -62,11 +66,11 @@ jobs:
       - name: Generate all iOS icon sizes from D5 logo
         run: bash scripts/generate-icons.sh
 
-      # ---- Sync Capacitor (APRES les icones) ----
+      # ---- Sync Capacitor ----
       - name: Sync Capacitor
         run: npx cap sync ios
 
-      # Restaure les icones si cap sync les a ecrasees
+      # Restaure les icones si cap sync les a écrasées
       - name: Re-apply icons after cap sync
         run: bash scripts/generate-icons.sh
 
