@@ -36,7 +36,7 @@ jobs:
         run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
 
       - name: Install iOS 18 platform
-        run: xcodebuild -downloadPlatform iOS
+        run: xcodebuild -downloadPlatform iOS || true
 
       # ---- Fetch logo from main if not on this branch ----
       - name: Ensure D5 icon source exists
@@ -101,21 +101,30 @@ jobs:
         working-directory: ios/App
         run: pod install
 
+      # ---- Ecrire la clé .p8 sur disque (evite le bug altool base64) ----
+      - name: Write ASC API key file
+        env:
+          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+        run: |
+          echo "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_B32QRB7NPU.p8
+          chmod 600 /tmp/AuthKey_B32QRB7NPU.p8
+
       # ---- Build + TestFlight ----
       - name: Build Release & Upload TestFlight
         env:
-          MATCH_GIT_URL:   https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
-          MATCH_PASSWORD:  ${{ secrets.MATCH_PASSWORD }}
-          ASC_KEY_ID:      ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID:   ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
+          MATCH_GIT_URL:    https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
+          MATCH_PASSWORD:   ${{ secrets.MATCH_PASSWORD }}
+          ASC_KEY_ID:       ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID:    ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_FILEPATH: /tmp/AuthKey_B32QRB7NPU.p8
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: fastlane ios beta
 
       # ---- Artifact ----
-      - name: Upload IPA
-        if: success()
+      - name: Upload IPA artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: D5Coaching-build-${{ github.run_number }}.ipa
-          path: build/D5Coaching.ipa
-          retention-days: 30
+          name: D5Coaching-IPA
+          path: ios/App/build/**/*.ipa
+          if-no-files-found: ignore
