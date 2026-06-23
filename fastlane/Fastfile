@@ -6,12 +6,11 @@ platform :ios do
 
   def get_api_key
     app_store_connect_api_key(
-      key_id:                  ENV["ASC_KEY_ID"],
-      issuer_id:               ENV["ASC_ISSUER_ID"],
-      key_content:             ENV["ASC_KEY_CONTENT"],
-      is_key_content_base64:   true,
-      duration:                1200,
-      in_house:                false
+      key_id:       ENV["ASC_KEY_ID"],
+      issuer_id:    ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV.fetch("ASC_KEY_FILEPATH", "/tmp/AuthKey_B32QRB7NPU.p8"),
+      duration:     1200,
+      in_house:     false
     )
   end
 
@@ -35,7 +34,6 @@ platform :ios do
   lane :certificates do
     setup_ci if ENV["CI"]
     api_key = get_api_key
-    match(
     match(
       type:              "appstore",
       app_identifier:    "com.dayekaba.d5coaching",
