@@ -36,10 +36,13 @@ platform :ios do
     setup_ci if ENV["CI"]
     api_key = get_api_key
     match(
-      type:           "appstore",
-      app_identifier: "com.dayekaba.d5coaching",
-      api_key:        api_key,
-      readonly:       true
+    match(
+      type:              "appstore",
+      app_identifier:    "com.dayekaba.d5coaching",
+      api_key:           api_key,
+      readonly:          true,
+      keychain_name:     "fastlane_tmp_keychain",
+      keychain_password: ENV["KEYCHAIN_PASSWORD"]
     )
   end
 
