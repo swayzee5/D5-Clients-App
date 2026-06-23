@@ -66,25 +66,33 @@ platform :ios do
     )
 
     update_project_team(
-      path:    "ios/App/App.xcodeproj",
-      teamid:  "PH4CLA89XR"
+      path:   "ios/App/App.xcodeproj",
+      teamid: "PH4CLA89XR"
+    )
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path:                  "ios/App/App.xcodeproj",
+      team_id:               "PH4CLA89XR",
+      bundle_identifier:     "com.dayekaba.d5coaching",
+      profile_name:          "match AppStore com.dayekaba.d5coaching",
+      code_sign_identity:    "Apple Distribution"
     )
 
     build_app(
-      workspace:              "ios/App/App.xcworkspace",
-      scheme:                 "App",
-      configuration:          "Release",
-      export_method:          "app-store",
-      output_directory:       "./build",
-      output_name:            "D5Coaching",
-      suppress_xcode_output:  false,
-      xcargs:                 "DEVELOPMENT_TEAM=PH4CLA89XR CODE_SIGN_STYLE=Manual"
+      workspace:             "ios/App/App.xcworkspace",
+      scheme:                "App",
+      configuration:         "Release",
+      export_method:         "app-store",
+      output_directory:      "./build",
+      output_name:           "D5Coaching",
+      suppress_xcode_output: false
     )
 
     upload_to_testflight(
-      api_key:                          api_key,
+      api_key:                           api_key,
       skip_waiting_for_build_processing: true,
-      distribute_external:              false
+      distribute_external:               false
     )
 
     UI.success "Build #{build_number} uploade sur TestFlight avec succes !"
