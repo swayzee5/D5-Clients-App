@@ -22,7 +22,7 @@ on:
 jobs:
   build-ios:
     name: Build iOS Release
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 90
 
     steps:
@@ -30,6 +30,13 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      # ---- Xcode explicite ----
+      - name: Select Xcode 16.2
+        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+
+      - name: Install iOS 18 platform
+        run: xcodebuild -downloadPlatform iOS
 
       # ---- Fetch logo from main if not on this branch ----
       - name: Ensure D5 icon source exists
@@ -74,10 +81,10 @@ jobs:
         run: bash scripts/generate-icons.sh
 
       # ---- Ruby / Fastlane ----
-      - name: Setup Ruby 3.2
+      - name: Setup Ruby 3.3
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
+          ruby-version: '3.3'
 
       - name: Install Fastlane
         run: gem install fastlane --no-document
