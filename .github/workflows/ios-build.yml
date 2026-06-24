@@ -101,22 +101,22 @@ jobs:
         working-directory: ios/App
         run: pod install
 
-      # ---- Ecrire la clé .p8 sur disque (evite le bug altool base64) ----
+      # ---- Ecrire la clé .p8 sur disque ----
       - name: Write ASC API key file
         env:
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
         run: |
-          echo "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_B32QRB7NPU.p8
-          chmod 600 /tmp/AuthKey_B32QRB7NPU.p8
+          echo "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_N89NTU664B.p8
+          chmod 600 /tmp/AuthKey_N89NTU664B.p8
 
       # ---- Build + TestFlight ----
       - name: Build Release & Upload TestFlight
         env:
-          MATCH_GIT_URL:    https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
-          MATCH_PASSWORD:   ${{ secrets.MATCH_PASSWORD }}
-          ASC_KEY_ID:       ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID:    ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_FILEPATH: /tmp/AuthKey_B32QRB7NPU.p8
+          MATCH_GIT_URL:     https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
+          MATCH_PASSWORD:    ${{ secrets.MATCH_PASSWORD }}
+          ASC_KEY_ID:        ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID:     ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_FILEPATH:  /tmp/AuthKey_N89NTU664B.p8
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: fastlane ios beta
 
