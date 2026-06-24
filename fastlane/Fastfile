@@ -37,6 +37,11 @@ platform :ios do
       keychain_name:     "fastlane_tmp_keychain",
       keychain_password: ENV["KEYCHAIN_PASSWORD"]
     )
+    # Allow codesign to access the keychain without interactive prompts in CI
+    if ENV["CI"]
+      keychain_path = "#{Dir.home}/Library/Keychains/fastlane_tmp_keychain-db"
+      sh("security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k #{ENV['KEYCHAIN_PASSWORD'].shellescape} #{keychain_path.shellescape} 2>&1 || true")
+    end
   end
 
   lane :beta do
@@ -74,7 +79,6 @@ platform :ios do
       code_sign_identity:    "Apple Distribution"
     )
 
-    # Unlock keychain so xcodebuild codesign can access the cert during build
     unlock_keychain(
       path:     "fastlane_tmp_keychain",
       password: ENV["KEYCHAIN_PASSWORD"]
@@ -88,7 +92,7 @@ platform :ios do
       export_method:    "app-store",
       output_directory: "ios/App/build",
       output_name:      "D5Coaching.ipa",
-      xcargs:           "-allowProvisioningUpdates OTHER_CODE_SIGN_FLAGS=\"--keychain fastlane_tmp_keychain\"",
+      xcargs:           "-allowProvisioningUpdates",
       export_options:   {
         method:               "app-store",
         teamID:               "PH4CLA89XR",
