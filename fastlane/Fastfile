@@ -23,6 +23,8 @@ end
 def codesign_xcargs
   flags = ["-allowProvisioningUpdates"]
   flags << "OTHER_CODE_SIGN_FLAGS=\"--keychain #{ci_keychain_path}\"" if ENV["CI"]
+  # iPhone only — avoids App Store rejection for missing iPad screenshots
+  flags << "TARGETED_DEVICE_FAMILY='1'"
   flags.join(" ")
 end
 
@@ -89,8 +91,6 @@ platform :ios do
     UI.success "Certificats crees!"
   end
 
-  # Run match only. The workflow creates and unlocks the CI keychain first,
-  # then this lane imports the certificate into that exact keychain.
   lane :certificates do
     api_key = get_api_key
     install_match_profile(api_key: api_key, readonly: true)
@@ -98,7 +98,6 @@ platform :ios do
     UI.success "Certificats installes dans le trousseau."
   end
 
-  # Build + upload only — called after the workflow runs set-key-partition-list.
   lane :build_and_upload do
     api_key = get_api_key
     build_number = next_testflight_build_number(api_key)
@@ -141,7 +140,6 @@ platform :ios do
     UI.success "Build #{build_number} uploade sur TestFlight!"
   end
 
-  # Combined lane (certificates + build_and_upload) for local use
   lane :beta do
     certificates
     build_and_upload
