@@ -40,7 +40,6 @@ jobs:
       - name: Ensure D5 icon source exists
         run: |
           if [ ! -f "resources/icon.png" ]; then
-            echo "resources/icon.png absent, recuperation depuis main..."
             git fetch origin main
             mkdir -p resources
             git checkout origin/main -- resources/icon.png
@@ -96,15 +95,50 @@ jobs:
           echo "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_N89NTU664B.p8
           chmod 600 /tmp/AuthKey_N89NTU664B.p8
 
+      # Step 1: install certificates via match
+      - name: Install certificates (match)
+        env:
+          MATCH_GIT_URL:          https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
+          MATCH_PASSWORD:         ${{ secrets.MATCH_PASSWORD }}
+          MATCH_KEYCHAIN_NAME:    fastlane_tmp_keychain
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          ASC_KEY_ID:             ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID:          ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_FILEPATH:       /tmp/AuthKey_N89NTU664B.p8
+          KEYCHAIN_PASSWORD:      ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: fastlane ios certificates
+
+      # Step 2: grant codesign access to keychain (must run AFTER match imports certs)
+      - name: Grant codesign keychain access
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH="$HOME/Library/Keychains/fastlane_tmp_keychain-db"
+          echo "Keychains currently in search list:"
+          security list-keychains -d user
+          echo "Unlocking keychain..."
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          echo "Setting partition list to allow codesign without prompts..."
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s \
+            -k "$KEYCHAIN_PASSWORD" \
+            "$KEYCHAIN_PATH"
+          echo "Done. Keys in keychain:"
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -5
+
+      # Step 3: build and upload
       - name: Build Release & Upload TestFlight
         env:
-          MATCH_GIT_URL:     https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
-          MATCH_PASSWORD:    ${{ secrets.MATCH_PASSWORD }}
-          ASC_KEY_ID:        ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID:     ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_FILEPATH:  /tmp/AuthKey_N89NTU664B.p8
-          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
-        run: fastlane ios beta
+          MATCH_GIT_URL:          https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
+          MATCH_PASSWORD:         ${{ secrets.MATCH_PASSWORD }}
+          MATCH_KEYCHAIN_NAME:    fastlane_tmp_keychain
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          ASC_KEY_ID:             ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID:          ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_FILEPATH:       /tmp/AuthKey_N89NTU664B.p8
+          KEYCHAIN_PASSWORD:      ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: fastlane ios build_and_upload
 
       - name: Upload IPA artifact
         if: always()

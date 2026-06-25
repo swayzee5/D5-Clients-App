@@ -26,6 +26,8 @@ platform :ios do
     UI.success "Certificats crees!"
   end
 
+  # Run match only — called as a separate step so the workflow can run
+  # security set-key-partition-list AFTER certs are imported and BEFORE build.
   lane :certificates do
     setup_ci if ENV["CI"]
     api_key = get_api_key
@@ -34,19 +36,14 @@ platform :ios do
       app_identifier:    "com.dayekaba.d5coaching",
       api_key:           api_key,
       readonly:          true,
-      keychain_name:     "fastlane_tmp_keychain",
+      keychain_name:     ENV.fetch("MATCH_KEYCHAIN_NAME", "fastlane_tmp_keychain"),
       keychain_password: ENV["KEYCHAIN_PASSWORD"]
     )
-    # Allow codesign to access the keychain without interactive prompts in CI
-    if ENV["CI"]
-      keychain_path = "#{Dir.home}/Library/Keychains/fastlane_tmp_keychain-db"
-      sh("security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k #{ENV['KEYCHAIN_PASSWORD'].shellescape} #{keychain_path.shellescape} 2>&1 || true")
-    end
+    UI.success "Certificats installes dans le trousseau."
   end
 
-  lane :beta do
-    certificates
-
+  # Build + upload only — called after the workflow runs set-key-partition-list.
+  lane :build_and_upload do
     api_key = get_api_key
 
     latest = begin
@@ -80,7 +77,7 @@ platform :ios do
     )
 
     unlock_keychain(
-      path:     "fastlane_tmp_keychain",
+      path:     ENV.fetch("MATCH_KEYCHAIN_NAME", "fastlane_tmp_keychain"),
       password: ENV["KEYCHAIN_PASSWORD"]
     )
 
@@ -112,6 +109,12 @@ platform :ios do
     )
 
     UI.success "Build #{build_number} uploade sur TestFlight!"
+  end
+
+  # Combined lane (certificates + build_and_upload) for local use
+  lane :beta do
+    certificates
+    build_and_upload
   end
 
 end
