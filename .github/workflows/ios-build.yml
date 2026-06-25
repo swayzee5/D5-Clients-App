@@ -34,11 +34,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Select Xcode 16.2
-        run: sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
-
-      - name: Install iOS 18 platform
-        run: xcodebuild -downloadPlatform iOS || true
+      - name: Select Xcode 26.3
+        run: |
+          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-version
 
       - name: Ensure D5 icon source exists
         run: |
