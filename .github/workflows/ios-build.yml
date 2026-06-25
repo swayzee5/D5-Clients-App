@@ -16,8 +16,11 @@ on:
       - 'lib/**'
       - 'public/**'
       - 'resources/**'
+      - 'scripts/**'
+      - 'fastlane/**'
       - 'capacitor.config.ts'
       - 'package.json'
+      - '.github/workflows/ios-build.yml'
 
 jobs:
   build-ios:
@@ -77,6 +80,24 @@ jobs:
       - name: Install Fastlane
         run: gem install fastlane --no-document
 
+      - name: Prepare signing keychain
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_NAME="fastlane_tmp_keychain"
+          KEYCHAIN_PATH="$HOME/Library/Keychains/${KEYCHAIN_NAME}-db"
+
+          security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security default-keychain -d user -s "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" "$HOME/Library/Keychains/login.keychain-db"
+
+          echo "MATCH_KEYCHAIN_NAME=$KEYCHAIN_NAME" >> "$GITHUB_ENV"
+          echo "D5_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
       - name: Cache CocoaPods
         uses: actions/cache@v4
         with:
@@ -87,6 +108,9 @@ jobs:
       - name: Install CocoaPods
         working-directory: ios/App
         run: pod install
+
+      - name: Patch CocoaPods codesign script
+        run: bash scripts/patch-pods-codesign.sh
 
       - name: Write ASC API key file
         env:
@@ -100,7 +124,6 @@ jobs:
         env:
           MATCH_GIT_URL:          https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
           MATCH_PASSWORD:         ${{ secrets.MATCH_PASSWORD }}
-          MATCH_KEYCHAIN_NAME:    fastlane_tmp_keychain
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           ASC_KEY_ID:             ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID:          ${{ secrets.ASC_ISSUER_ID }}
@@ -113,26 +136,25 @@ jobs:
         env:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          KEYCHAIN_PATH="$HOME/Library/Keychains/fastlane_tmp_keychain-db"
+          set -euo pipefail
           echo "Keychains currently in search list:"
           security list-keychains -d user
           echo "Unlocking keychain..."
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$D5_KEYCHAIN_PATH"
           echo "Setting partition list to allow codesign without prompts..."
           security set-key-partition-list \
             -S apple-tool:,apple:,codesign: \
             -s \
             -k "$KEYCHAIN_PASSWORD" \
-            "$KEYCHAIN_PATH"
-          echo "Done. Keys in keychain:"
-          security find-identity -v -p codesigning "$KEYCHAIN_PATH" | head -5
+            "$D5_KEYCHAIN_PATH"
+          echo "Done. Codesigning identities in CI keychain:"
+          security find-identity -v -p codesigning "$D5_KEYCHAIN_PATH" | head -5
 
       # Step 3: build and upload
       - name: Build Release & Upload TestFlight
         env:
           MATCH_GIT_URL:          https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
           MATCH_PASSWORD:         ${{ secrets.MATCH_PASSWORD }}
-          MATCH_KEYCHAIN_NAME:    fastlane_tmp_keychain
           MATCH_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           ASC_KEY_ID:             ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID:          ${{ secrets.ASC_ISSUER_ID }}
