@@ -37,6 +37,4 @@ android {
 dependencies {
         implementation 'androidx.appcompat:appcompat:1.6.1'
         implementation 'com.google.android.material:material:1.9.0'
-        // Required for TWA (Trusted Web Activity) — LauncherActivity
-        implementation 'com.google.androidbrowserhelper:androidbrowserhelper:2.5.0'
 }
