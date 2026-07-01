@@ -122,7 +122,9 @@ export function ExecuterClient({ seance, clientId, programId }: Props) {
     setIsCompleting(true);
     const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
     await completeWorkoutSession(workoutSessionId, duration);
-    router.push(`/programme/${programId}/seance/${seance.id}`);
+    router.push(
+      `/programme/${programId}/seance/${seance.id}/bilan?dur=${duration}&wid=${workoutSessionId}`
+    );
   }
 
   async function handleSaveNote() {
@@ -180,7 +182,7 @@ export function ExecuterClient({ seance, clientId, programId }: Props) {
           <p className="text-d5-muted text-sm uppercase tracking-wider">Récupération</p>
           <p className="text-8xl font-black text-white tabular-nums">{formatTime(restTimeLeft)}</p>
           <p className="text-d5-muted text-sm">
-            Prochain : {setIdx + 1 < totalSets ? `Série ${setIdx + 2}` : exercises[exerciseIdx + 1]?.name ?? "Terminé"}
+            Prochain : {setIdx + 1 < totalSets ? `Série ${setIdx + 2}` : exercises[exerciseIdx + 1]?.name ?? "Terminé"}
           </p>
           <div className="flex gap-3 w-full max-w-sm">
             <button

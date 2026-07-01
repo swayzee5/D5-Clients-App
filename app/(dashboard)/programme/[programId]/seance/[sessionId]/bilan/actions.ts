@@ -34,23 +34,37 @@ export async function quickCompleteSession(
   programId: string,
   rpe: number | null,
   note: string,
-  durationSeconds: number | null
+  durationSeconds: number | null,
+  existingWorkoutSessionId?: string
 ): Promise<void> {
   await ensureTables();
 
-  const { rows } = await pool.query(
-    `INSERT INTO workout_sessions
-       (client_id, training_session_id, program_id, status, completed_at, duration_seconds, rpe)
-     VALUES ($1, $2, $3, 'completed', NOW(), $4, $5)
-     RETURNING id`,
-    [clientId, sessionId, programId, durationSeconds || null, rpe]
-  );
+  let sessionRowId: string;
+
+  if (existingWorkoutSessionId) {
+    // Auto-play mode: session already completed, just add RPE
+    await pool.query(
+      `UPDATE workout_sessions SET rpe = $1 WHERE id = $2 AND client_id = $3`,
+      [rpe, existingWorkoutSessionId, clientId]
+    );
+    sessionRowId = existingWorkoutSessionId;
+  } else {
+    // Manual mode: insert a new completed session
+    const { rows } = await pool.query(
+      `INSERT INTO workout_sessions
+         (client_id, training_session_id, program_id, status, completed_at, duration_seconds, rpe)
+       VALUES ($1, $2, $3, 'completed', NOW(), $4, $5)
+       RETURNING id`,
+      [clientId, sessionId, programId, durationSeconds || null, rpe]
+    );
+    sessionRowId = rows[0].id;
+  }
 
   if (note.trim()) {
     await pool.query(
       `INSERT INTO session_notes (workout_session_id, client_id, content)
        VALUES ($1, $2, $3)`,
-      [rows[0].id, clientId, note.trim()]
+      [sessionRowId, clientId, note.trim()]
     );
   }
 }

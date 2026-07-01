@@ -11,12 +11,13 @@ export default async function BilanPage({
   searchParams,
 }: {
   params: { programId: string; sessionId: string };
-  searchParams: { dur?: string };
+  searchParams: { dur?: string; wid?: string };
 }) {
   const session = await auth();
   if (!session) redirect("/login");
 
   const durationSeconds = searchParams.dur ? Number(searchParams.dur) : null;
+  const workoutSessionId = searchParams.wid ?? undefined;
 
   return (
     <BilanClient
@@ -24,6 +25,7 @@ export default async function BilanPage({
       sessionId={params.sessionId}
       clientId={session.user.id}
       durationSeconds={durationSeconds}
+      workoutSessionId={workoutSessionId}
     />
   );
 }

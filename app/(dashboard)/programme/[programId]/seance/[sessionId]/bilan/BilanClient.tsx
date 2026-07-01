@@ -10,11 +10,13 @@ export function BilanClient({
   sessionId,
   clientId,
   durationSeconds,
+  workoutSessionId,
 }: {
   programId: string;
   sessionId: string;
   clientId: string;
   durationSeconds: number | null;
+  workoutSessionId?: string;
 }) {
   const [rpe, setRpe] = useState(5);
   const [note, setNote] = useState("");
@@ -23,7 +25,15 @@ export function BilanClient({
 
   const handleSave = () => {
     startTransition(async () => {
-      await quickCompleteSession(sessionId, clientId, programId, rpe, note, durationSeconds);
+      await quickCompleteSession(
+        sessionId,
+        clientId,
+        programId,
+        rpe,
+        note,
+        durationSeconds,
+        workoutSessionId
+      );
       router.push("/programme");
     });
   };
@@ -57,12 +67,12 @@ export function BilanClient({
       </div>
 
       <div>
-        <h1 className="text-2xl font-bold text-white">Comment a été votre entraînement ?</h1>
+        <h1 className="text-2xl font-bold text-white">Comment a été votre entraînement ?</h1>
       </div>
 
       {/* RPE Card */}
       <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 space-y-4">
-        <h2 className="font-bold text-white">Perception de l’effort général</h2>
+        <h2 className="font-bold text-white">Perception de l'effort général</h2>
         <div className="flex justify-between text-xs text-d5-muted px-0.5">
           <span>Faible</span>
           <span>Maximal</span>
@@ -95,7 +105,7 @@ export function BilanClient({
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="Comment s’est passée la séance ? (optionnel)"
+          placeholder="Comment s'est passée la séance ? (optionnel)"
           rows={4}
           className="w-full bg-gray-800 rounded-xl p-3 text-white text-sm resize-none border border-gray-700 focus:border-d5-gold/50 outline-none placeholder-gray-600"
         />
