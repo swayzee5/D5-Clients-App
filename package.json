@@ -21,7 +21,8 @@
     "date-fns": "^4.1.0",
     "recharts": "^2.15.0",
     "zod": "^3.24.2",
-    "@capacitor/core": "^6.1.2"
+    "@capacitor/core": "^6.1.2",
+    "onesignal-capacitor": "^5.2.4"
   },
   "devDependencies": {
     "@types/node": "^20",
