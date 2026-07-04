@@ -3,6 +3,7 @@
 import { auth } from "@/auth";
 import { pool } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { checkAndSendMilestoneNotification } from "@/lib/push";
 
 async function notifyIfChallengeComplete(clientId: string) {
   try {
@@ -35,6 +36,7 @@ export async function validateModule(taskKey: string) {
     )`);
     await pool.query(`INSERT INTO reboot_task_completions (client_id, task_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [session.user.id, taskKey]);
     await notifyIfChallengeComplete(session.user.id);
+    await checkAndSendMilestoneNotification(session.user.id);
   } catch (err) { console.error("[validateModule]", err); return; }
   revalidatePath("/reboot");
   revalidatePath(`/reboot/module/${taskKey}`);

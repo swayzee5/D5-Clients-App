@@ -2,6 +2,7 @@
 
 import { pool } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { checkAndSendMilestoneNotification } from "@/lib/push";
 
 async function notifyIfChallengeComplete(clientId: string) {
   try {
@@ -27,6 +28,7 @@ async function notifyIfChallengeComplete(clientId: string) {
 export async function completeSession(clientId: string, sessionId: string) {
   await pool.query(`INSERT INTO reboot_completions (client_id, session_id) VALUES ($1, $2) ON CONFLICT (client_id, session_id) DO NOTHING`, [clientId, sessionId]);
   await notifyIfChallengeComplete(clientId);
+  await checkAndSendMilestoneNotification(clientId);
   revalidatePath("/reboot");
   revalidatePath(`/reboot/${sessionId}`);
 }
@@ -53,5 +55,6 @@ export async function recordWhatsappSend(clientId: string, sessionId: string) {
     await pool.query(`INSERT INTO reboot_whatsapp_completions (client_id, session_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [clientId, sessionId]);
   } catch (err) { console.error("[recordWhatsappSend]", err); }
   await notifyIfChallengeComplete(clientId);
+  await checkAndSendMilestoneNotification(clientId);
   revalidatePath("/reboot");
 }

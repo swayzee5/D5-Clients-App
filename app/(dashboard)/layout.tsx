@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { Header } from "@/components/layout/Header"
 import { BottomNav } from "@/components/navigation/BottomNav"
 import { pool } from "@/lib/db"
+import { PushInit } from "@/components/PushInit"
 
 async function getUnreadCount(clientId: string): Promise<number> {
   try {
@@ -34,6 +35,7 @@ export default async function DashboardLayout({
         {children}
       </main>
       <BottomNav unreadMessages={unreadMessages} />
+      <PushInit clientId={session.user.id} />
     </div>
   )
 }
