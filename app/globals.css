@@ -23,6 +23,17 @@
   body {
     overscroll-behavior: none;
   }
+
+  /* Prevent iOS Safari from auto-zooming on input focus.
+     Safari zooms in when font-size < 16px, which breaks touch coordinate
+     alignment and makes the whole page appear frozen. */
+  @supports (-webkit-touch-callout: none) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
 }
 
 @layer utilities {
