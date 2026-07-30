@@ -59,6 +59,7 @@ export default async function SeancePage({
           exercises={seance.exercises}
           programId={params.programId}
           sessionId={params.sessionId}
+          clientId={session.user.id}
         />
       )}
     </div>

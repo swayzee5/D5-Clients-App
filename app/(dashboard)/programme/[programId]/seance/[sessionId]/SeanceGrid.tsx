@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { SessionExercise } from "@/lib/queries/programme";
+import { saveManualWeightLog, getExerciseWeightHistory } from "./seance-actions";
 
 function formatRest(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -48,19 +49,30 @@ function VideoModal({
   );
 }
 
+type HistoryEntry = { date: string; entries: { reps: string | null; weight: string | null }[] };
+
 function ExerciseCard({
   exercise,
   index,
   checked,
+  clientId,
+  weight,
   onCheck,
   onVideoClick,
+  onWeightChange,
 }: {
   exercise: SessionExercise;
   index: number;
   checked: boolean;
+  clientId: string;
+  weight: string;
   onCheck: () => void;
   onVideoClick: () => void;
+  onWeightChange: (w: string) => void;
 }) {
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const hasVideo = !!exercise.vimeo_video_id;
   const thumbnail = exercise.thumbnail_url ?? null;
 
@@ -69,10 +81,19 @@ function ExerciseCard({
     : "1 phase";
 
   const stats: { label: string; value: string }[] = [];
-  if (exercise.weight) stats.push({ label: "Charge", value: exercise.weight });
   if (exercise.reps) stats.push({ label: "Reps", value: exercise.reps });
-  if (stats.length < 2 && exercise.rest_seconds)
+  if (exercise.rest_seconds)
     stats.push({ label: "Récup.", value: formatRest(exercise.rest_seconds) });
+
+  async function handleHistoryToggle() {
+    if (!showHistory && history.length === 0) {
+      setLoadingHistory(true);
+      const h = await getExerciseWeightHistory(exercise.id, clientId);
+      setHistory(h);
+      setLoadingHistory(false);
+    }
+    setShowHistory((v) => !v);
+  }
 
   return (
     <div
@@ -108,11 +129,7 @@ function ExerciseCard({
       >
         {thumbnail ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={thumbnail}
-            alt={exercise.name}
-            className="w-full h-full object-cover"
-          />
+          <img src={thumbnail} alt={exercise.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <span className="text-5xl font-black text-gray-700">{index + 1}</span>
@@ -133,6 +150,7 @@ function ExerciseCard({
         <p className="text-white font-bold text-sm leading-tight">
           {index + 1} – {exercise.name}
         </p>
+
         {stats.length > 0 && (
           <div className="flex gap-4">
             {stats.slice(0, 2).map((s) => (
@@ -141,6 +159,59 @@ function ExerciseCard({
                 <p className="text-white font-semibold text-sm">{s.value}</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Weight input + history toggle */}
+        <div className="flex items-center gap-2 pt-1">
+          <input
+            type="text"
+            value={weight}
+            onChange={(e) => onWeightChange(e.target.value)}
+            placeholder={exercise.weight ?? "kg"}
+            inputMode="decimal"
+            className="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-xs text-center font-semibold focus:outline-none focus:border-d5-gold placeholder-gray-600"
+          />
+          <button
+            onClick={handleHistoryToggle}
+            className={`shrink-0 p-1.5 rounded-lg transition-colors ${
+              showHistory ? "bg-d5-gold/20 text-d5-gold" : "bg-gray-800 text-gray-500 hover:text-white"
+            }`}
+            title="Historique des charges"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </button>
+        </div>
+
+        {/* History panel */}
+        {showHistory && (
+          <div className="border-t border-gray-800 pt-2 space-y-1.5">
+            {loadingHistory ? (
+              <p className="text-gray-500 text-xs text-center py-1">Chargement…</p>
+            ) : history.length === 0 ? (
+              <p className="text-gray-600 text-xs text-center py-1">Aucun historique</p>
+            ) : (
+              history.map((session, i) => (
+                <div key={i}>
+                  <p className="text-gray-500 text-xs">
+                    {new Intl.DateTimeFormat("fr-FR", {
+                      day: "numeric",
+                      month: "short",
+                    }).format(new Date(session.date))}
+                  </p>
+                  <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+                    {session.entries.map((e, j) => (
+                      <span key={j} className="text-white text-xs font-semibold">
+                        {e.weight ?? "—"}
+                        {e.reps ? ` × ${e.reps}` : ""}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
@@ -152,24 +223,33 @@ export function SeanceGrid({
   exercises,
   programId,
   sessionId,
+  clientId,
 }: {
   exercises: SessionExercise[];
   programId: string;
   sessionId: string;
+  clientId: string;
 }) {
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [weights, setWeights] = useState<Record<string, string>>({});
   const [showModal, setShowModal] = useState(false);
   const [videoExercise, setVideoExercise] = useState<SessionExercise | null>(null);
   const startTimeRef = useRef<number>(Date.now());
   const router = useRouter();
 
-  const toggle = (id: string) =>
+  const toggle = (id: string) => {
+    const wasChecked = checked.has(id);
     setChecked((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+    // Save weight when checking (fire-and-forget)
+    if (!wasChecked && weights[id]?.trim()) {
+      saveManualWeightLog(clientId, id, weights[id], "").catch(console.error);
+    }
+  };
 
   const total = exercises.length;
   const done = checked.size;
@@ -200,8 +280,11 @@ export function SeanceGrid({
             exercise={ex}
             index={i}
             checked={checked.has(ex.id)}
+            clientId={clientId}
+            weight={weights[ex.id] ?? ""}
             onCheck={() => toggle(ex.id)}
             onVideoClick={() => setVideoExercise(ex)}
+            onWeightChange={(w) => setWeights((prev) => ({ ...prev, [ex.id]: w }))}
           />
         ))}
       </div>
@@ -222,7 +305,7 @@ export function SeanceGrid({
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm space-y-5">
             <div className="flex items-start justify-between gap-3">
               <p className="font-bold text-white text-base leading-snug">
-                Vous n'avez pas complété la séance à 100%
+                Vous n’avez pas complété la séance à 100%
               </p>
               <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-white shrink-0 mt-0.5">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -231,7 +314,8 @@ export function SeanceGrid({
               </button>
             </div>
             <p className="text-gray-400 text-sm">
-              Pourcentage d'exercices marqués comme fait : <span className="text-white font-semibold">{pct}%</span>
+              Pourcentage d’exercices marqués comme fait :{" "}
+              <span className="text-white font-semibold">{pct}%</span>
             </p>
             <div className="space-y-3">
               <button
@@ -247,7 +331,7 @@ export function SeanceGrid({
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
-                J'ai fait tous les exercices
+                J’ai fait tous les exercices
               </button>
             </div>
           </div>
