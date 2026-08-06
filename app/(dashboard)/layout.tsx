@@ -29,10 +29,13 @@ export default async function DashboardLayout({
   const unreadMessages = await getUnreadCount(session.user.id)
 
   return (
-    <div className="min-h-dvh bg-d5-bg">
+    <div className="h-dvh flex flex-col bg-d5-bg">
       <Header userName={session.user?.name} />
-      <main className="pb-28 pt-4 px-4 max-w-lg mx-auto">
-        {children}
+      {/* flex-1 + overflow-y-auto = scroll container (avoids iOS body-scroll bug with fixed nav + viewport-fit:cover) */}
+      <main className="flex-1 overflow-y-auto overscroll-contain">
+        <div className="pt-4 px-4 pb-28 max-w-lg mx-auto">
+          {children}
+        </div>
       </main>
       <BottomNav unreadMessages={unreadMessages} />
       <PushInit clientId={session.user.id} />

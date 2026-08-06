@@ -16,17 +16,17 @@
     color: #F9FAFB;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Prevent body from being scrollable — scroll happens in the main container */
+    overflow: hidden;
   }
 
-  /* Prevent overscroll bounce on iOS */
-  html,
-  body {
-    overscroll-behavior: none;
+  html {
+    overflow: hidden;
+    height: 100%;
   }
 
   /* Prevent iOS Safari from auto-zooming on input focus.
-     Safari zooms in when font-size < 16px, which breaks touch coordinate
-     alignment and makes the whole page appear frozen. */
+     Safari zooms in when font-size < 16px, breaking touch coordinate alignment. */
   @supports (-webkit-touch-callout: none) {
     input,
     textarea,
