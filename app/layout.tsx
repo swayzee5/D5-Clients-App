@@ -12,7 +12,10 @@ export const metadata: Metadata = {
   description: "Ton espace personnel D5 Coaching",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    // "black" = status bar solid black, app content starts BELOW it.
+    // Visually identical to black-translucent on our dark theme (#0D0D0D)
+    // but avoids the overlap / safe-area complexity with viewport-fit:cover.
+    statusBarStyle: "black",
     title: "D5 Coaching",
   },
 }
@@ -22,7 +25,6 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  viewportFit: "cover",
   themeColor: "#0D0D0D",
 }
 

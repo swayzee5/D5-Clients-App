@@ -16,13 +16,12 @@
     color: #F9FAFB;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Prevent body from being scrollable — scroll happens in the main container */
-    overflow: hidden;
   }
 
-  html {
-    overflow: hidden;
-    height: 100%;
+  /* Prevent overscroll bounce on iOS */
+  html,
+  body {
+    overscroll-behavior: none;
   }
 
   /* Prevent iOS Safari from auto-zooming on input focus.
