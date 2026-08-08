@@ -6,7 +6,7 @@ export function Header({ userName }: HeaderProps) {
   const firstName = userName?.split(" ")[0]
 
   return (
-    <header className="sticky top-0 z-40 bg-d5-bg/95 backdrop-blur-sm border-b border-d5-border">
+    <header className="shrink-0 z-40 bg-d5-bg/95 backdrop-blur-sm border-b border-d5-border pt-safe">
       <div className="flex items-center justify-between max-w-lg mx-auto px-4 h-14">
         <div className="flex items-center gap-2">
           <span className="text-d5-gold font-black text-xl tracking-tighter">D5</span>

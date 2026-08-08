@@ -10,9 +10,13 @@ const config: CapacitorConfig = {
     cleartext: false,
   },
   ios: {
-    contentInset: 'automatic',
+    // 'never' : on gère nous-mêmes les safe areas en CSS (env(safe-area-inset-*)),
+    // sinon iOS ajoute un inset automatique qui se cumule avec notre padding.
+    contentInset: 'never',
     backgroundColor: '#0D0D0D',
-    scrollEnabled: false,
+    // ÉTAIT À false — cela désactivait littéralement le scroll de la WKWebView
+    // (webView.scrollView.isScrollEnabled = false). Aucun CSS ne peut contourner ça.
+    scrollEnabled: true,
   },
 };
 

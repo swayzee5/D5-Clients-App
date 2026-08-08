@@ -29,10 +29,14 @@ export default async function DashboardLayout({
   const unreadMessages = await getUnreadCount(session.user.id)
 
   return (
-    <div className="min-h-dvh bg-d5-bg">
+    <div className="h-app flex flex-col overflow-hidden bg-d5-bg">
       <Header userName={session.user?.name} />
-      <main className="pb-28 pt-4 px-4 max-w-lg mx-auto">
-        {children}
+      {/* Le scroll se fait ici, pas sur le body : la WKWebView de Capacitor
+          gère les sous-scrollers même quand le scroll natif est coupé. */}
+      <main className="flex-1 scroll-y">
+        <div className="pb-28 pt-4 px-4 max-w-lg mx-auto">
+          {children}
+        </div>
       </main>
       <BottomNav unreadMessages={unreadMessages} />
       <PushInit clientId={session.user.id} />

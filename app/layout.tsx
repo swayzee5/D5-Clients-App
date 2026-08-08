@@ -12,9 +12,6 @@ export const metadata: Metadata = {
   description: "Ton espace personnel D5 Coaching",
   appleWebApp: {
     capable: true,
-    // "black" = status bar solid black, app content starts BELOW it.
-    // Visually identical to black-translucent on our dark theme (#0D0D0D)
-    // but avoids the overlap / safe-area complexity with viewport-fit:cover.
     statusBarStyle: "black",
     title: "D5 Coaching",
   },
@@ -26,6 +23,10 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: "#0D0D0D",
+  // Obligatoire pour que env(safe-area-inset-*) renvoie une valeur non nulle.
+  // Dans l'app native Capacitor, la meta apple-mobile-web-app-status-bar-style
+  // est ignorée : c'est la seule façon de décaler le header sous l'heure.
+  viewportFit: "cover",
 }
 
 export default function RootLayout({

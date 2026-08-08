@@ -46,6 +46,21 @@
   .pt-safe {
     padding-top: env(safe-area-inset-top, 0px);
   }
+
+  /* Hauteur plein écran avec fallback vh pour les vieilles WKWebView */
+  .h-app {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  /* Conteneur de scroll interne. Fonctionne dans la WKWebView de Capacitor
+     même quand le scroll natif de la vue principale est désactivé :
+     WebKit gère les sous-scrollers indépendamment de l'UIScrollView. */
+  .scroll-y {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
 }
 
 @layer components {
