@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "black",
     title: "D5 Coaching",
     startupImage: [
       { url: "/icons/splash.png" },
@@ -36,7 +36,6 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   themeColor: "#0D0D0D",
-  viewportFit: "cover",
 }
 
 export default function RootLayout({
