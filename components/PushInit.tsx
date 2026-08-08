@@ -15,8 +15,10 @@ const ONESIGNAL_APP_ID = "07b914dd-bf51-42bf-80ba-43548a8d93d0";
 export function PushInit({ clientId }: { clientId: string }) {
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
-      // Native iOS / Android — use the Capacitor plugin
-      initNative(clientId);
+      // Native iOS / Android — OneSignal plugin is configured at the native level.
+      // The JS-side init is handled via the native Xcode/Gradle project.
+      // TODO: re-add JS bridge init once onesignal-capacitor is on npm.
+      console.log("[PushInit] native platform — push managed by native layer");
     } else {
       // Browser / PWA — use the OneSignal Web SDK
       initWeb(clientId);
@@ -24,21 +26,6 @@ export function PushInit({ clientId }: { clientId: string }) {
   }, [clientId]);
 
   return null;
-}
-
-async function initNative(clientId: string) {
-  try {
-    const { default: OneSignal } = await import("onesignal-capacitor");
-    OneSignal.initialize(ONESIGNAL_APP_ID);
-
-    // Link this device to the client’s account for targeted notifications
-    await OneSignal.login(clientId);
-
-    // Ask for permission — only shown once by iOS
-    await OneSignal.Notifications.requestPermission(true);
-  } catch (err) {
-    console.error("[PushInit native]", err);
-  }
 }
 
 function initWeb(clientId: string) {
