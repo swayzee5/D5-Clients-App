@@ -34,47 +34,51 @@ export function ChatView({ messages }: { messages: Message[] }) {
 
   return (
     <div className="flex flex-col h-[calc(100dvh-9rem)]">
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-3 py-2 pr-1">
-        {messages.length === 0 && (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-d5-muted text-sm text-center">
-              Envoie un message à ton coach.
-              <br />
-              <span className="text-xs">Il te répondra dès que possible.</span>
-            </p>
-          </div>
-        )}
-        {messages.map((m) => {
-          const isClient = m.sender_role === "client"
-          const time = new Date(m.created_at).toLocaleTimeString("fr-FR", {
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-          return (
-            <div
-              key={m.id}
-              className={`flex ${isClient ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[78%] rounded-2xl px-4 py-2.5 ${
-                  isClient
-                    ? "bg-d5-gold text-black rounded-br-sm"
-                    : "bg-d5-surface-2 text-white rounded-bl-sm"
-                }`}
-              >
-                {!isClient && (
-                  <p className="text-[10px] font-bold text-d5-gold mb-1">Coach</p>
-                )}
-                <p className="text-sm leading-relaxed">{m.content}</p>
-                <p className={`text-[10px] mt-1 text-right ${
-                  isClient ? "text-black/50" : "text-d5-muted"
-                }`}>{time}</p>
+      {/* Messages — anchored to the bottom when few messages, scrollable when many */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="flex flex-col min-h-full justify-end">
+          <div className="space-y-3 py-2 pr-1">
+            {messages.length === 0 && (
+              <div className="flex items-center justify-center py-12">
+                <p className="text-d5-muted text-sm text-center">
+                  Envoie un message à ton coach.
+                  <br />
+                  <span className="text-xs">Il te répondra dès que possible.</span>
+                </p>
               </div>
-            </div>
-          )
-        })}
-        <div ref={bottomRef} />
+            )}
+            {messages.map((m) => {
+              const isClient = m.sender_role === "client"
+              const time = new Date(m.created_at).toLocaleTimeString("fr-FR", {
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+              return (
+                <div
+                  key={m.id}
+                  className={`flex ${isClient ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[78%] rounded-2xl px-4 py-2.5 ${
+                      isClient
+                        ? "bg-d5-gold text-black rounded-br-sm"
+                        : "bg-d5-surface-2 text-white rounded-bl-sm"
+                    }`}
+                  >
+                    {!isClient && (
+                      <p className="text-[10px] font-bold text-d5-gold mb-1">Coach</p>
+                    )}
+                    <p className="text-sm leading-relaxed">{m.content}</p>
+                    <p className={`text-[10px] mt-1 text-right ${
+                      isClient ? "text-black/50" : "text-d5-muted"
+                    }`}>{time}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div ref={bottomRef} />
+        </div>
       </div>
 
       {/* Input */}

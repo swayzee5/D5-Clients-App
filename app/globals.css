@@ -11,17 +11,19 @@
     box-sizing: border-box;
   }
 
+  html {
+    height: 100%;
+  }
+
   body {
+    min-height: 100%;
     background-color: #0D0D0D;
     color: #F9FAFB;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-  }
-
-  /* Prevent overscroll bounce on iOS */
-  html,
-  body {
-    overscroll-behavior: none;
+    /* Enable momentum scroll in iOS Capacitor WKWebView */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Prevent iOS Safari from auto-zooming on input focus.
