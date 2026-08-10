@@ -1,4 +1,26 @@
 require "shellwords"
+require "json"
+
+# Version marketing (CFBundleShortVersionString).
+#
+# Le dossier ios/ n'est pas versionne : il est regenere a chaque run par
+# `npx cap add ios`, ce qui remet la version au defaut du template Capacitor
+# (1.0). Comme la 1.0 est deja approuvee sur l'App Store, son train est ferme
+# et tout upload en 1.0 est rejete (409 Invalid Pre-Release Train).
+#
+# On force donc la version a chaque build depuis package.json, qui devient la
+# source de verite. Pour publier une nouvelle version : bumper "version" dans
+# package.json (une version approuvee ne peut plus jamais etre reutilisee).
+def marketing_version
+  from_env = ENV["IOS_MARKETING_VERSION"].to_s.strip
+  return from_env unless from_env.empty?
+
+  package = JSON.parse(File.read(File.expand_path("../package.json", __dir__)))
+  version = package["version"].to_s.strip
+  raise "Impossible de lire \"version\" dans package.json" if version.empty?
+
+  version
+end
 
 def ci_keychain_name
   ENV.fetch("MATCH_KEYCHAIN_NAME", "fastlane_tmp_keychain")
@@ -101,11 +123,21 @@ platform :ios do
   lane :build_and_upload do
     api_key = get_api_key
     build_number = next_testflight_build_number(api_key)
+    version = marketing_version
 
     increment_build_number(
       build_number: build_number,
       xcodeproj:    "ios/App/App.xcodeproj"
     )
+
+    # Sans ca, cap add ios repose CFBundleShortVersionString a 1.0 et
+    # upload_to_testflight echoue en 409 (train de version ferme).
+    increment_version_number(
+      version_number: version,
+      xcodeproj:      "ios/App/App.xcodeproj"
+    )
+
+    UI.message "Version marketing #{version} — build #{build_number}"
 
     configure_app_signing
     unlock_ci_keychain
@@ -137,7 +169,7 @@ platform :ios do
       distribute_external:               false
     )
 
-    UI.success "Build #{build_number} uploade sur TestFlight!"
+    UI.success "Version #{version} (build #{build_number}) uploadee sur TestFlight!"
   end
 
   lane :beta do
