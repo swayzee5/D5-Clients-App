@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { exerciseLibraryLateral } from "./exercise-library";
 
 export type SessionExercise = {
   id: string;
@@ -81,9 +82,7 @@ export async function getActiveProgram(
             el.thumbnail_url,
             e.notes, e.rpe, e.order_index
      FROM exercises e
-     LEFT JOIN exercise_library el
-       ON LOWER(TRIM(el.name)) = LOWER(TRIM(e.name))
-       AND el.is_active = true
+     ${exerciseLibraryLateral("e", "library_exercise_id")}
      WHERE e.session_id = ANY($1::uuid[])
      ORDER BY e.session_id, e.order_index ASC`,
     [sessionIds]
@@ -128,9 +127,7 @@ export async function getSession(
             el.thumbnail_url,
             e.notes, e.rpe, e.order_index
      FROM exercises e
-     LEFT JOIN exercise_library el
-       ON LOWER(TRIM(el.name)) = LOWER(TRIM(e.name))
-       AND el.is_active = true
+     ${exerciseLibraryLateral("e", "library_exercise_id")}
      WHERE e.session_id = $1
      ORDER BY e.order_index ASC`,
     [sessionId]

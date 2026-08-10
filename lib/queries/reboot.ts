@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { exerciseLibraryLateral } from "./exercise-library";
 
 export type RebootSession = {
   id: string;
@@ -69,9 +70,7 @@ export async function getRebootSessionWithExercises(sessionId: string): Promise<
        COALESCE(re.vimeo_video_id, el.vimeo_video_id) AS vimeo_video_id,
        el.thumbnail_url
      FROM reboot_exercises re
-     LEFT JOIN exercise_library el
-       ON LOWER(TRIM(el.name)) = LOWER(TRIM(re.name))
-       AND el.vimeo_video_id IS NOT NULL
+     ${exerciseLibraryLateral("re")}
      WHERE re.session_id = $1
      ORDER BY re.order_index ASC`,
     [sessionId]
