@@ -33,3 +33,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Pas de lock file : le CI et Vercel utilisent npm install
+# (un lock desynchronise ferait basculer Vercel sur npm ci et casserait le build)
+package-lock.json
