@@ -46,6 +46,24 @@ export async function startWorkoutSession(
   programId: string
 ): Promise<string> {
   await ensureTables();
+
+  // Reprendre une seance du jour restee en cours plutot que d'en creer une
+  // nouvelle : sortir de l'ecran puis revenir ne doit ni repartir de zero ni
+  // laisser des lignes 'in_progress' orphelines derriere soi.
+  const existing = await pool
+    .query(
+      `SELECT id FROM workout_sessions
+        WHERE client_id = $1 AND training_session_id = $2
+          AND status = 'in_progress'
+          AND started_at::date = NOW()::date
+        ORDER BY started_at DESC
+        LIMIT 1`,
+      [clientId, sessionId]
+    )
+    .catch(() => ({ rows: [] as { id: string }[] }));
+
+  if (existing.rows.length > 0) return existing.rows[0].id;
+
   const { rows } = await pool.query(
     `INSERT INTO workout_sessions (client_id, training_session_id, program_id)
      VALUES ($1, $2, $3) RETURNING id`,

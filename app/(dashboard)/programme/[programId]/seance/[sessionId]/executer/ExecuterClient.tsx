@@ -36,6 +36,7 @@ export function ExecuterClient({ seance, clientId, programId }: Props) {
   const [showNote, setShowNote] = useState(false);
   const [noteText, setNoteText] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [showVideo, setShowVideo] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -50,13 +51,46 @@ export function ExecuterClient({ seance, clientId, programId }: Props) {
     exercises.slice(0, exerciseIdx).reduce((acc, ex) => acc + (ex.sets ?? 1), 0) + setIdx;
   const progress = totalSetsAll > 0 ? Math.round((completedSets / totalSetsAll) * 100) : 0;
 
+  // Position sauvegardee localement : quitter l'ecran (pour regarder une video,
+  // repondre a un appel, verrouiller le telephone) ne doit pas effacer la
+  // progression. Les series sont deja en base, seule la position se perdait.
+  const storageKey = `d5:executer:${seance.id}`;
+
   useEffect(() => {
+    let restored: { exerciseIdx?: number; setIdx?: number; startedAt?: number } | null = null;
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw) restored = JSON.parse(raw);
+    } catch {
+      restored = null;
+    }
+
+    if (restored) {
+      if (typeof restored.exerciseIdx === "number")
+        setExerciseIdx(Math.min(restored.exerciseIdx, Math.max(0, exercises.length - 1)));
+      if (typeof restored.setIdx === "number") setSetIdx(restored.setIdx);
+      if (typeof restored.startedAt === "number") startTimeRef.current = restored.startedAt;
+    } else {
+      startTimeRef.current = Date.now();
+    }
+
     startWorkoutSession(seance.id, clientId, programId).then(setWorkoutSessionId);
-    startTimeRef.current = Date.now();
   }, []);
 
   useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({ exerciseIdx, setIdx, startedAt: startTimeRef.current })
+      );
+    } catch {
+      // Mode navigation privee ou stockage plein : la seance continue sans reprise.
+    }
+  }, [exerciseIdx, setIdx, storageKey]);
+
+  useEffect(() => {
     setReps("");
+    setShowVideo(false);
     setWeight(currentExercise?.weight ?? "");
   }, [exerciseIdx, setIdx]);
 
@@ -122,6 +156,10 @@ export function ExecuterClient({ seance, clientId, programId }: Props) {
     setIsCompleting(true);
     const duration = Math.round((Date.now() - startTimeRef.current) / 1000);
     await completeWorkoutSession(workoutSessionId, duration);
+    // La seance est finie : la prochaine doit repartir du debut.
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {}
     router.push(
       `/programme/${programId}/seance/${seance.id}/bilan?dur=${duration}&wid=${workoutSessionId}`
     );
@@ -204,11 +242,44 @@ export function ExecuterClient({ seance, clientId, programId }: Props) {
           {/* Exercise info */}
           <div className="flex-1 flex flex-col px-4 pt-5 gap-5 overflow-y-auto">
             <div>
-              <h2 className="text-white text-xl font-bold">{currentExercise.name}</h2>
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-white text-xl font-bold">{currentExercise.name}</h2>
+                {currentExercise.vimeo_video_id && (
+                  <button
+                    onClick={() => setShowVideo((v) => !v)}
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                      showVideo
+                        ? "bg-d5-gold/20 text-d5-gold"
+                        : "bg-gray-800 text-d5-muted hover:text-white"
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                    {showVideo ? "Masquer" : "Démo"}
+                  </button>
+                )}
+              </div>
               {currentExercise.notes && (
                 <p className="text-d5-muted text-xs mt-1 leading-relaxed">{currentExercise.notes}</p>
               )}
             </div>
+
+            {/* La demo se regarde sans quitter l'ecran : sortir de la seance
+                faisait perdre la progression. */}
+            {showVideo && currentExercise.vimeo_video_id && (
+              <div className="rounded-2xl overflow-hidden bg-black">
+                <div style={{ padding: "56.25% 0 0 0", position: "relative" }}>
+                  <iframe
+                    src={`https://player.vimeo.com/video/${currentExercise.vimeo_video_id}?badge=0&autopause=0&playsinline=1`}
+                    allow="autoplay; fullscreen; picture-in-picture"
+                    allowFullScreen
+                    style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+                    title={currentExercise.name}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Target */}
             <div className="flex gap-4">
