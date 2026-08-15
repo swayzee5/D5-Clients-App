@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { SessionExercise } from "@/lib/queries/programme";
-import { saveManualWeightLog, getExerciseWeightHistory } from "./seance-actions";
+import { saveManualWeightLogs, getExerciseWeightHistory } from "./seance-actions";
 
 function formatRest(seconds: number): string {
   if (seconds < 60) return `${seconds}s`;
@@ -56,7 +56,7 @@ function ExerciseCard({
   index,
   checked,
   clientId,
-  weight,
+  weights,
   onCheck,
   onVideoClick,
   onWeightChange,
@@ -65,10 +65,10 @@ function ExerciseCard({
   index: number;
   checked: boolean;
   clientId: string;
-  weight: string;
+  weights: string[];
   onCheck: () => void;
   onVideoClick: () => void;
-  onWeightChange: (w: string) => void;
+  onWeightChange: (setIndex: number, value: string) => void;
 }) {
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
@@ -162,21 +162,38 @@ function ExerciseCard({
           </div>
         )}
 
-        {/* Weight input + history toggle */}
-        <div className="flex items-center gap-2 pt-1">
-          <input
-            type="text"
-            value={weight}
-            onChange={(e) => onWeightChange(e.target.value)}
-            placeholder={exercise.weight ?? "kg"}
-            inputMode="decimal"
-            className="flex-1 min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-2 py-1.5 text-white text-xs text-center font-semibold focus:outline-none focus:border-d5-gold placeholder-gray-600"
-          />
+        {/* Une case par serie. La premiere valeur sert de reference : les
+            suivantes l'affichent en placeholder, l'athlete ne saisit que ce qui
+            change d'une serie a l'autre. */}
+        <div className="flex items-end gap-2 pt-1">
+          <div className="flex-1 min-w-0 flex gap-1">
+            {weights.map((w, i) => (
+              <div key={i} className="flex-1 min-w-0">
+                <label className="block text-[9px] text-gray-600 text-center leading-none mb-0.5">
+                  S{i + 1}
+                </label>
+                <input
+                  type="text"
+                  value={w}
+                  onChange={(e) => onWeightChange(i, e.target.value)}
+                  placeholder={
+                    i > 0 && weights[0].trim()
+                      ? weights[0].trim()
+                      : exercise.weight ?? "kg"
+                  }
+                  inputMode="decimal"
+                  aria-label={`Charge série ${i + 1}`}
+                  className="w-full min-w-0 bg-gray-800 border border-gray-700 rounded-lg px-1 py-1.5 text-white text-xs text-center font-semibold focus:outline-none focus:border-d5-gold placeholder-gray-600"
+                />
+              </div>
+            ))}
+          </div>
           <button
             onClick={handleHistoryToggle}
             className={`shrink-0 p-1.5 rounded-lg transition-colors ${
               showHistory ? "bg-d5-gold/20 text-d5-gold" : "bg-gray-800 text-gray-500 hover:text-white"
             }`}
+            style={{ marginBottom: 1 }}
             title="Historique des charges"
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -231,7 +248,13 @@ export function SeanceGrid({
   clientId: string;
 }) {
   const [checked, setChecked] = useState<Set<string>>(new Set());
-  const [weights, setWeights] = useState<Record<string, string>>({});
+  // Une entree par serie. Les exercices sans nombre de series defini gardent
+  // une seule case.
+  const [weights, setWeights] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(
+      exercises.map((ex) => [ex.id, Array(Math.max(1, ex.sets ?? 1)).fill("")])
+    )
+  );
   const [showModal, setShowModal] = useState(false);
   const [videoExercise, setVideoExercise] = useState<SessionExercise | null>(null);
   const startTimeRef = useRef<number>(Date.now());
@@ -245,9 +268,20 @@ export function SeanceGrid({
       else next.add(id);
       return next;
     });
-    // Save weight when checking (fire-and-forget)
-    if (!wasChecked && weights[id]?.trim()) {
-      saveManualWeightLog(clientId, id, weights[id], "").catch(console.error);
+    // A la validation, on enregistre toutes les series saisies. Une case vide
+    // apres une case remplie herite de la premiere valeur, qui est ce que
+    // l'athlete voit en placeholder.
+    if (!wasChecked) {
+      const entered = weights[id] ?? [];
+      const reference = entered[0]?.trim() ?? "";
+      const sets = entered.map((w, i) => ({
+        setIndex: i + 1,
+        weight: w.trim() || (i > 0 ? reference : ""),
+        reps: "",
+      }));
+      if (sets.some((s) => s.weight)) {
+        saveManualWeightLogs(clientId, id, sets).catch(console.error);
+      }
     }
   };
 
@@ -281,10 +315,16 @@ export function SeanceGrid({
             index={i}
             checked={checked.has(ex.id)}
             clientId={clientId}
-            weight={weights[ex.id] ?? ""}
+            weights={weights[ex.id] ?? [""]}
             onCheck={() => toggle(ex.id)}
             onVideoClick={() => setVideoExercise(ex)}
-            onWeightChange={(w) => setWeights((prev) => ({ ...prev, [ex.id]: w }))}
+            onWeightChange={(setIndex, value) =>
+              setWeights((prev) => {
+                const next = [...(prev[ex.id] ?? [""])];
+                next[setIndex] = value;
+                return { ...prev, [ex.id]: next };
+              })
+            }
           />
         ))}
       </div>

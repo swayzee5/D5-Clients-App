@@ -8,11 +8,16 @@ async function ensureTables() {
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       client_id TEXT NOT NULL,
       exercise_id UUID NOT NULL,
+      set_index INT,
       weight_used VARCHAR(50),
       reps_done VARCHAR(20),
       logged_at TIMESTAMPTZ DEFAULT NOW()
     )
   `).catch(() => {});
+  // Les bases creees avant la saisie par serie n'ont pas la colonne.
+  await pool
+    .query(`ALTER TABLE manual_weight_logs ADD COLUMN IF NOT EXISTS set_index INT`)
+    .catch(() => {});
   // Ensure auto-play tables exist so history query never fails
   await pool.query(`
     CREATE TABLE IF NOT EXISTS workout_sessions (
@@ -41,19 +46,45 @@ async function ensureTables() {
   `).catch(() => {});
 }
 
-export async function saveManualWeightLog(
+export type SetLog = { setIndex: number; weight: string; reps: string };
+
+/**
+ * Enregistre les charges d'un exercice, une ligne par serie.
+ *
+ * Les lignes du jour pour cet exercice sont d'abord supprimees : cocher,
+ * decocher, corriger une valeur puis recocher ne doit pas empiler les doublons.
+ */
+export async function saveManualWeightLogs(
   clientId: string,
   exerciseId: string,
-  weight: string,
-  reps: string
+  sets: SetLog[]
 ): Promise<void> {
-  if (!weight.trim() && !reps.trim()) return;
+  const filled = sets.filter((s) => s.weight.trim() || s.reps.trim());
   await ensureTables();
+
   await pool
     .query(
-      `INSERT INTO manual_weight_logs (client_id, exercise_id, weight_used, reps_done)
-       VALUES ($1, $2, $3, $4)`,
-      [clientId, exerciseId, weight.trim() || null, reps.trim() || null]
+      `DELETE FROM manual_weight_logs
+       WHERE client_id = $1 AND exercise_id = $2::uuid AND logged_at::date = NOW()::date`,
+      [clientId, exerciseId]
+    )
+    .catch(() => {});
+
+  if (filled.length === 0) return;
+
+  const values: string[] = [];
+  const params: (string | number | null)[] = [clientId, exerciseId];
+  filled.forEach((s, i) => {
+    const base = i * 3 + 3;
+    values.push(`($1, $2::uuid, $${base}, $${base + 1}, $${base + 2})`);
+    params.push(s.setIndex, s.weight.trim() || null, s.reps.trim() || null);
+  });
+
+  await pool
+    .query(
+      `INSERT INTO manual_weight_logs (client_id, exercise_id, set_index, weight_used, reps_done)
+       VALUES ${values.join(", ")}`,
+      params
     )
     .catch(() => {});
 }
@@ -81,7 +112,7 @@ export async function getExerciseWeightHistory(
           logged_at::date AS date,
           reps_done,
           weight_used,
-          0 AS ord
+          COALESCE(set_index, 0) AS ord
         FROM manual_weight_logs
         WHERE exercise_id = $1::uuid AND client_id = $2
       ) combined
