@@ -4,11 +4,47 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Home, TrendingUp, User, Plus, X, Activity, CalendarPlus, Ruler, MessageCircle, ClipboardList } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 
 export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+
+  // La valeur du serveur ne sert que pour le premier rendu : le layout qui la
+  // calcule n'est pas re-rendu quand on navigue dans l'app.
+  const [unread, setUnread] = useState(unreadMessages)
+
+  const refreshUnread = useCallback(async () => {
+    try {
+      const res = await fetch("/api/messages/unread", { cache: "no-store" })
+      if (!res.ok) return
+      const data = await res.json()
+      if (typeof data.count === "number") setUnread(data.count)
+    } catch {
+      // Hors ligne : on garde la derniere valeur connue.
+    }
+  }, [])
+
+  useEffect(() => {
+    refreshUnread()
+    const id = setInterval(refreshUnread, 30000)
+
+    // Sur telephone l'app reste ouverte des heures en arriere-plan : au retour
+    // au premier plan, le compteur doit etre a jour immediatement.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refreshUnread()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("focus", refreshUnread)
+
+    return () => {
+      clearInterval(id)
+      document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("focus", refreshUnread)
+    }
+    // pathname en dependance : ouvrir la messagerie marque les messages lus,
+    // le badge doit retomber a zero sans attendre le prochain intervalle.
+  }, [refreshUnread, pathname])
 
   const isActive = (href: string) =>
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href))
@@ -19,7 +55,7 @@ export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
   ]
 
   const rightNav = [
-    { href: "/messagerie", icon: MessageCircle, label: "Messagerie", badge: unreadMessages },
+    { href: "/messagerie", icon: MessageCircle, label: "Messagerie", badge: unread },
     { href: "/profil", icon: User, label: "Profil", badge: 0 },
   ]
 
