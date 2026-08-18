@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { SessionExercise } from "@/lib/queries/programme";
 import { saveManualWeightLogs, getExerciseWeightHistory } from "./seance-actions";
@@ -260,6 +260,74 @@ export function SeanceGrid({
   const startTimeRef = useRef<number>(Date.now());
   const router = useRouter();
 
+  // Ouvrir une video en plein ecran, tourner le telephone, puis revenir suffit
+  // a ce qu'iOS purge la WKWebView sous pression memoire : la page se recharge
+  // et tout l'etat React disparait — exercices coches et charges saisies. On
+  // recopie donc la progression en local pour pouvoir la restaurer.
+  const storageKey = `d5:seance:${sessionId}`;
+  const restoredRef = useRef(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(storageKey);
+      if (!raw) return;
+      const saved = JSON.parse(raw) as {
+        checked?: string[];
+        weights?: Record<string, string[]>;
+        startedAt?: number;
+      };
+
+      if (Array.isArray(saved.checked)) {
+        const known = new Set(exercises.map((e) => e.id));
+        setChecked(new Set(saved.checked.filter((id) => known.has(id))));
+      }
+
+      if (saved.weights) {
+        setWeights((current) => {
+          const merged: Record<string, string[]> = { ...current };
+          for (const ex of exercises) {
+            const size = Math.max(1, ex.sets ?? 1);
+            const previous = saved.weights?.[ex.id];
+            if (!previous) continue;
+            // Le programme a pu changer depuis : on recale sur le nombre de
+            // series actuel plutot que de faire confiance a la taille sauvee.
+            merged[ex.id] = Array.from({ length: size }, (_, i) => previous[i] ?? "");
+          }
+          return merged;
+        });
+      }
+
+      if (typeof saved.startedAt === "number") startTimeRef.current = saved.startedAt;
+    } catch {
+      // Navigation privee ou JSON corrompu : la seance demarre a zero.
+    } finally {
+      restoredRef.current = true;
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    // Ne pas ecraser la sauvegarde avant d'avoir tente de la lire.
+    if (!restoredRef.current) return;
+    try {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          checked: Array.from(checked),
+          weights,
+          startedAt: startTimeRef.current,
+        })
+      );
+    } catch {
+      // Stockage plein : la seance continue, sans reprise possible.
+    }
+  }, [checked, weights, storageKey]);
+
+  const clearSaved = () => {
+    try {
+      window.localStorage.removeItem(storageKey);
+    } catch {}
+  };
+
   const toggle = (id: string) => {
     const wasChecked = checked.has(id);
     setChecked((prev) => {
@@ -290,6 +358,7 @@ export function SeanceGrid({
   const pct = total > 0 ? Math.round((done / total) * 100) : 100;
 
   const goToBilan = () => {
+    clearSaved();
     const dur = Math.round((Date.now() - startTimeRef.current) / 1000);
     router.push(`/programme/${programId}/seance/${sessionId}/bilan?dur=${dur}`);
   };
