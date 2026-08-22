@@ -9,33 +9,34 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "14.2.29",
-    "react": "^18",
-    "react-dom": "^18",
-    "next-auth": "5.0.0-beta.28",
-    "pg": "^8.13.3",
+    "@capacitor/core": "^6.1.2",
     "bcryptjs": "^2.4.3",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.6.0",
-    "lucide-react": "^0.468.0",
     "date-fns": "^4.1.0",
+    "lucide-react": "^0.468.0",
+    "next": "14.2.29",
+    "next-auth": "5.0.0-beta.28",
+    "onesignal-cordova-plugin": "^5.5.3",
+    "pg": "^8.13.3",
+    "react": "^18",
+    "react-dom": "^18",
     "recharts": "^2.15.0",
-    "zod": "^3.24.2",
-    "@capacitor/core": "^6.1.2"
+    "tailwind-merge": "^2.6.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/ios": "^6.1.2",
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
+    "@types/pg": "^8.11.11",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/pg": "^8.11.11",
-    "typescript": "^5",
-    "tailwindcss": "^3.4.17",
     "autoprefixer": "^10.0.1",
-    "postcss": "^8",
     "eslint": "^8",
     "eslint-config-next": "14.2.29",
-    "@capacitor/cli": "^6.1.2",
-    "@capacitor/ios": "^6.1.2"
+    "postcss": "^8",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5"
   }
 }
