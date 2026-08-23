@@ -1,51 +1,71 @@
 name: iOS — Init Certificats (une seule fois)
 
+# Regenere le profil de provisioning et le stocke dans d5-certs. A lancer apres
+# avoir modifie les capacites de l'App ID (Push, etc.), sinon le build continue
+# d'utiliser l'ancien profil et echoue au codesign.
+#
+# Les etapes d'authentification sont volontairement identiques a celles de
+# ios-build.yml. Ce workflow utilisait auparavant une ancienne cle App Store
+# Connect (B32QRB7NPU) recuperee dans d5-certs, alors que ASC_KEY_ID pointe sur
+# la cle N89NTU664B : la cle et son identifiant ne correspondaient plus, d'ou
+# "Authentication credentials are missing or invalid".
+
 on:
   workflow_dispatch:
 
 jobs:
   init-certs:
     name: Creer certificats App Store dans d5-certs
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Ruby 3.2
+      - name: Setup Ruby 3.3
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: '3.2'
-          bundler-cache: true
+          ruby-version: '3.3'
 
-      - name: Get ASC Key from d5-certs
+      - name: Install Fastlane
+        run: gem install fastlane --no-document
+
+      # init_certs appelle unlock_ci_keychain, qui exige un trousseau deverrouille
+      # et KEYCHAIN_PASSWORD. Sans cette etape le lane echoue meme apres une
+      # authentification reussie.
+      - name: Prepare signing keychain
         env:
-          GH_PAT: ${{ secrets.GH_PAT }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_NAME="fastlane_tmp_keychain"
+          KEYCHAIN_PATH="$HOME/Library/Keychains/${KEYCHAIN_NAME}-db"
+
+          security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_NAME"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security default-keychain -d user -s "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" "$HOME/Library/Keychains/login.keychain-db"
+
+          echo "MATCH_KEYCHAIN_NAME=$KEYCHAIN_NAME" >> "$GITHUB_ENV"
+          echo "D5_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Write ASC API key file
+        env:
           ASC_KEY_CONTENT: ${{ secrets.ASC_KEY_CONTENT }}
         run: |
-          # Try d5-certs first
-          git clone https://${GH_PAT}@github.com/swayzee5/d5-certs.git /tmp/d5-certs 2>&1 | tail -1
-          if [ -f /tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64 ]; then
-            echo "Using key from d5-certs"
-            cat /tmp/d5-certs/AuthKey_B32QRB7NPU.p8.b64 | tr -d '\n' | base64 -d > /tmp/AuthKey_orig.p8
-          elif [ -n "$ASC_KEY_CONTENT" ]; then
-            echo "Using ASC_KEY_CONTENT secret"
-            printf '%s' "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_orig.p8
-          else
-            echo "ERROR: No key available. Run bootstrap-key.yml first!"
-            exit 1
-          fi
-          echo "Key size: $(wc -c < /tmp/AuthKey_orig.p8) bytes"
-          # Convert to EC format to fix invalid curve name
-          openssl pkcs8 -in /tmp/AuthKey_orig.p8 -nocrypt 2>/dev/null | openssl ec -out /tmp/AuthKey_B32QRB7NPU.p8 2>/dev/null || cp /tmp/AuthKey_orig.p8 /tmp/AuthKey_B32QRB7NPU.p8
-          head -1 /tmp/AuthKey_B32QRB7NPU.p8
+          echo "$ASC_KEY_CONTENT" | base64 -d > /tmp/AuthKey_N89NTU664B.p8
+          chmod 600 /tmp/AuthKey_N89NTU664B.p8
 
       - name: Creer et stocker les certificats
         env:
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
-          ASC_KEY_FILEPATH: /tmp/AuthKey_B32QRB7NPU.p8
-        run: bundle exec fastlane ios init_certs
+          MATCH_GIT_URL:           https://swayzee5:${{ secrets.GH_PAT }}@github.com/swayzee5/d5-certs.git
+          MATCH_PASSWORD:          ${{ secrets.MATCH_PASSWORD }}
+          MATCH_KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          ASC_KEY_ID:              ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID:           ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_FILEPATH:        /tmp/AuthKey_N89NTU664B.p8
+          KEYCHAIN_PASSWORD:       ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: fastlane ios init_certs
