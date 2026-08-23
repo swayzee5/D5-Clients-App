@@ -17,6 +17,7 @@ on:
       - 'public/**'
       - 'resources/**'
       - 'scripts/**'
+      - 'ios-config/**'
       - 'fastlane/**'
       - 'capacitor.config.ts'
       - 'package.json'
@@ -79,6 +80,12 @@ jobs:
 
       - name: Install Fastlane
         run: gem install fastlane --no-document
+
+      # Doit tourner apres l'installation de Fastlane, qui fournit la gem
+      # xcodeproj, et avant le build. ios/ etant regenere a chaque run, c'est
+      # la seule facon de conserver ces reglages d'un build a l'autre.
+      - name: Configure push notifications (entitlements + Info.plist)
+        run: ruby scripts/configure-ios-push.rb
 
       - name: Prepare signing keychain
         env:

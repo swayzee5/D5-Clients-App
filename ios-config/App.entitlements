@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Sans cette clé, iOS refuse registerForRemoteNotifications : l'app peut
+	     afficher la demande de permission, mais n'obtient jamais de jeton APNs,
+	     donc aucune notification n'arrive. Le template Capacitor ne fournit
+	     aucun fichier d'entitlements, et ios/ est régénéré à chaque build — ce
+	     fichier est donc copié depuis le dépôt par scripts/configure-ios-push.rb.
+
+	     "production" est la bonne valeur pour les builds App Store et
+	     TestFlight, qui sont les seuls que produit cette CI. -->
+	<key>aps-environment</key>
+	<string>production</string>
+</dict>
+</plist>
