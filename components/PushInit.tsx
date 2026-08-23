@@ -57,37 +57,77 @@ async function initNative(clientId: string) {
 /** Navigateur et PWA — SDK web chargé depuis le CDN OneSignal. */
 function initWeb(clientId: string) {
   const webAppId = process.env.NEXT_PUBLIC_ONESIGNAL_APP_ID;
-  if (!webAppId) return;
+  if (!webAppId) {
+    // Sans ce log, une variable oubliée au build ne produit rien du tout :
+    // pas d'invite, pas d'erreur, rien à quoi se raccrocher.
+    console.warn(
+      "[PushInit] NEXT_PUBLIC_ONESIGNAL_APP_ID absente — notifications web désactivées. " +
+        "Cette variable est injectée au build : ajoutez-la dans Vercel puis redéployez."
+    );
+    return;
+  }
 
   const script = document.createElement("script");
   script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
   script.defer = true;
+  script.onerror = () => console.error("[PushInit] SDK OneSignal injoignable");
   document.head.appendChild(script);
 
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   window.OneSignalDeferred.push(async (OneSignal: any) => {
-    await OneSignal.init({
-      appId: webAppId,
-      notifyButton: { enable: false },
-      promptOptions: {
-        slidedown: {
-          prompts: [
-            {
-              type: "push",
-              autoPrompt: true,
-              text: {
-                actionMessage:
-                  "Restez informé des messages de votre coach et de vos progrès.",
-                acceptButton: "Accepter",
-                cancelButton: "Non merci",
+    try {
+      await OneSignal.init({
+        appId: webAppId,
+        notifyButton: { enable: false },
+        promptOptions: {
+          slidedown: {
+            prompts: [
+              {
+                type: "push",
+                autoPrompt: true,
+                text: {
+                  actionMessage:
+                    "Restez informé des messages de votre coach et de vos progrès.",
+                  acceptButton: "Accepter",
+                  cancelButton: "Non merci",
+                },
+                // pageViews compte les CHARGEMENTS de page, pas les navigations.
+                // Next navigue côté client : le compteur restait à 1 et l'invite
+                // ne se déclenchait jamais, quel que soit le nombre d'écrans vus.
+                delay: { pageViews: 1, timeDelay: 5 },
               },
-              delay: { pageViews: 2, timeDelay: 8 },
-            },
-          ],
+            ],
+          },
         },
-      },
-    });
-    await OneSignal.login(clientId);
+      });
+
+      await OneSignal.login(clientId);
+
+      const permission = OneSignal.Notifications.permission;
+      const supported = OneSignal.Notifications.isPushSupported();
+      console.log("[PushInit] web prêt", { supported, permission });
+
+      if (!supported) {
+        // Cas courant : Safari iOS hors écran d'accueil, ou navigateur ancien.
+        console.warn(
+          "[PushInit] ce navigateur ne gère pas les notifications web. " +
+            "Sur iPhone, le site doit être ajouté à l'écran d'accueil."
+        );
+        return;
+      }
+
+      // Si l'invite automatique n'a pas eu lieu — conditions non remplies,
+      // invite déjà refusée dans la session — on la propose explicitement.
+      if (!permission) {
+        setTimeout(() => {
+          OneSignal.Slidedown.promptPush().catch((err: unknown) =>
+            console.error("[PushInit] invite impossible", err)
+          );
+        }, 5000);
+      }
+    } catch (err) {
+      console.error("[PushInit] initialisation web en échec", err);
+    }
   });
 }
