@@ -62,12 +62,17 @@ def get_api_key
   )
 end
 
-def install_match_profile(api_key:, readonly:)
+def install_match_profile(api_key:, readonly:, force: false)
   match(
     type:              "appstore",
     app_identifier:    "com.dayekaba.d5coaching",
     api_key:           api_key,
     readonly:          readonly,
+    # Ajouter une capacite (Push) a l'App ID rend l'ancien profil invalide chez
+    # Apple, mais match reutilise volontiers un profil deja stocke dans d5-certs.
+    # force le fait regenerer, sinon on recupere le meme profil sans Push et le
+    # build echoue exactement comme avant.
+    force:             force,
     keychain_name:     ci_keychain_name,
     keychain_password: ENV["KEYCHAIN_PASSWORD"] || ENV["MATCH_KEYCHAIN_PASSWORD"]
   )
@@ -108,7 +113,7 @@ platform :ios do
 
   lane :init_certs do
     api_key = get_api_key
-    install_match_profile(api_key: api_key, readonly: false)
+    install_match_profile(api_key: api_key, readonly: false, force: true)
     unlock_ci_keychain
     UI.success "Certificats crees!"
   end
