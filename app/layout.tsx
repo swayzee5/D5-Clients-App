@@ -10,10 +10,24 @@ export const metadata: Metadata = {
     template: "%s — D5 Coaching",
   },
   description: "Ton espace personnel D5 Coaching",
+  // Sans manifeste, un raccourci ajouté à l'écran d'accueil rouvre simplement
+  // le navigateur avec sa barre d'adresse. Avec lui, l'app s'ouvre en plein
+  // écran, avec son icône et son nom — et Chrome propose l'installation.
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black",
     title: "D5 Coaching",
+  },
+  icons: {
+    icon: [
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    // iOS ne lit pas le manifeste : c'est cette balise qui donne l'icône
+    // quand un client ajoute le site à son écran d'accueil depuis Safari.
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180" }],
   },
 }
 
