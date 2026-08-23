@@ -22,6 +22,25 @@ export function ChatView({ messages }: { messages: Message[] }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  // Une conversation laissee ouverte ne se mettait jamais a jour : le message
+  // du coach n'apparaissait qu'en quittant puis revenant sur la page. On
+  // redemande donc les donnees regulierement, et surtout au retour au premier
+  // plan — le cas courant sur telephone, ou l'app reste ouverte des heures.
+  useEffect(() => {
+    const refresh = () => router.refresh()
+    const id = setInterval(refresh, 15000)
+    const onVisible = () => {
+      if (document.visibilityState === "visible") refresh()
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    window.addEventListener("focus", refresh)
+    return () => {
+      clearInterval(id)
+      document.removeEventListener("visibilitychange", onVisible)
+      window.removeEventListener("focus", refresh)
+    }
+  }, [router])
+
   function handleSend() {
     const trimmed = text.trim()
     if (!trimmed || isPending) return
