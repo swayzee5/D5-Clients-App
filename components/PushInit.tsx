@@ -42,6 +42,19 @@ export function PushInit({ clientId }: { clientId: string }) {
       setVisible(true);
     };
 
+    // Première chose remontée : ce que l'app croit être. Si `cordova.exec` est
+    // absent, le plugin natif ne peut atteindre aucun code iOS, quoi qu'on
+    // fasse ensuite — c'est le risque propre à une WKWebView qui charge une
+    // page distante plutôt que des fichiers embarqués.
+    const cordova = (window as unknown as { cordova?: { exec?: unknown } }).cordova;
+    remoteLog("démarrage de PushInit", {
+      platform: Capacitor.getPlatform(),
+      isNative: Capacitor.isNativePlatform(),
+      hasCordova: Boolean(cordova),
+      hasCordovaExec: typeof cordova?.exec,
+      standalone: window.matchMedia?.("(display-mode: standalone)").matches ?? null,
+    });
+
     if (Capacitor.isNativePlatform()) {
       initNative(clientId, show);
     } else {
@@ -144,6 +157,41 @@ function wasDismissed(): boolean {
 type ShowPrompt = (ask: () => Promise<boolean>) => void;
 
 /**
+ * Envoie une ligne de diagnostic au serveur, qui la fait ressortir dans les
+ * logs Vercel. Les logs de l'app iOS ne se lisent qu'avec un Mac ; c'est le
+ * seul moyen d'observer ce qui se passe sur l'appareil sans en avoir un.
+ *
+ * Ne lève jamais et n'est jamais attendu : un diagnostic ne doit pas pouvoir
+ * casser ce qu'il observe. `keepalive` pour que la requête survive si la page
+ * est mise en arrière-plan juste après.
+ *
+ * Diagnostic temporaire : à retirer une fois les notifications réglées.
+ */
+function remoteLog(message: string, data?: unknown) {
+  console.log(`[PushInit] ${message}`, data ?? "");
+  try {
+    void fetch("/api/debug/push-log", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      keepalive: true,
+      body: JSON.stringify({
+        events: [{ message, data: data === undefined ? undefined : safeJson(data) }],
+      }),
+    }).catch(() => {});
+  } catch {
+    // Hors ligne, ou fetch indisponible : sans importance.
+  }
+}
+
+function safeJson(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+/**
  * iOS et Android (app installée).
  *
  * L'import est dynamique et à l'intérieur de l'effet, jamais en haut du
@@ -156,10 +204,7 @@ async function initNative(clientId: string, show: ShowPrompt) {
   // cette chaîne produisait exactement le même symptôme qu'un envoi qui
   // n'arrive pas : rien. Ces logs se lisent dans Safari → Développement →
   // [iPhone] → l'app, ou dans la console Xcode.
-  const log = (message: string, data?: unknown) =>
-    data === undefined
-      ? console.log(`[PushInit] ${message}`)
-      : console.log(`[PushInit] ${message}`, data);
+  const log = remoteLog;
 
   try {
     // Le plugin s'expose aussi sur window.plugins. Si c'est absent alors qu'on
@@ -216,7 +261,11 @@ async function initNative(clientId: string, show: ShowPrompt) {
     show(() => OneSignal.Notifications.requestPermission(true));
   } catch (err) {
     // Une app sans notifications reste utilisable : on n'interrompt rien.
-    console.error("[PushInit] initialisation native en échec", err);
+    // Remonté au serveur aussi : c'est le cas qu'on cherche à voir.
+    remoteLog("initialisation native EN ÉCHEC", {
+      name: err instanceof Error ? err.name : typeof err,
+      message: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
@@ -265,7 +314,9 @@ async function reportState(
       permissionNative: native,
     });
   } catch (err) {
-    console.error(`[PushInit] lecture de l'état impossible (${moment})`, err);
+    remoteLog(`lecture de l'état impossible (${moment})`, {
+      message: err instanceof Error ? err.message : String(err),
+    });
   }
 }
 
