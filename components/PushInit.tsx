@@ -152,17 +152,64 @@ type ShowPrompt = (ask: () => Promise<boolean>) => void;
  * le navigateur embarqué, où `window` et le pont Cordova de Capacitor existent.
  */
 async function initNative(clientId: string, show: ShowPrompt) {
+  // Chaque étape est tracée séparément. Jusqu'ici un échec quelque part dans
+  // cette chaîne produisait exactement le même symptôme qu'un envoi qui
+  // n'arrive pas : rien. Ces logs se lisent dans Safari → Développement →
+  // [iPhone] → l'app, ou dans la console Xcode.
+  const log = (message: string, data?: unknown) =>
+    data === undefined
+      ? console.log(`[PushInit] ${message}`)
+      : console.log(`[PushInit] ${message}`, data);
+
   try {
-    const { default: OneSignal } = await import("onesignal-cordova-plugin");
+    // Le plugin s'expose aussi sur window.plugins. Si c'est absent alors qu'on
+    // est en natif, le pont Cordova n'a pas été monté — cas plausible dans une
+    // WKWebView qui charge une page distante.
+    const bridged = (window as unknown as { plugins?: { OneSignal?: unknown } })
+      .plugins?.OneSignal;
+    log("plateforme native, pont Cordova présent :", Boolean(bridged));
+
+    const mod = await import("onesignal-cordova-plugin");
+    const OneSignal = mod.default;
+    log("plugin importé", {
+      user: Boolean(OneSignal?.User),
+      notifications: Boolean(OneSignal?.Notifications),
+    });
+
+    // Verbose pendant le diagnostic : le SDK natif détaille alors
+    // l'enregistrement APNs dans les logs Xcode. À redescendre ensuite.
+    OneSignal.Debug.setLogLevel(mod.LogLevel.Verbose);
 
     OneSignal.initialize(ONESIGNAL_APP_ID);
+    log("initialize() appelé", ONESIGNAL_APP_ID);
 
     // Rattache l'appareil au client : c'est ce qui permet au serveur de cibler
     // une personne précise (include_aliases.external_id) plutôt qu'un appareil.
     OneSignal.login(clientId);
+    log("login() appelé avec external_id", clientId);
 
-    if (OneSignal.Notifications.hasPermission()) return;
-    if (wasDismissed()) return;
+    // Le jeton APNs n'est jamais disponible immédiatement : iOS l'attribue de
+    // façon asynchrone. Sans cet écouteur, une lecture faite trop tôt renvoie
+    // null et laisse croire à tort que l'abonnement n'existe pas.
+    OneSignal.User.pushSubscription.addEventListener("change", (event) => {
+      log("abonnement push modifié", describeSubscription(event.current));
+    });
+
+    await reportState(OneSignal, log, "juste après login");
+    // Deuxième lecture une fois qu'APNs a eu le temps de répondre.
+    setTimeout(() => {
+      void reportState(OneSignal, log, "8 s après login");
+    }, 8000);
+
+    const granted = await OneSignal.Notifications.getPermissionAsync();
+    if (granted) {
+      log("permission déjà accordée — carte non affichée");
+      return;
+    }
+    if (wasDismissed()) {
+      log("carte déjà refusée sur cet appareil — non réaffichée");
+      return;
+    }
 
     // La boîte de dialogue système n'est ouverte qu'ici, depuis le bouton
     // « Activer », donc après l'explication — jamais au lancement.
@@ -170,6 +217,55 @@ async function initNative(clientId: string, show: ShowPrompt) {
   } catch (err) {
     // Une app sans notifications reste utilisable : on n'interrompt rien.
     console.error("[PushInit] initialisation native en échec", err);
+  }
+}
+
+/** Un jeton complet n'apporte rien en console : seule sa présence compte. */
+function describeSubscription(state: {
+  id?: string;
+  token?: string;
+  optedIn?: boolean;
+}) {
+  return {
+    id: state.id ?? null,
+    token: state.token ? `${state.token.slice(0, 12)}… (${state.token.length})` : null,
+    optedIn: state.optedIn ?? null,
+  };
+}
+
+/**
+ * Photographie de l'état du SDK. C'est ce qui départage les hypothèses :
+ * externalId absent -> le login n'a pas pris ; token absent -> iOS n'a pas
+ * délivré de jeton APNs ; les deux présents -> le problème est en aval.
+ */
+async function reportState(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  OneSignal: any,
+  log: (message: string, data?: unknown) => void,
+  moment: string
+) {
+  try {
+    const [onesignalId, externalId, id, token, optedIn, permission, native] =
+      await Promise.all([
+        OneSignal.User.getOnesignalId(),
+        OneSignal.User.getExternalId(),
+        OneSignal.User.pushSubscription.getIdAsync(),
+        OneSignal.User.pushSubscription.getTokenAsync(),
+        OneSignal.User.pushSubscription.getOptedInAsync(),
+        OneSignal.Notifications.getPermissionAsync(),
+        OneSignal.Notifications.permissionNative(),
+      ]);
+
+    log(`état ${moment}`, {
+      onesignalId,
+      externalId,
+      ...describeSubscription({ id, token, optedIn }),
+      permission,
+      // 0 NotDetermined, 1 Denied, 2 Authorized, 3 Provisional, 4 Ephemeral
+      permissionNative: native,
+    });
+  } catch (err) {
+    console.error(`[PushInit] lecture de l'état impossible (${moment})`, err);
   }
 }
 
