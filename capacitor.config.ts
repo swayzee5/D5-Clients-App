@@ -17,14 +17,12 @@ const config: CapacitorConfig = {
     // ÉTAIT À false — cela désactivait littéralement le scroll de la WKWebView
     // (webView.scrollView.isScrollEnabled = false). Aucun CSS ne peut contourner ça.
     scrollEnabled: true,
-    // Par défaut Capacitor s'installe comme délégué UNUserNotificationCenter.
-    // Sa propre doc : « Set to false if you want to use your own
-    // UNUserNotificationCenter to handle notifications. » C'est précisément le
-    // cas ici : OneSignal pose son délégué pour recevoir le jeton APNs et les
-    // notifications. Laissé à true, Capacitor le lui prend, et le SDK ne voit
-    // jamais l'enregistrement aboutir — symptôme connu sous le nom
-    // « APNS delegate never fired ».
-    handleApplicationNotifications: false,
+    // handleApplicationNotifications reste à sa valeur par défaut (true).
+    // Il avait été mis à false pour laisser le SDK OneSignal poser son propre
+    // délégué UNUserNotificationCenter ; ce SDK a été retiré (son pont Cordova
+    // ne peut pas se monter quand la page est chargée à distance). C'est
+    // maintenant @capacitor/push-notifications qui gère l'enregistrement APNs,
+    // et lui a précisément besoin que Capacitor garde ce délégué.
   },
 };
 

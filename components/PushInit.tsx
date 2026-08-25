@@ -11,7 +11,6 @@ declare global {
   }
 }
 
-const ONESIGNAL_APP_ID = "07b914dd-bf51-42bf-80ba-43548a8d93d0";
 const DISMISSED_KEY = "d5:push:refuse";
 
 /**
@@ -194,74 +193,78 @@ function safeJson(value: unknown): string {
 /**
  * iOS et Android (app installée).
  *
- * L'import est dynamique et à l'intérieur de l'effet, jamais en haut du
- * fichier : le module écrit dans `window` dès son chargement, donc un import
- * statique casserait le rendu serveur et le build. Ici il ne s'exécute que dans
- * le navigateur embarqué, où `window` et le pont Cordova de Capacitor existent.
+ * On n'utilise PAS le SDK OneSignal ici, et c'est un constat, pas un choix de
+ * style : il n'existe que sous forme de plugin Cordova, et le pont Cordova ne
+ * se monte pas dans une WKWebView qui charge une page distante. Mesuré sur
+ * l'appareil : `window.cordova` existe (coquille posée par Capacitor) mais
+ * `cordova.exec` est absent, donc le tout premier appel natif échouait avec
+ * « window.cordova.exec is not a function ». Rien de ce qui suivait ne pouvait
+ * fonctionner, et aucun abonnement n'était jamais créé.
+ *
+ * @capacitor/push-notifications passe par le pont Capacitor, lui bien présent —
+ * c'est ce même pont qui fait que Capacitor.getPlatform() renvoie « ios ». Il
+ * nous donne le jeton APNs, que le serveur enregistre ensuite auprès de
+ * OneSignal.
+ *
+ * L'import reste dynamique et dans l'effet : ces modules touchent `window` au
+ * chargement, un import statique casserait le rendu serveur.
  */
 async function initNative(clientId: string, show: ShowPrompt) {
-  // Chaque étape est tracée séparément. Jusqu'ici un échec quelque part dans
-  // cette chaîne produisait exactement le même symptôme qu'un envoi qui
-  // n'arrive pas : rien. Ces logs se lisent dans Safari → Développement →
-  // [iPhone] → l'app, ou dans la console Xcode.
   const log = remoteLog;
 
   try {
-    // Le plugin s'expose aussi sur window.plugins. Si c'est absent alors qu'on
-    // est en natif, le pont Cordova n'a pas été monté — cas plausible dans une
-    // WKWebView qui charge une page distante.
-    const bridged = (window as unknown as { plugins?: { OneSignal?: unknown } })
-      .plugins?.OneSignal;
-    log("plateforme native, pont Cordova présent :", Boolean(bridged));
+    const { PushNotifications } = await import("@capacitor/push-notifications");
+    log("plugin Capacitor importé", { register: typeof PushNotifications.register });
 
-    const mod = await import("onesignal-cordova-plugin");
-    const OneSignal = mod.default;
-    log("plugin importé", {
-      user: Boolean(OneSignal?.User),
-      notifications: Boolean(OneSignal?.Notifications),
+    // Les écouteurs sont posés AVANT register() : iOS peut délivrer le jeton
+    // très vite, et un écouteur ajouté après l'aurait manqué.
+    await PushNotifications.addListener("registration", (token) => {
+      log("jeton APNs reçu", {
+        token: `${token.value.slice(0, 12)}… (${token.value.length})`,
+      });
+      void registerDeviceToken(token.value);
     });
 
-    // Verbose pendant le diagnostic : le SDK natif détaille alors
-    // l'enregistrement APNs dans les logs Xcode. À redescendre ensuite.
-    OneSignal.Debug.setLogLevel(mod.LogLevel.Verbose);
-
-    OneSignal.initialize(ONESIGNAL_APP_ID);
-    log("initialize() appelé", ONESIGNAL_APP_ID);
-
-    // Rattache l'appareil au client : c'est ce qui permet au serveur de cibler
-    // une personne précise (include_aliases.external_id) plutôt qu'un appareil.
-    OneSignal.login(clientId);
-    log("login() appelé avec external_id", clientId);
-
-    // Le jeton APNs n'est jamais disponible immédiatement : iOS l'attribue de
-    // façon asynchrone. Sans cet écouteur, une lecture faite trop tôt renvoie
-    // null et laisse croire à tort que l'abonnement n'existe pas.
-    OneSignal.User.pushSubscription.addEventListener("change", (event) => {
-      log("abonnement push modifié", describeSubscription(event.current));
+    await PushNotifications.addListener("registrationError", (err) => {
+      // Ici on saura si iOS refuse l'enregistrement — typiquement un problème
+      // d'entitlement ou de profil, et non plus de pont JS.
+      log("APNs a REFUSÉ l'enregistrement", { error: String(err.error) });
     });
 
-    await reportState(OneSignal, log, "juste après login");
-    // Deuxième lecture une fois qu'APNs a eu le temps de répondre.
-    setTimeout(() => {
-      void reportState(OneSignal, log, "8 s après login");
-    }, 8000);
+    const current = await PushNotifications.checkPermissions();
+    log("permission actuelle", current.receive);
 
-    const granted = await OneSignal.Notifications.getPermissionAsync();
-    if (granted) {
-      log("permission déjà accordée — carte non affichée");
+    if (current.receive === "granted") {
+      await PushNotifications.register();
+      log("register() appelé (permission déjà accordée)");
       return;
     }
+
+    if (current.receive === "denied") {
+      // iOS ne repropose jamais : seul un passage par les Réglages débloque.
+      log("permission refusée sur cet appareil — Réglages requis");
+      return;
+    }
+
     if (wasDismissed()) {
-      log("carte déjà refusée sur cet appareil — non réaffichée");
+      log("carte déjà écartée sur cet appareil — non réaffichée");
       return;
     }
 
     // La boîte de dialogue système n'est ouverte qu'ici, depuis le bouton
     // « Activer », donc après l'explication — jamais au lancement.
-    show(() => OneSignal.Notifications.requestPermission(true));
+    show(async () => {
+      const asked = await PushNotifications.requestPermissions();
+      log("réponse à la demande de permission", asked.receive);
+      if (asked.receive !== "granted") return false;
+      // register() déclenche l'enregistrement APNs ; le jeton arrive ensuite
+      // par l'écouteur « registration » posé plus haut.
+      await PushNotifications.register();
+      log("register() appelé après acceptation");
+      return true;
+    });
   } catch (err) {
     // Une app sans notifications reste utilisable : on n'interrompt rien.
-    // Remonté au serveur aussi : c'est le cas qu'on cherche à voir.
     remoteLog("initialisation native EN ÉCHEC", {
       name: err instanceof Error ? err.name : typeof err,
       message: err instanceof Error ? err.message : String(err),
@@ -269,52 +272,24 @@ async function initNative(clientId: string, show: ShowPrompt) {
   }
 }
 
-/** Un jeton complet n'apporte rien en console : seule sa présence compte. */
-function describeSubscription(state: {
-  id?: string;
-  token?: string;
-  optedIn?: boolean;
-}) {
-  return {
-    id: state.id ?? null,
-    token: state.token ? `${state.token.slice(0, 12)}… (${state.token.length})` : null,
-    optedIn: state.optedIn ?? null,
-  };
-}
-
 /**
- * Photographie de l'état du SDK. C'est ce qui départage les hypothèses :
- * externalId absent -> le login n'a pas pris ; token absent -> iOS n'a pas
- * délivré de jeton APNs ; les deux présents -> le problème est en aval.
+ * Transmet le jeton au serveur, qui le rattache au client chez OneSignal.
+ * L'appareil n'a ainsi jamais besoin de la clé REST.
  */
-async function reportState(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  OneSignal: any,
-  log: (message: string, data?: unknown) => void,
-  moment: string
-) {
+async function registerDeviceToken(token: string) {
   try {
-    const [onesignalId, externalId, id, token, optedIn, permission, native] =
-      await Promise.all([
-        OneSignal.User.getOnesignalId(),
-        OneSignal.User.getExternalId(),
-        OneSignal.User.pushSubscription.getIdAsync(),
-        OneSignal.User.pushSubscription.getTokenAsync(),
-        OneSignal.User.pushSubscription.getOptedInAsync(),
-        OneSignal.Notifications.getPermissionAsync(),
-        OneSignal.Notifications.permissionNative(),
-      ]);
-
-    log(`état ${moment}`, {
-      onesignalId,
-      externalId,
-      ...describeSubscription({ id, token, optedIn }),
-      permission,
-      // 0 NotDetermined, 1 Denied, 2 Authorized, 3 Provisional, 4 Ephemeral
-      permissionNative: native,
+    const res = await fetch("/api/push/register-device", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token }),
+    });
+    const body = await res.json().catch(() => ({}));
+    remoteLog("enregistrement du jeton auprès du serveur", {
+      status: res.status,
+      ...body,
     });
   } catch (err) {
-    remoteLog(`lecture de l'état impossible (${moment})`, {
+    remoteLog("enregistrement du jeton IMPOSSIBLE", {
       message: err instanceof Error ? err.message : String(err),
     });
   }
