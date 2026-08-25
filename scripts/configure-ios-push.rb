@@ -59,12 +59,31 @@ project.save
 
 # Info.plist : ajouter remote-notification sans écraser d'éventuels autres modes.
 plist = Xcodeproj::Plist.read_from_path(INFO_PLIST)
+dirty = false
+
 modes = plist["UIBackgroundModes"] || []
 unless modes.include?("remote-notification")
   modes << "remote-notification"
   plist["UIBackgroundModes"] = modes
-  Xcodeproj::Plist.write_to_path(plist, INFO_PLIST)
+  dirty = true
   puts "UIBackgroundModes/remote-notification ajoute a Info.plist"
 end
+
+# Sans cette cle, chaque build arrive sur TestFlight en "Missing Compliance" et
+# reste indistribuable tant qu'un humain n'a pas repondu a la question sur le
+# chiffrement dans App Store Connect. Un blocage silencieux de plus : le build
+# est vert, l'upload reussit, et le testeur ne voit rien arriver.
+#
+# La declaration est "false" parce que l'app n'utilise que HTTPS fourni par le
+# systeme, ce qui releve de l'exemption standard. Si un jour du chiffrement
+# proprietaire est ajoute, cette valeur devra etre revue — c'est une
+# declaration legale faite au nom du compte developpeur.
+if plist["ITSAppUsesNonExemptEncryption"].nil?
+  plist["ITSAppUsesNonExemptEncryption"] = false
+  dirty = true
+  puts "ITSAppUsesNonExemptEncryption=false ajoute a Info.plist"
+end
+
+Xcodeproj::Plist.write_to_path(plist, INFO_PLIST) if dirty
 
 puts "Configuration push iOS terminee."
