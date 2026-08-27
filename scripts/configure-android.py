@@ -5,7 +5,7 @@ Comme pour iOS, le dossier android/ n'est pas versionné : il est régénéré �
 chaque run par `npx cap add android`. Toute modification faite à la main serait
 perdue. Ce script réapplique donc ce qui doit survivre d'un build à l'autre.
 
-Quatre choses, dont deux sont critiques pour le Play Store :
+Cinq choses, dont trois sont critiques pour le Play Store :
 
 1. L'applicationId. Capacitor le prend depuis capacitor.config.ts, qui porte
    l'identifiant iOS (com.dayekaba.d5coaching). L'app Android est publiée sous
@@ -19,7 +19,10 @@ Quatre choses, dont deux sont critiques pour le Play Store :
 
 3. versionCode, qui doit être strictement croissant à chaque envoi.
 
-4. POST_NOTIFICATIONS, sans quoi Android 13+ n'affiche jamais la demande de
+4. Le SDK ciblé. Google Play exige le 35 depuis août 2025 ; le gabarit
+   Capacitor 6 en est encore au 34, et l'AAB serait refusé au dépôt.
+
+5. POST_NOTIFICATIONS, sans quoi Android 13+ n'affiche jamais la demande de
    permission — l'app resterait silencieuse sans la moindre erreur.
 
 Échoue bruyamment si un motif attendu est absent : un patch qui ne s'applique
@@ -35,6 +38,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 APP_GRADLE = ROOT / "android/app/build.gradle"
+ROOT_GRADLE = ROOT / "android/build.gradle"
+VARIABLES = ROOT / "android/variables.gradle"
+WRAPPER = ROOT / "android/gradle/wrapper/gradle-wrapper.properties"
 MANIFEST = ROOT / "android/app/src/main/AndroidManifest.xml"
 RES = ROOT / "android/app/src/main/res"
 ICON_SOURCE = ROOT / "resources/icon.png"
@@ -108,6 +114,50 @@ def patch_app_gradle():
     APP_GRADLE.write_text(text)
 
 
+def patch_sdk_and_toolchain():
+    """Cible le SDK 35, exigé par Google Play depuis août 2025.
+
+    Le gabarit Capacitor 6 cible encore le 34 : tel quel, l'AAB est refusé au
+    dépôt. L'ancienne app maison ciblait bien le 35, donc s'en tenir au défaut
+    serait une régression.
+
+    compileSdk 35 réclame AGP 8.6 minimum, qui réclame lui-même Gradle 8.7
+    minimum — d'où les trois changements ensemble. Les remonter séparément
+    produit une erreur de version au build.
+    """
+    text = VARIABLES.read_text()
+    for key in ("compileSdkVersion", "targetSdkVersion"):
+        text, n = re.subn(rf"{key} = \d+", f"{key} = 35", text, count=1)
+        if n != 1:
+            fail(f"{key} introuvable dans variables.gradle")
+    VARIABLES.write_text(text)
+    print("compileSdk et targetSdk portés à 35")
+
+    text = ROOT_GRADLE.read_text()
+    text, n = re.subn(
+        r"classpath 'com\.android\.tools\.build:gradle:[^']+'",
+        "classpath 'com.android.tools.build:gradle:8.6.1'",
+        text,
+        count=1,
+    )
+    if n != 1:
+        fail("classpath du plugin Android introuvable dans build.gradle")
+    ROOT_GRADLE.write_text(text)
+    print("Android Gradle Plugin -> 8.6.1")
+
+    text = WRAPPER.read_text()
+    text, n = re.subn(
+        r"distributionUrl=.*",
+        "distributionUrl=https\\\\://services.gradle.org/distributions/gradle-8.9-all.zip",
+        text,
+        count=1,
+    )
+    if n != 1:
+        fail("distributionUrl introuvable dans gradle-wrapper.properties")
+    WRAPPER.write_text(text)
+    print("Gradle -> 8.9")
+
+
 def patch_manifest():
     if not MANIFEST.exists():
         fail(f"introuvable : {MANIFEST}")
@@ -168,6 +218,7 @@ def generate_icons():
 
 if __name__ == "__main__":
     patch_app_gradle()
+    patch_sdk_and_toolchain()
     patch_manifest()
     generate_icons()
     print("Configuration Android terminée.")
