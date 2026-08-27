@@ -60,10 +60,25 @@ jobs:
             echo "::error::Secret GOOGLE_SERVICES_JSON absent. Sans lui, l'app se construit mais ne peut recevoir aucune notification."
             exit 1
           fi
-          echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
-          node -e "JSON.parse(require('fs').readFileSync('android/app/google-services.json','utf8'))" \
-            || { echo "::error::google-services.json invalide après décodage base64"; exit 1; }
-          echo "google-services.json en place"
+          # Le secret est accepté tel quel (JSON collé directement) ou en base64,
+          # pour ne pas imposer un encodage de plus. Ce fichier n'est pas un
+          # secret au sens strict — il est embarqué dans l'APK et lisible par
+          # quiconque le décompresse — mais il reste hors du dépôt.
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          if ! node -e "JSON.parse(require('fs').readFileSync('android/app/google-services.json','utf8'))" 2>/dev/null; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+            node -e "JSON.parse(require('fs').readFileSync('android/app/google-services.json','utf8'))" \
+              || { echo "::error::GOOGLE_SERVICES_JSON n'est ni du JSON valide ni du base64 valide"; exit 1; }
+          fi
+          node -e "
+            const j = JSON.parse(require('fs').readFileSync('android/app/google-services.json','utf8'));
+            const names = (j.client || []).map(c => c.client_info.android_client_info.package_name);
+            if (!names.includes('com.d5coaching.clients')) {
+              console.error('::error::google-services.json ne contient pas com.d5coaching.clients (trouvé : ' + names.join(', ') + ')');
+              process.exit(1);
+            }
+          "
+          echo "google-services.json en place et cohérent avec l'applicationId"
 
       # Le Play Store exige que chaque mise à jour soit signée avec la clé de la
       # version publiée. L'ancien workflow en générait une nouvelle quand le
