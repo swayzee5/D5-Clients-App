@@ -130,6 +130,8 @@ jobs:
       - name: Setup signing keystore
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
         run: |
           set -euo pipefail
           if [ -z "${KEYSTORE_B64}" ]; then
@@ -137,7 +139,20 @@ jobs:
             exit 1
           fi
           echo "$KEYSTORE_B64" | base64 -d > android/app/keystore.jks
-          echo "keystore en place"
+
+          # Vérifie tout de suite que l'alias attendu existe. Sinon l'échec
+          # n'arrive qu'après une minute et demie de compilation, sur un
+          # « No key with alias ... » en fin de build.
+          WANTED="${KEY_ALIAS:-d5coaching}"
+          ALIASES=$(keytool -list -keystore android/app/keystore.jks \
+                      -storepass "$STORE_PASSWORD" 2>/dev/null \
+                    | grep -i "PrivateKeyEntry\|trustedCertEntry" | cut -d, -f1 || true)
+          echo "Alias présents dans le keystore : ${ALIASES:-aucun}"
+          if ! printf '%s\n' "$ALIASES" | grep -qx "$WANTED"; then
+            echo "::error::L'alias « ${WANTED} » n'existe pas dans le keystore. Alias disponibles : ${ALIASES:-aucun}."
+            exit 1
+          fi
+          echo "keystore en place, alias « ${WANTED} » trouvé"
 
       - name: Configure Android project
         env:

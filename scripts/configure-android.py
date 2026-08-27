@@ -46,7 +46,12 @@ SIGNING_CONFIG = """
         release {
             storeFile file(System.getenv("ANDROID_KEYSTORE_PATH") ?: "keystore.jks")
             storePassword System.getenv("STORE_PASSWORD")
-            keyAlias System.getenv("KEY_ALIAS")
+            // L'alias n'est pas un secret, c'est un nom. Le laisser sans repli
+            // donnait un alias vide et « No key with alias '' found in
+            // keystore » : le secret KEY_ALIAS n'a jamais existé, l'ancien
+            // build.gradle s'appuyait sur ce même repli. Les mots de passe,
+            // eux, restent exclusivement dans les secrets.
+            keyAlias System.getenv("KEY_ALIAS") ?: "d5coaching"
             keyPassword System.getenv("KEY_PASSWORD")
         }
     }
