@@ -70,30 +70,49 @@ jobs:
       - name: Write google-services.json
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        # Volontairement sans `set -e` : chaque échec est rattrapé pour produire
+        # un message utile. Une version précédente s'arrêtait sur « base64:
+        # invalid input » avant d'avoir pu expliquer quoi que ce soit.
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          TARGET=android/app/google-services.json
+
           if [ -z "${GOOGLE_SERVICES_JSON}" ]; then
             echo "::error::Secret GOOGLE_SERVICES_JSON absent. Sans lui, l'app se construit mais ne peut recevoir aucune notification."
             exit 1
           fi
-          # Le secret est accepté tel quel (JSON collé directement) ou en base64,
-          # pour ne pas imposer un encodage de plus. Ce fichier n'est pas un
-          # secret au sens strict — il est embarqué dans l'APK et lisible par
-          # quiconque le décompresse — mais il reste hors du dépôt.
-          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-          if ! node -e "JSON.parse(require('fs').readFileSync('android/app/google-services.json','utf8'))" 2>/dev/null; then
-            printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
-            node -e "JSON.parse(require('fs').readFileSync('android/app/google-services.json','utf8'))" \
-              || { echo "::error::GOOGLE_SERVICES_JSON n'est ni du JSON valide ni du base64 valide"; exit 1; }
+
+          valid() { node -e "JSON.parse(require('fs').readFileSync('$TARGET','utf8'))" 2>/dev/null; }
+
+          # Accepté tel quel (JSON collé directement) ou en base64, pour ne pas
+          # imposer un encodage de plus. Ce fichier n'est pas un secret au sens
+          # strict — il est embarqué dans l'APK — mais il reste hors du dépôt.
+          printf '%s' "$GOOGLE_SERVICES_JSON" > "$TARGET"
+          if ! valid; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" | base64 -d > "$TARGET" 2>/dev/null || true
           fi
+
+          if ! valid; then
+            # Décrit ce qui a été reçu sans jamais l'afficher.
+            LEN=$(printf '%s' "$GOOGLE_SERVICES_JSON" | wc -c | tr -d ' ')
+            FIRST=$(printf '%s' "$GOOGLE_SERVICES_JSON" | head -c 1)
+            LINES=$(printf '%s' "$GOOGLE_SERVICES_JSON" | wc -l | tr -d ' ')
+            echo "::error::GOOGLE_SERVICES_JSON n'est ni du JSON valide ni du base64 valide."
+            echo "Reçu : ${LEN} octets, ${LINES} sauts de ligne, premier caractère « ${FIRST} »."
+            echo "Attendu : le contenu du fichier google-services.json téléchargé depuis Firebase,"
+            echo "qui commence par « { » et fait quelques milliers d'octets."
+            echo "Si le premier caractère est « / » ou « ~ », c'est un chemin de fichier qui a été collé, pas son contenu."
+            exit 1
+          fi
+
           node -e "
-            const j = JSON.parse(require('fs').readFileSync('android/app/google-services.json','utf8'));
+            const j = JSON.parse(require('fs').readFileSync('$TARGET','utf8'));
             const names = (j.client || []).map(c => c.client_info.android_client_info.package_name);
             if (!names.includes('com.d5coaching.clients')) {
-              console.error('::error::google-services.json ne contient pas com.d5coaching.clients (trouvé : ' + names.join(', ') + ')');
+              console.error('::error::google-services.json ne declare pas com.d5coaching.clients (trouve : ' + names.join(', ') + ')');
               process.exit(1);
             }
-          "
+          " || exit 1
           echo "google-services.json en place et cohérent avec l'applicationId"
 
       # Le Play Store exige que chaque mise à jour soit signée avec la clé de la
