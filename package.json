@@ -25,6 +25,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@capacitor/android": "^6.1.2",
     "@capacitor/cli": "^6.1.2",
     "@capacitor/ios": "^6.1.2",
     "@types/bcryptjs": "^2.4.6",

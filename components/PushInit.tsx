@@ -219,16 +219,17 @@ async function initNative(clientId: string, show: ShowPrompt) {
     // Les écouteurs sont posés AVANT register() : iOS peut délivrer le jeton
     // très vite, et un écouteur ajouté après l'aurait manqué.
     await PushNotifications.addListener("registration", (token) => {
-      log("jeton APNs reçu", {
+      log("jeton push reçu", {
+        platform: Capacitor.getPlatform(),
         token: `${token.value.slice(0, 12)}… (${token.value.length})`,
       });
-      void registerDeviceToken(token.value);
+      void registerDeviceToken(token.value, Capacitor.getPlatform());
     });
 
     await PushNotifications.addListener("registrationError", (err) => {
       // Ici on saura si iOS refuse l'enregistrement — typiquement un problème
       // d'entitlement ou de profil, et non plus de pont JS.
-      log("APNs a REFUSÉ l'enregistrement", { error: String(err.error) });
+      log("le système a REFUSÉ l'enregistrement push", { error: String(err.error) });
     });
 
     const current = await PushNotifications.checkPermissions();
@@ -276,12 +277,12 @@ async function initNative(clientId: string, show: ShowPrompt) {
  * Transmet le jeton au serveur, qui le rattache au client chez OneSignal.
  * L'appareil n'a ainsi jamais besoin de la clé REST.
  */
-async function registerDeviceToken(token: string) {
+async function registerDeviceToken(token: string, platform: string) {
   try {
     const res = await fetch("/api/push/register-device", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token, platform }),
     });
     const body = await res.json().catch(() => ({}));
     remoteLog("enregistrement du jeton auprès du serveur", {

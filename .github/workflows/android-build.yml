@@ -3,6 +3,16 @@ name: Build Android AAB
 on:
   push:
     branches: [main]
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'public/**'
+      - 'resources/**'
+      - 'scripts/**'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - '.github/workflows/android-build.yml'
   workflow_dispatch:
 
 jobs:
@@ -12,115 +22,72 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install npm dependencies
+        run: npm install
+
       - name: Setup JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Gradle 8.6
+      # android/ n'est pas versionné, au même titre que ios/ : il est régénéré
+      # ici. Le wrapper Gradle vient du template Capacitor, plus besoin
+      # d'installer Gradle à la main.
+      - name: Add Android platform
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.6-bin.zip -O /tmp/gradle.zip
-          unzip -q /tmp/gradle.zip -d /opt/
-          sudo ln -s /opt/gradle-8.6/bin/gradle /usr/local/bin/gradle
-
-      - name: Generate Gradle wrapper
-        working-directory: android
-        run: |
-          gradle wrapper --gradle-version=8.6 --distribution-type=bin
-          chmod +x gradlew
-
-      - name: Setup signing keystore
-        run: |
-          if [ -n "$KEYSTORE_B64" ]; then
-            echo ">>> Using saved keystore from KEYSTORE_BASE64 secret"
-            echo "$KEYSTORE_B64" | base64 -d > android/keystore.jks
-          else
-            echo ">>> No secret found - generating new keystore"
-            keytool -genkeypair -v \
-              -keystore android/keystore.jks \
-              -keyalg RSA -keysize 2048 -validity 10000 \
-              -alias d5coaching \
-              -storepass d5coaching2024 \
-              -keypass d5coaching2024 \
-              -dname "CN=D5 Coaching, OU=Mobile, O=D5Coaching, L=Paris, S=IDF, C=FR"
-            echo ""
-            echo "========== COPY THIS AS GITHUB SECRET KEYSTORE_BASE64 =========="
-            base64 -w 0 android/keystore.jks
-            echo ""
-            echo "================================================================="
+          if [ ! -d "android" ] || [ -z "$(ls -A android 2>/dev/null)" ]; then
+            npx cap add android
           fi
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      # Sans ce fichier, le plugin google-services ne s'applique pas et les
+      # notifications ne fonctionnent pas — le build réussirait quand même,
+      # silencieusement. On échoue donc explicitement.
+      - name: Write google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GOOGLE_SERVICES_JSON}" ]; then
+            echo "::error::Secret GOOGLE_SERVICES_JSON absent. Sans lui, l'app se construit mais ne peut recevoir aucune notification."
+            exit 1
+          fi
+          echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+          node -e "JSON.parse(require('fs').readFileSync('android/app/google-services.json','utf8'))" \
+            || { echo "::error::google-services.json invalide après décodage base64"; exit 1; }
+          echo "google-services.json en place"
+
+      # Le Play Store exige que chaque mise à jour soit signée avec la clé de la
+      # version publiée. L'ancien workflow en générait une nouvelle quand le
+      # secret manquait : cela produisait un AAB que le Play Store aurait refusé,
+      # sans que rien ne l'annonce. On s'arrête plutôt.
+      - name: Setup signing keystore
         env:
           KEYSTORE_B64: ${{ secrets.KEYSTORE_BASE64 }}
-
-      - name: Upload keystore artifact (backup)
-        uses: actions/upload-artifact@v4
-        with:
-          name: keystore-backup
-          path: android/keystore.jks
-          retention-days: 30
-
-      - name: Generate launcher icons
         run: |
-          pip install pillow -q
-          python3 - <<'EOF'
-          from PIL import Image, ImageDraw, ImageFont
-          import os
+          set -euo pipefail
+          if [ -z "${KEYSTORE_B64}" ]; then
+            echo "::error::Secret KEYSTORE_BASE64 absent. Signer avec une autre clé rendrait la mise à jour impossible pour les utilisateurs existants."
+            exit 1
+          fi
+          echo "$KEYSTORE_B64" | base64 -d > android/app/keystore.jks
+          echo "keystore en place"
 
-          def make_icon(size):
-              img = Image.new('RGB', (size, size), (255, 193, 7))
-              draw = ImageDraw.Draw(img)
-
-              # Rounded corners mask
-              mask = Image.new('L', (size, size), 0)
-              mask_draw = ImageDraw.Draw(mask)
-              radius = size // 5
-              mask_draw.rounded_rectangle([0, 0, size - 1, size - 1], radius=radius, fill=255)
-
-              # Try bold system font
-              font_d5 = None
-              font_coaching = None
-              for font_path in [
-                  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-                  '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
-                  '/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf',
-              ]:
-                  if os.path.exists(font_path):
-                      font_d5 = ImageFont.truetype(font_path, int(size * 0.42))
-                      font_coaching = ImageFont.truetype(font_path, int(size * 0.17))
-                      break
-
-              if font_d5 is None:
-                  font_d5 = ImageFont.load_default()
-                  font_coaching = ImageFont.load_default()
-
-              # Draw d5
-              bbox = draw.textbbox((0, 0), 'd5', font=font_d5)
-              tw = bbox[2] - bbox[0]
-              th = bbox[3] - bbox[1]
-              draw.text(((size - tw) // 2 - bbox[0], int(size * 0.22) - bbox[1]), 'd5', font=font_d5, fill=(0, 0, 0))
-
-              # Draw coaching
-              bbox2 = draw.textbbox((0, 0), 'coaching', font=font_coaching)
-              tw2 = bbox2[2] - bbox2[0]
-              draw.text(((size - tw2) // 2 - bbox2[0], int(size * 0.72) - bbox2[1]), 'coaching', font=font_coaching, fill=(0, 0, 0))
-
-              # Apply rounded corners
-              result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-              result.paste(img, mask=mask)
-              final = Image.new('RGB', (size, size), (255, 193, 7))
-              final.paste(result, mask=result.split()[3])
-              return final
-
-          sizes = {'mdpi': 48, 'hdpi': 72, 'xhdpi': 96, 'xxhdpi': 144, 'xxxhdpi': 192}
-          for density, size in sizes.items():
-              path = f'android/app/src/main/res/mipmap-{density}'
-              os.makedirs(path, exist_ok=True)
-              icon = make_icon(size)
-              icon.save(f'{path}/ic_launcher.png')
-              icon.save(f'{path}/ic_launcher_round.png')
-          print('Icons generated successfully')
-          EOF
+      - name: Configure Android project
+        env:
+          # Monotone et déjà bien au-dessus du versionCode 7 de l'ancienne app.
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          pip install --quiet pillow
+          python3 scripts/configure-android.py
 
       - name: Build Signed Release AAB
         working-directory: android
@@ -128,7 +95,9 @@ jobs:
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        run: ./gradlew bundleRelease --no-daemon
+        run: |
+          chmod +x gradlew
+          ./gradlew bundleRelease --no-daemon
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4

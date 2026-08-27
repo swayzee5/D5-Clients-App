@@ -4,7 +4,8 @@ import { auth } from "@/auth";
 export const dynamic = "force-dynamic";
 
 /**
- * Enregistre le jeton APNs de l'appareil auprès de OneSignal.
+ * Enregistre le jeton push de l'appareil auprès de OneSignal — APNs sur iOS,
+ * FCM sur Android.
  *
  * Pourquoi passer par le serveur plutôt que par le SDK OneSignal sur
  * l'appareil : ce SDK n'existe que sous forme de plugin Cordova, et le pont
@@ -34,14 +35,24 @@ export async function POST(request: Request) {
   }
 
   let token: string;
+  let platform: string;
   try {
-    const body = (await request.json()) as { token?: unknown };
+    const body = (await request.json()) as { token?: unknown; platform?: unknown };
     token = String(body.token ?? "").trim();
+    platform = String(body.platform ?? "").trim().toLowerCase();
   } catch {
     return NextResponse.json({ error: "Corps illisible" }, { status: 400 });
   }
   if (!token) {
     return NextResponse.json({ error: "Jeton manquant" }, { status: 400 });
+  }
+
+  // Un jeton APNs et un jeton FCM ne sont pas interchangeables : annoncer le
+  // mauvais type ferait accepter l'abonnement par OneSignal, qui n'arriverait
+  // ensuite jamais à livrer quoi que ce soit.
+  const type = platform === "android" ? "AndroidPush" : "iOSPush";
+  if (platform !== "android" && platform !== "ios") {
+    console.warn("[push/register] plateforme non reconnue, iOS par défaut", platform);
   }
 
   // Le jeton n'est jamais journalisé en entier : sa longueur et son début
@@ -53,12 +64,12 @@ export async function POST(request: Request) {
   // avec son abonnement en une fois.
   const attach = await callOneSignal(
     `${API}/apps/${ONESIGNAL_APP_ID}/users/by/external_id/${encodeURIComponent(clientId)}/subscriptions`,
-    { subscription: { type: "iOSPush", token, enabled: true } }
+    { subscription: { type, token, enabled: true } }
   );
 
   if (attach.ok) {
-    console.log("[push/register] abonnement rattaché", { clientId, token: shortToken });
-    return NextResponse.json({ ok: true, via: "subscriptions" });
+    console.log("[push/register] abonnement rattaché", { clientId, type, token: shortToken });
+    return NextResponse.json({ ok: true, via: "subscriptions", type });
   }
 
   console.warn("[push/register] rattachement refusé, création de l'utilisateur", {
@@ -69,7 +80,7 @@ export async function POST(request: Request) {
 
   const create = await callOneSignal(`${API}/apps/${ONESIGNAL_APP_ID}/users`, {
     identity: { external_id: clientId },
-    subscriptions: [{ type: "iOSPush", token, enabled: true }],
+    subscriptions: [{ type, token, enabled: true }],
   });
 
   if (create.ok) {
@@ -77,7 +88,7 @@ export async function POST(request: Request) {
       clientId,
       token: shortToken,
     });
-    return NextResponse.json({ ok: true, via: "users" });
+    return NextResponse.json({ ok: true, via: "users", type });
   }
 
   console.error("[push/register] OneSignal a refusé les deux voies", {
