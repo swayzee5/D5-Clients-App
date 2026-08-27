@@ -36,6 +36,22 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      # capacitor.config.ts déclare webDir: 'out', qui n'existe pas — l'app
+      # charge tout depuis Vercel via server.url et n'embarque aucun contenu
+      # web. Capacitor tolère l'absence de contenu, mais pas celle du dossier :
+      # il renonce à la copie, donc ne crée jamais android/app/src/main/assets,
+      # puis échoue en tentant d'y écrire capacitor.config.json.
+      - name: Create placeholder web directory
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          printf '%s\n' \
+            '<!doctype html>' \
+            '<meta charset="utf-8">' \
+            '<title>D5 Coaching</title>' \
+            '<!-- Jamais affiche : server.url pointe sur le site. -->' \
+            > out/index.html
+
       # android/ n'est pas versionné, au même titre que ios/ : il est régénéré
       # ici. Le wrapper Gradle vient du template Capacitor, plus besoin
       # d'installer Gradle à la main.
