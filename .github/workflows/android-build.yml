@@ -99,6 +99,14 @@ jobs:
             LINES=$(printf '%s' "$GOOGLE_SERVICES_JSON" | wc -l | tr -d ' ')
             echo "::error::GOOGLE_SERVICES_JSON n'est ni du JSON valide ni du base64 valide."
             echo "Reçu : ${LEN} octets, ${LINES} sauts de ligne, premier caractère « ${FIRST} »."
+            # L'erreur de l'analyseur donne la position exacte du caractère
+            # fautif — décisif quand le fichier a la bonne tête mais contient un
+            # guillemet typographique ou un caractère invisible.
+            printf '%s' "$GOOGLE_SERVICES_JSON" > "$TARGET"
+            echo "Erreur d'analyse :"
+            node -e "try { JSON.parse(require('fs').readFileSync('$TARGET','utf8')) } catch (e) { console.log('  ' + e.message) }"
+            echo "Octets non-ASCII trouvés (guillemets typographiques, espaces insécables…) :"
+            grep -nP '[^\x00-\x7F]' "$TARGET" | head -5 | cut -c1-120 || echo "  aucun"
             echo "Attendu : le contenu du fichier google-services.json téléchargé depuis Firebase,"
             echo "qui commence par « { » et fait quelques milliers d'octets."
             echo "Si le premier caractère est « / » ou « ~ », c'est un chemin de fichier qui a été collé, pas son contenu."
