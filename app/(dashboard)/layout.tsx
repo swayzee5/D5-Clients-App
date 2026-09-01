@@ -4,6 +4,8 @@ import { Header } from "@/components/layout/Header"
 import { BottomNav } from "@/components/navigation/BottomNav"
 import { pool } from "@/lib/db"
 import { PushInit } from "@/components/PushInit"
+import { needsRebootDiagnostic } from "@/lib/queries/reboot-diagnostic"
+import { RebootDiagnosticModal } from "@/components/reboot/RebootDiagnosticModal"
 
 async function getUnreadCount(clientId: string): Promise<number> {
   try {
@@ -25,6 +27,15 @@ export default async function DashboardLayout({
 }) {
   const session = await auth()
   if (!session) redirect("/login")
+
+  // Diagnostic Reboot 40 : tant qu'il n'est pas rempli, on rend le formulaire
+  // À LA PLACE du tableau de bord, et non par-dessus. Rien d'autre n'est monté,
+  // donc rien d'autre n'est atteignable — ni par la navigation, ni au clavier.
+  // Ne concerne que les participants Reboot ; pour tous les autres clients,
+  // needsRebootDiagnostic renvoie false et rien ne change.
+  if (await needsRebootDiagnostic(session.user.id)) {
+    return <RebootDiagnosticModal firstName={session.user?.name?.split(" ")[0]} />
+  }
 
   const unreadMessages = await getUnreadCount(session.user.id)
 
