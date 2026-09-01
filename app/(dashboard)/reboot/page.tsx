@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { Zap, CheckCircle2, ArrowRight, MessageCircle, Lock } from "lucide-react";
 import Link from "next/link";
 import { getRebootSessions } from "@/lib/queries/reboot";
+import { getRebootDiagnostic } from "@/lib/queries/reboot-diagnostic";
 import { pool } from "@/lib/db";
 import { SeancesSection } from "./SeancesSection";
 import type { Metadata } from "next";
@@ -122,6 +123,11 @@ export default async function RebootPage() {
     } catch {}
   }
 
+  // Le Reboot Score, s'il a été calculé : c'est le point de comparaison de la
+  // fin des 7 jours, il doit rester accessible et pas seulement s'afficher une
+  // fois à la validation du diagnostic.
+  const diagnostic = await getRebootDiagnostic(clientId);
+
   const waMessages = [
     { ordinal: 1, label: "Message 1/3 envoyé", done: waCompleted >= 1 },
     { ordinal: 2, label: "Message 2/3 envoyé", done: waCompleted >= 2 },
@@ -147,6 +153,19 @@ export default async function RebootPage() {
             <div className="h-full bg-d5-gold rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
           </div>
         </div>
+        {diagnostic && (
+          <Link
+            href="/reboot/score"
+            className="mt-4 flex items-center gap-3 rounded-xl bg-black/25 px-4 py-3 transition-colors hover:bg-black/40"
+          >
+            <span className="text-2xl font-black text-d5-gold">{diagnostic.scores.global}</span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-xs text-gray-400">Mon Reboot Score de départ</span>
+              <span className="block text-xs text-gray-500">Voir le détail et mes réponses</span>
+            </span>
+            <ArrowRight size={16} className="text-d5-gold shrink-0" />
+          </Link>
+        )}
         <div className="mt-4 pt-4 border-t border-white/10">
           <p className="text-xs text-d5-gold font-semibold uppercase tracking-wider mb-1">Mot de ton coach</p>
           <p className="text-gray-300 text-sm leading-relaxed">{welcomeMessage}</p>
