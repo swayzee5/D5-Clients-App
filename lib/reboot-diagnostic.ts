@@ -96,7 +96,7 @@ export const QUESTIONS: Question[] = [
     prompt:
       "Quand avez-vous senti que votre corps a cessé de répondre comme avant, malgré vos efforts ?",
     help: "Pour beaucoup, ça commence vers la trentaine. Prenez le temps de raconter.",
-    placeholder: "ex : vers 35 ans, après ma deuxième grossesse…",
+    placeholder: "ex : vers 35 ans, quand le rythme de travail a changé…",
   },
   {
     id: "batterie",
@@ -138,7 +138,7 @@ export const QUESTIONS: Question[] = [
     prompt: "Si vous retrouviez votre forme, quelqu'un dans votre entourage le remarquerait ?",
     followUp: {
       prompt: "Qui, et à quoi le verrait-il ? (facultatif)",
-      placeholder: "ex : ma fille, qui me dit que je suis toujours fatiguée",
+      placeholder: "ex : ma fille, qui me dit que je manque toujours d'énergie",
     },
   },
   {
@@ -227,7 +227,7 @@ export function readScore(global: number): { title: string; message: string } {
     };
   }
   return {
-    title: "Déjà bien engagé",
+    title: "Une base déjà solide",
     message:
       "Votre état de forme est bon. Ce Reboot servira à structurer ce que vous faites déjà et à passer un cap.",
   };
