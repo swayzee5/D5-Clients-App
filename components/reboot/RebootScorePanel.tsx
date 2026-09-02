@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { SCORE_AXES, readScore, weakestAxis, type Scores } from "@/lib/reboot-diagnostic"
+import { SCORE_AXES, explainScore, readScore, type Scores } from "@/lib/reboot-diagnostic"
 
 /**
  * Compte de 0 jusqu'à la valeur. Utilisé seulement à la découverte du score :
@@ -56,7 +56,8 @@ export function RebootScorePanel({
   animate?: boolean
 }) {
   const reading = readScore(scores.global)
-  const weakest = weakestAxis(scores)
+  const explanation = explainScore(scores)
+  const weakest = explanation.priorities[0]
   const displayed = useCountUp(scores.global, animate)
 
   // Les barres partent de zéro puis se remplissent, une fois le premier rendu
@@ -114,10 +115,41 @@ export function RebootScorePanel({
             </div>
           </div>
         ))}
-        <p className="pt-1 text-sm leading-relaxed text-d5-muted">
-          Votre point le plus bas :{" "}
-          <span className="text-white">{weakest.label.toLowerCase()}</span>. C&apos;est par là
-          qu&apos;on commence.
+      </div>
+
+      <div className="space-y-3 rounded-2xl bg-d5-surface p-5">
+        <p className="text-sm font-semibold text-white">Pourquoi ce score</p>
+        <p className="text-[15px] leading-relaxed text-d5-muted">{explanation.summary}</p>
+        {explanation.strength && (
+          <p className="text-[15px] leading-relaxed text-d5-muted">
+            Vous avez aussi un appui :{" "}
+            <span className="text-white">
+              {explanation.strength.label.toLowerCase()} ({explanation.strength.note}/10)
+            </span>
+            . On s&apos;en servira.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <p className="text-sm font-semibold text-white">Vos deux priorités</p>
+        {explanation.priorities.map((p, i) => (
+          <div key={p.key} className="space-y-2 rounded-2xl border border-d5-border bg-d5-surface p-4">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[15px] font-semibold text-white">
+                {i + 1}. {p.emoji} {p.label}
+              </span>
+              <span className="text-sm font-bold text-d5-gold">{p.note}/10</span>
+            </div>
+            <p className="text-sm leading-relaxed text-d5-muted">{p.why}</p>
+            <p className="rounded-xl bg-d5-surface-2 px-3 py-2 text-sm leading-relaxed text-d5-text">
+              <span className="font-semibold text-white">Sur les 7 jours :</span> {p.action}
+            </p>
+          </div>
+        ))}
+        <p className="text-xs leading-relaxed text-d5-muted">
+          Deux axes seulement, volontairement. En traiter six à la fois, c&apos;est n&apos;en
+          traiter aucun.
         </p>
       </div>
     </div>

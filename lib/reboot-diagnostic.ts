@@ -279,3 +279,102 @@ export function choiceLabel(questionId: string, value: string | undefined): stri
   if (!question || question.kind !== "single") return value;
   return question.choices.find((c) => c.value === value)?.label ?? value;
 }
+
+/* -------------------------------------------------------------------------
+ * Explication du score
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Ce qu'on dit à quelqu'un dont l'axe est bas.
+ *
+ * Un axe faible n'est jamais présenté comme un défaut, mais comme le levier qui
+ * rapporte le plus — c'est vrai, et c'est ce qui fait rester. Chaque action est
+ * réalisable en sept jours : promettre plus serait promettre un abandon.
+ */
+const AXIS_GUIDANCE: Record<ScoreKey, { why: string; action: string }> = {
+  sommeil: {
+    why: "Le sommeil commande le reste. Tant qu'il ne remonte pas, l'énergie et la récupération plafonnent, quels que soient les efforts à côté.",
+    action: "Une heure de coucher fixe sur les 7 jours, week-end compris.",
+  },
+  energie: {
+    why: "Une énergie basse en journée est le premier signal que le rythme dépasse ce que le corps encaisse.",
+    action: "Bouger 10 minutes le matin, plutôt que d'attendre un soir où il ne restera rien.",
+  },
+  recuperation: {
+    why: "Mettre des jours à récupérer, c'est ce qui fait abandonner : la séance suivante arrive avant que le corps soit prêt.",
+    action: "Espacer les séances et soigner l'hydratation, au lieu d'en faire plus.",
+  },
+  stress: {
+    why: "Un stress subi fatigue autant qu'une mauvaise nuit, et c'est lui qui fait dérailler les fins de journée.",
+    action: "Trois respirations lentes avant chaque repas. C'est court, donc ça tient.",
+  },
+  motivation: {
+    why: "La motivation ne se décide pas, elle suit les premiers résultats. C'est pour ça qu'on commence petit.",
+    action: "Viser la régularité sur 7 jours, jamais l'intensité.",
+  },
+  confiance: {
+    why: "La confiance dans son corps décide de ce qu'on ose entreprendre, bien plus que la forme réelle.",
+    action: "Cocher chaque séance terminée : la preuve accumulée pèse plus que les intentions.",
+  },
+};
+
+export type ScoreExplanation = {
+  summary: string;
+  priorities: { key: ScoreKey; label: string; emoji: string; note: number; why: string; action: string }[];
+  strength: { label: string; note: number } | null;
+};
+
+/**
+ * Explique le score et désigne les axes à travailler.
+ *
+ * Deux priorités, pas six : donner six chantiers à quelqu'un qui a déjà
+ * abandonné plusieurs fois, c'est garantir un septième abandon. Les deux axes
+ * les plus bas sont retenus, et le plus haut est nommé comme point d'appui —
+ * personne ne part de zéro.
+ */
+export function explainScore(scores: Scores): ScoreExplanation {
+  const ranked = [...SCORE_AXES].sort((a, b) => scores[a.key] - scores[b.key]);
+  const lowest = ranked.slice(0, 2);
+  const best = ranked[ranked.length - 1];
+
+  const asNote = (key: ScoreKey) => scores[key] / 10;
+
+  // La formulation s'adapte au profil, sinon elle devient fausse : dire d'un
+  // 9/10 qu'il « tire vers le bas », ou désigner deux axes au hasard quand les
+  // six sont à égalité, décrédibilise tout le reste du bilan.
+  const spread = scores[ranked[ranked.length - 1].key] - scores[ranked[0].key];
+  const deux = `${lowest[0].label.toLowerCase()} (${asNote(lowest[0].key)}/10) et ` +
+    `${lowest[1].label.toLowerCase()} (${asNote(lowest[1].key)}/10)`;
+
+  let summary: string;
+  if (spread <= 10) {
+    summary =
+      `Ce score est la moyenne de vos six notes, et elles sont toutes au même ` +
+      `niveau — aucun point ne décroche par rapport aux autres. On commence donc ` +
+      `par ${deux}, parce qu'ils entraînent le reste derrière eux.`;
+  } else if (scores[lowest[0].key] >= 70) {
+    summary =
+      `Ce score est la moyenne de vos six notes, et aucune n'est basse. Vos deux ` +
+      `plus faibles restent ${deux} : c'est là qu'il y a encore de la marge, et ` +
+      `c'est ce qu'on ira chercher pour passer un cap.`;
+  } else {
+    summary =
+      `Ce score est la moyenne de vos six notes. Le vôtre est tiré vers le bas par ` +
+      `${deux} — c'est donc là que les 7 jours vont porter en premier, parce que ` +
+      `c'est là que le moindre changement se verra le plus vite.`;
+  }
+
+  return {
+    summary,
+    priorities: lowest.map((axis) => ({
+      key: axis.key,
+      label: axis.label,
+      emoji: axis.emoji,
+      note: asNote(axis.key),
+      ...AXIS_GUIDANCE[axis.key],
+    })),
+    // Le meilleur axe n'est signalé que s'il tient vraiment debout : présenter
+    // un 4/10 comme un point fort décrédibiliserait tout le reste.
+    strength: scores[best.key] >= 60 ? { label: best.label, note: asNote(best.key) } : null,
+  };
+}
