@@ -1,7 +1,7 @@
 "use server"
 
 import { auth } from "@/auth"
-import { revalidatePath } from "next/cache"
+
 import { saveRebootDiagnostic } from "@/lib/queries/reboot-diagnostic"
 import {
   QUESTIONNAIRE_VERSION,
@@ -42,6 +42,10 @@ export async function submitRebootDiagnostic(answers: Answers): Promise<SubmitRe
     return { ok: false, error: "Enregistrement impossible. Vérifiez votre connexion et réessayez." }
   }
 
-  revalidatePath("/", "layout")
+  // Surtout pas de revalidatePath ici. Le layout se re-rendrait aussitôt,
+  // constaterait que le diagnostic existe désormais, et remplacerait l'écran de
+  // score par le tableau de bord — le participant voyait son résultat une
+  // fraction de seconde. C'est le bouton « Accéder à mon Reboot » qui déclenche
+  // le rafraîchissement, quand la personne a fini de lire.
   return { ok: true, scores }
 }

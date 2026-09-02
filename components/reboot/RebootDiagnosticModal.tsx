@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { ChevronLeft, Lock } from "lucide-react"
 import { submitRebootDiagnostic } from "@/app/(dashboard)/reboot/diagnostic-actions"
 import { RebootScorePanel } from "@/components/reboot/RebootScorePanel"
+import { RebootBuildingScreen } from "@/components/reboot/RebootBuildingScreen"
 import {
   QUESTIONS,
   SCORE_AXES,
@@ -40,6 +41,7 @@ export function RebootDiagnosticModal({ firstName }: { firstName?: string | null
   const [answers, setAnswers] = useState<Answers>({})
   const [touchedRatings, setTouchedRatings] = useState<Set<ScoreKey>>(new Set())
   const [scores, setScores] = useState<Scores | null>(null)
+  const [phase, setPhase] = useState<"form" | "building" | "result">("form")
   const [error, setError] = useState<string | null>(null)
 
   const question: Question | undefined = QUESTIONS[step]
@@ -85,6 +87,7 @@ export function RebootDiagnosticModal({ firstName }: { firstName?: string | null
       const result = await submitRebootDiagnostic(answers)
       if (result.ok) {
         setScores(result.scores)
+        setPhase("building")
       } else {
         setError(result.error)
       }
@@ -92,6 +95,14 @@ export function RebootDiagnosticModal({ firstName }: { firstName?: string | null
   }
 
   /* ---------------------------------------------------------------- écrans */
+
+  if (scores && phase === "building") {
+    return (
+      <Shell>
+        <RebootBuildingScreen onDone={() => setPhase("result")} />
+      </Shell>
+    )
+  }
 
   if (scores) {
     return (
@@ -462,7 +473,7 @@ function ScoreResult({
 }) {
   return (
     <div className="space-y-6">
-      <RebootScorePanel scores={scores} />
+      <RebootScorePanel scores={scores} animate />
 
       <div className="space-y-3 rounded-2xl border border-d5-border bg-d5-surface p-5">
         <p className="text-[15px] leading-relaxed text-d5-muted">
