@@ -49,6 +49,20 @@ export function RebootDiagnosticModal({ firstName }: { firstName?: string | null
     setAnswers((prev) => ({ ...prev, [key]: value }))
   }, [])
 
+  /**
+   * Marque un axe comme répondu et fixe sa note si elle ne l'était pas encore.
+   * Le curseur affiche 5 par défaut : quelqu'un dont la réponse est justement 5
+   * n'a rien à déplacer, donc onChange ne se déclencherait jamais et il
+   * resterait bloqué. Toucher le curseur suffit donc à valider la valeur vue.
+   */
+  const markRated = useCallback((key: ScoreKey) => {
+    setAnswers((prev) => ({
+      ...prev,
+      notes: { ...prev.notes, [key]: prev.notes?.[key] ?? 5 },
+    }))
+    setTouchedRatings((prev) => (prev.has(key) ? prev : new Set(prev).add(key)))
+  }, [])
+
   /** L'étape courante est-elle complète ? Conditionne le bouton « Continuer ». */
   const stepComplete = useMemo(() => {
     if (!question) return false
@@ -240,8 +254,9 @@ export function RebootDiagnosticModal({ firstName }: { firstName?: string | null
                 touched={touchedRatings.has(axis.key)}
                 onChange={(v) => {
                   setAnswers((prev) => ({ ...prev, notes: { ...prev.notes, [axis.key]: v } }))
-                  setTouchedRatings((prev) => new Set(prev).add(axis.key))
+                  markRated(axis.key)
                 }}
+                onTouch={() => markRated(axis.key)}
               />
             ))}
           </div>
@@ -266,7 +281,11 @@ export function RebootDiagnosticModal({ firstName }: { firstName?: string | null
 
         {!stepComplete && (
           <p className="text-center text-xs text-d5-muted">
-            Répondez pour continuer — toutes les questions comptent.
+            {question.kind === "ratings"
+              ? `Il reste à noter : ${SCORE_AXES.filter(({ key }) => !touchedRatings.has(key))
+                  .map((a) => a.label.toLowerCase())
+                  .join(", ")}`
+              : "Répondez pour continuer."}
           </p>
         )}
       </div>
@@ -386,24 +405,30 @@ function RatingSlider({
   value,
   touched,
   onChange,
+  onTouch,
 }: {
   axis: (typeof SCORE_AXES)[number]
   value: number | undefined
   touched: boolean
   onChange: (v: number) => void
+  onTouch: () => void
 }) {
   const current = value ?? 5
   return (
-    <div className="space-y-2 rounded-2xl bg-d5-surface p-4">
+    <div
+      className={`space-y-2 rounded-2xl bg-d5-surface p-4 ${
+        touched ? "" : "ring-1 ring-d5-gold/40"
+      }`}
+    >
       <div className="flex items-baseline justify-between">
         <span className="text-[15px] font-semibold text-white">
           {axis.emoji} {axis.label}
         </span>
-        <span
-          className={`text-2xl font-black ${touched ? "text-d5-gold" : "text-d5-muted"}`}
-        >
-          {touched ? current : "—"}
-        </span>
+        {touched ? (
+          <span className="text-2xl font-black text-d5-gold">{current}</span>
+        ) : (
+          <span className="text-xs font-semibold text-d5-gold">à renseigner</span>
+        )}
       </div>
       <input
         type="range"
@@ -412,6 +437,8 @@ function RatingSlider({
         step={1}
         value={current}
         onChange={(e) => onChange(Number(e.target.value))}
+        onPointerDown={onTouch}
+        onKeyDown={onTouch}
         className="w-full accent-d5-gold"
         aria-label={`${axis.label}, de 1 à 10`}
       />
