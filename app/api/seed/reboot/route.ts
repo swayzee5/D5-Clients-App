@@ -179,8 +179,32 @@ type Report = { slug: string; name: string; exercises: number; status: string };
 
 export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("secret");
-  if (secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const expected = process.env.CRON_SECRET;
+
+  if (secret !== expected) {
+    // Un « Unauthorized » nu ne dit pas laquelle des trois causes s'applique :
+    // la variable absente du déploiement, une valeur différente de celle
+    // attendue, ou un caractère de trop copié avec. Les longueurs et le commit
+    // déployé tranchent sans jamais révéler le secret lui-même.
+    return NextResponse.json(
+      {
+        error: "Unauthorized",
+        diagnostic: {
+          variableDéfinieSurCeDéploiement: Boolean(expected),
+          longueurAttendue: expected?.length ?? 0,
+          longueurReçue: secret?.length ?? 0,
+          commitDéployé: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "inconnu",
+          indice: !expected
+            ? "CRON_SECRET n'existe pas pour ce déploiement : mauvais projet Vercel, environnement Production non coché, ou redéploiement pas encore fait."
+            : (secret?.length ?? 0) === 0
+              ? "Aucun secret reçu dans l'URL."
+              : expected.length === (secret?.length ?? 0)
+                ? "Même longueur mais valeur différente : la variable modifiée n'est probablement pas celle du projet qui sert ce domaine."
+                : "Longueurs différentes : espace, retour à la ligne ou caractère manquant dans ce qui a été collé.",
+        },
+      },
+      { status: 401 }
+    );
   }
   const reset = req.nextUrl.searchParams.get("reset") === "1";
 
