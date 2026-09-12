@@ -5,6 +5,7 @@ import { Dumbbell, Utensils, Zap, ArrowRight, Lock, ChevronRight } from "lucide-
 import { WeekCalendar } from "@/components/dashboard/WeekCalendar"
 import type { CompletedSession } from "@/components/dashboard/WeekCalendar"
 import { pool } from "@/lib/db"
+import { countSeanceCompletions } from "@/lib/queries/reboot"
 import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
@@ -68,11 +69,11 @@ async function getCompletedSessionsThisWeek(clientId: string): Promise<Completed
 async function getRebootProgress(clientId: string) {
   try {
     const [seances, wa, modules] = await Promise.all([
-      pool.query("SELECT COUNT(*) FROM reboot_completions WHERE client_id = $1", [clientId]),
+      countSeanceCompletions(clientId),
       pool.query("SELECT COUNT(*) FROM reboot_whatsapp_completions WHERE client_id = $1", [clientId]),
       pool.query("SELECT COUNT(*) FROM reboot_task_completions WHERE client_id = $1", [clientId]),
     ])
-    const s = Math.min(parseInt(seances.rows[0].count), 3)
+    const s = Math.min(seances, 3)
     const w = Math.min(parseInt(wa.rows[0].count), 3)
     const m = Math.min(parseInt(modules.rows[0].count), 4)
     return { done: s + w + m, total: 10 }

@@ -25,8 +25,43 @@ const DIFFICULTY_OPTIONS = [
 
 type Step = "grid" | "checkin" | "whatsapp" | "done";
 
-function ExerciseCard({ exercise, index, checked, onCheck }: {
-  exercise: RebootExercise; index: number; checked: boolean; onCheck: () => void;
+/**
+ * Lecteur plein écran d'une démonstration.
+ *
+ * La grille Reboot n'affichait que la vignette : le participant voyait l'image
+ * de la vidéo, cliquait, et rien ne se passait. Le lecteur existait déjà pour
+ * les programmes classiques, pas ici.
+ */
+function VideoModal({ name, videoId, onClose }: { name: string; videoId: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3" onClick={onClose}>
+      <div
+        className="w-full max-w-xl overflow-hidden rounded-2xl border border-gray-800 bg-gray-950"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
+          <p className="truncate text-sm font-bold text-white">{name}</p>
+          <button onClick={onClose} aria-label="Fermer" className="ml-3 shrink-0 text-gray-400 hover:text-white">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div style={{ aspectRatio: "16/9" }}>
+          <iframe
+            src={`https://player.vimeo.com/video/${videoId}?autoplay=1&title=0&byline=0&portrait=0`}
+            className="h-full w-full"
+            allow="autoplay; fullscreen; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ExerciseCard({ exercise, index, checked, onCheck, onPlay }: {
+  exercise: RebootExercise; index: number; checked: boolean; onCheck: () => void; onPlay: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
   const thumbnailUrl = exercise.vimeo_video_id && !imgError
@@ -46,16 +81,32 @@ function ExerciseCard({ exercise, index, checked, onCheck }: {
           {checked && <svg className="w-3.5 h-3.5 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
         </button>
       </div>
-      <div className="mx-3 rounded-xl overflow-hidden bg-gray-800" style={{ aspectRatio: "4/3" }}>
+      <button
+        type="button"
+        onClick={exercise.vimeo_video_id ? onPlay : undefined}
+        disabled={!exercise.vimeo_video_id}
+        aria-label={exercise.vimeo_video_id ? `Voir la démonstration de ${exercise.name}` : undefined}
+        className="relative mx-3 block w-[calc(100%-1.5rem)] overflow-hidden rounded-xl bg-gray-800"
+        style={{ aspectRatio: "4/3" }}
+      >
         {thumbnailUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumbnailUrl} alt={exercise.name} className="w-full h-full object-cover" onError={() => setImgError(true)} />
+          <img src={thumbnailUrl} alt={exercise.name} className="h-full w-full object-cover" onError={() => setImgError(true)} />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
+          <div className="flex h-full w-full items-center justify-center">
             <span className="text-5xl font-black text-gray-700">{index + 1}</span>
           </div>
         )}
-      </div>
+        {exercise.vimeo_video_id && (
+          <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-black/60 backdrop-blur">
+              <svg className="ml-0.5 h-4 w-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+          </span>
+        )}
+      </button>
       <div className="p-3 space-y-2">
         <p className="text-white font-bold text-sm leading-tight">{index + 1} – {exercise.name}</p>
         <div className="flex gap-4">
@@ -70,6 +121,7 @@ function ExerciseCard({ exercise, index, checked, onCheck }: {
 
 export function RebootSeanceGrid({
   exercises, clientId, sessionId, sessionName, alreadyCompleted, completionsBefore,
+  isBonus = false,
 }: {
   exercises: RebootExercise[];
   clientId: string;
@@ -77,9 +129,12 @@ export function RebootSeanceGrid({
   sessionName: string;
   alreadyCompleted: boolean;
   completionsBefore: number;
+  /** Échauffement, étirement ou HIIT : une vidéo à suivre, hors objectif. */
+  isBonus?: boolean;
 }) {
   const [step, setStep] = useState<Step>("grid");
   const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [playing, setPlaying] = useState<RebootExercise | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [energy, setEnergy] = useState(3);
   const [difficulty, setDifficulty] = useState("good");
@@ -111,7 +166,11 @@ export function RebootSeanceGrid({
     setShowModal(false);
     startTransition(async () => {
       await completeSession(clientId, sessionId);
-      setStep("checkin");
+      // Un échauffement ou un HIIT ne déclenche ni ressenti ni message de
+      // groupe : ces étapes appartiennent aux trois séances du challenge, et un
+      // « Séance 1/3 validée » après dix minutes de mobilité serait faux.
+      setStep(isBonus ? "done" : "checkin");
+      if (isBonus) setTimeout(() => router.push("/reboot"), 1500);
     });
   }
 
@@ -142,8 +201,10 @@ export function RebootSeanceGrid({
 
   void startTimeRef;
 
-  // Session was already completed before entering this page
-  if (alreadyCompleted && step === "grid") {
+  // Session was already completed before entering this page.
+  // Une vidéo bonus reste consultable : elle est là pour être refaite avant
+  // chaque séance, la bloquer après un premier visionnage n'aurait pas de sens.
+  if (alreadyCompleted && step === "grid" && !isBonus) {
     return (
       <div className="card border-d5-gold/30 bg-d5-gold/5 flex flex-col items-center gap-2 py-8 text-center mt-4">
         <span className="text-4xl">✅</span>
@@ -159,6 +220,44 @@ export function RebootSeanceGrid({
         <span className="text-4xl">🎉</span>
         <p className="text-white font-bold">Séance validée !</p>
         <p className="text-d5-muted text-sm">Retour au challenge…</p>
+      </div>
+    );
+  }
+
+  // Échauffement, étirement, HIIT : une seule vidéo, jouée en place, et rien
+  // d'autre à cocher. La grille à deux colonnes n'a pas de sens pour un
+  // élément unique.
+  if (isBonus) {
+    const video = exercises[0];
+    return (
+      <div className="mt-4 space-y-4">
+        <div className="overflow-hidden rounded-2xl border border-gray-800 bg-black" style={{ aspectRatio: "16/9" }}>
+          {video?.vimeo_video_id ? (
+            <iframe
+              src={`https://player.vimeo.com/video/${video.vimeo_video_id}?title=0&byline=0&portrait=0`}
+              className="h-full w-full"
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center">
+              <p className="text-sm text-d5-muted">Vidéo indisponible</p>
+            </div>
+          )}
+        </div>
+
+        {video?.reps && <p className="text-center text-sm text-d5-muted">{video.reps}</p>}
+
+        <button
+          onClick={triggerComplete}
+          disabled={isPending}
+          className="w-full rounded-2xl border-2 border-d5-gold py-4 text-center font-bold text-d5-gold transition-colors hover:bg-d5-gold/10 active:scale-[0.98] disabled:opacity-60"
+        >
+          {isPending ? "Enregistrement…" : alreadyCompleted ? "Déjà fait ✓" : "C'est fait !"}
+        </button>
+        <p className="text-center text-xs text-d5-muted">
+          Cette vidéo ne compte pas dans tes 3 séances du challenge.
+        </p>
       </div>
     );
   }
@@ -239,9 +338,23 @@ export function RebootSeanceGrid({
     <>
       <div className="grid grid-cols-2 gap-3">
         {exercises.map((ex, i) => (
-          <ExerciseCard key={ex.id} exercise={ex} index={i} checked={checked.has(ex.id)} onCheck={() => toggle(ex.id)} />
+          <ExerciseCard
+            key={ex.id}
+            exercise={ex}
+            index={i}
+            checked={checked.has(ex.id)}
+            onCheck={() => toggle(ex.id)}
+            onPlay={() => setPlaying(ex)}
+          />
         ))}
       </div>
+      {playing?.vimeo_video_id && (
+        <VideoModal
+          name={playing.name}
+          videoId={playing.vimeo_video_id}
+          onClose={() => setPlaying(null)}
+        />
+      )}
       <button onClick={handleTerminer} disabled={isPending}
         className="mt-4 w-full py-4 border-2 border-d5-gold text-d5-gold font-bold text-center rounded-2xl transition-colors active:scale-[0.98] hover:bg-d5-gold/10 disabled:opacity-60">
         {isPending ? "Validation…" : "Séance terminée !"}

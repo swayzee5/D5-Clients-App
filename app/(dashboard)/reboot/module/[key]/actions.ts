@@ -4,15 +4,15 @@ import { auth } from "@/auth";
 import { pool } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { checkAndSendMilestoneNotification } from "@/lib/push";
+import { countSeanceCompletions } from "@/lib/queries/reboot";
 
 async function notifyIfChallengeComplete(clientId: string) {
   try {
-    const [{ rows: sRows }, { rows: mRows }, { rows: wRows }] = await Promise.all([
-      pool.query(`SELECT COUNT(*) AS cnt FROM reboot_completions WHERE client_id = $1::uuid`, [clientId]),
+    const [seancesDone, { rows: mRows }, { rows: wRows }] = await Promise.all([
+      countSeanceCompletions(clientId),
       pool.query(`SELECT COUNT(*) AS cnt FROM reboot_task_completions WHERE client_id = $1`, [clientId]),
       pool.query(`SELECT COUNT(*) AS cnt FROM reboot_whatsapp_completions WHERE client_id = $1`, [clientId]).catch(() => ({ rows: [{ cnt: 0 }] })),
     ]);
-    const seancesDone = parseInt(sRows[0]?.cnt ?? 0);
     const modulesDone = parseInt(mRows[0]?.cnt ?? 0);
     const waDone = parseInt(wRows[0]?.cnt ?? 0);
     if (seancesDone >= 3 && modulesDone >= 4 && waDone >= 3) {

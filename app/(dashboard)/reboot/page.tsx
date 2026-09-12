@@ -8,23 +8,10 @@ import { getRebootSessions } from "@/lib/queries/reboot";
 import { getRebootDiagnostic } from "@/lib/queries/reboot-diagnostic";
 import { pool } from "@/lib/db";
 import { SeancesSection } from "./SeancesSection";
+import type { RebootTab } from "@/lib/reboot-catalogue";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Reboot 40" };
-
-const MUSCLE_CONFIG: Record<string, { label: string; desc: string; icon: string }> = {
-  pecs:     { label: "Pectoraux",               desc: "Poitrine · Épaules · Triceps",        icon: "💪" },
-  dos:      { label: "Dos & Biceps",             desc: "Grand dorsal · Trapèzes · Biceps",    icon: "🏋️" },
-  epaules:  { label: "Épaules",                 desc: "Deltöides · Trapèzes · Rotateurs",    icon: "🔱" },
-  bras:     { label: "Bras",                    desc: "Biceps · Triceps · Avant-bras",       icon: "💪" },
-  jambes_h: { label: "Jambes Homme",             desc: "Quadriceps · Ischio · Fessiers",     icon: "🦵" },
-  jambes_f: { label: "Jambes & Fessiers Femme", desc: "Fessiers · Quadriceps · Adducteurs", icon: "🦵" },
-  fullbody: { label: "Full Body",               desc: "Corps entier · Force · Cardio",      icon: "⚡" },
-  gainage:  { label: "Gainage",                 desc: "Core · Abdominaux · Stabilité",      icon: "🔥" },
-  abdos:    { label: "Abdominaux",              desc: "Droits · Obliques · Transverse",     icon: "💠" },
-  cardio:   { label: "Cardio & Mobilité",        desc: "Endurance · Flexibilité · Récup",    icon: "🏃" },
-  jambes:   { label: "Jambes",                  desc: "Quadriceps · Ischio · Fessiers",     icon: "🦵" },
-};
 
 const MODULES = [
   { key: "regularite",  emoji: "🔥", title: "La régularité avant l'intensité", teaser: "Le secret de la transformation durable" },
@@ -82,23 +69,19 @@ export default async function RebootPage() {
     if (rows[0]?.value) welcomeMessage = rows[0].value;
   } catch {}
 
-  const seenGroups = new Set<string>();
-  const muscleGroupKeys: string[] = [];
+  const sessionsByTab = { salle: [], maison: [], mobilite: [], hiit: [] } as Record<
+    RebootTab,
+    typeof sessions
+  >;
   for (const s of sessions) {
-    if (!seenGroups.has(s.muscle_group)) {
-      seenGroups.add(s.muscle_group);
-      muscleGroupKeys.push(s.muscle_group);
-    }
+    const tab = (s.tab ?? "salle") as RebootTab;
+    (sessionsByTab[tab] ?? sessionsByTab.salle).push(s);
   }
 
-  const sessionsByMuscle: Record<string, typeof sessions> = {};
-  for (const s of sessions) {
-    if (!sessionsByMuscle[s.muscle_group]) sessionsByMuscle[s.muscle_group] = [];
-    sessionsByMuscle[s.muscle_group].push(s);
-  }
-
-  const sessionsTotal = muscleGroupKeys.length;
-  const sessionsCompleted = sessions.filter((s) => s.completed).length;
+  // Seules les séances de renforcement comptent dans l'objectif : un
+  // échauffement suivi ne vaut pas une séance du challenge, sinon les trois
+  // étapes seraient validées en un quart d'heure de mobilité.
+  const sessionsCompleted = sessions.filter((s) => s.completed && !s.is_bonus).length;
 
   const seancesDoneForProgress = Math.min(sessionsCompleted, SEANCES_GOAL);
   const waDoneForProgress = Math.min(waCompleted, WA_GOAL);
@@ -184,11 +167,8 @@ export default async function RebootPage() {
       </div>
 
       <SeancesSection
-        muscleGroupKeys={muscleGroupKeys}
-        sessionsByMuscle={sessionsByMuscle}
-        muscleConfig={MUSCLE_CONFIG}
+        sessionsByTab={sessionsByTab}
         sessionsCompleted={sessionsCompleted}
-        sessionsTotal={sessionsTotal}
         seancesGoal={SEANCES_GOAL}
       />
 
