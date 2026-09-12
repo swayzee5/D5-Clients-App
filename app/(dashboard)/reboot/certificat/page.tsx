@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { pool } from "@/lib/db";
+import { countSeanceCompletions } from "@/lib/queries/reboot";
 import CertificatClient from "./CertificatClient";
 import type { Metadata } from "next";
 
@@ -31,11 +32,7 @@ export default async function CertificatPage() {
   let completionDate = "";
 
   try {
-    const { rows } = await pool.query(
-      `SELECT COUNT(DISTINCT session_id) as cnt FROM reboot_completions WHERE client_id = $1::uuid`,
-      [clientId]
-    );
-    sessionsCompleted = parseInt(rows[0]?.cnt ?? 0);
+    sessionsCompleted = await countSeanceCompletions(clientId);
   } catch {}
 
   try {

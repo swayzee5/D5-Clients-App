@@ -1,4 +1,5 @@
 import { pool } from "@/lib/db";
+import { countSeanceCompletions } from "@/lib/queries/reboot";
 
 const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID ?? "";
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY ?? "";
@@ -85,12 +86,9 @@ export async function checkAndSendMilestoneNotification(
   clientId: string
 ): Promise<void> {
   try {
-    const [{ rows: sRows }, { rows: mRows }, { rows: waRows }] =
+    const [seancesDone, { rows: mRows }, { rows: waRows }] =
       await Promise.all([
-        pool.query(
-          `SELECT COUNT(*) AS cnt FROM reboot_completions WHERE client_id = $1::uuid`,
-          [clientId]
-        ),
+        countSeanceCompletions(clientId),
         pool
           .query(
             `SELECT COUNT(*) AS cnt FROM reboot_task_completions WHERE client_id = $1`,
@@ -106,7 +104,7 @@ export async function checkAndSendMilestoneNotification(
       ]);
 
     const total =
-      parseInt(sRows[0]?.cnt ?? "0") +
+      seancesDone +
       parseInt(mRows[0]?.cnt ?? "0") +
       parseInt(waRows[0]?.cnt ?? "0");
 

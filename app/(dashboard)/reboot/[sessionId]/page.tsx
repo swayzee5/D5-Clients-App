@@ -2,12 +2,22 @@ import { auth } from "@/auth";
 import { redirect, notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { getRebootSessionWithExercises, isSessionCompleted } from "@/lib/queries/reboot";
-import { pool } from "@/lib/db";
+import { countSeanceCompletions, getRebootSessionWithExercises, isSessionCompleted } from "@/lib/queries/reboot";
 import { RebootSeanceGrid } from "./RebootSeanceGrid";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Séance Reboot" };
+
+/**
+ * Le bandeau vient de l'onglet, pas du lieu. Un échauffement était étiqueté
+ * « Salle » ou « Maison » selon une colonne qui n'a pas de sens pour lui.
+ */
+const BADGES: Record<string, { label: string; className: string }> = {
+  salle:    { label: "Salle",       className: "bg-blue-500/15 text-blue-400" },
+  maison:   { label: "Maison",      className: "bg-green-500/15 text-green-400" },
+  mobilite: { label: "Mobilité",    className: "bg-sky-500/15 text-sky-300" },
+  hiit:     { label: "HIIT",        className: "bg-orange-500/15 text-orange-400" },
+};
 
 export default async function RebootSessionPage({ params }: { params: { sessionId: string } }) {
   const session = await auth();
@@ -19,19 +29,22 @@ export default async function RebootSessionPage({ params }: { params: { sessionI
   let completionsBefore = 0;
 
   try {
-    const [dataResult, completedResult, countResult] = await Promise.all([
+    const [dataResult, completedResult, seancesDone] = await Promise.all([
       getRebootSessionWithExercises(params.sessionId),
       isSessionCompleted(clientId, params.sessionId),
-      pool.query(`SELECT COUNT(*) AS cnt FROM reboot_completions WHERE client_id = $1::uuid`, [clientId]).catch(() => ({ rows: [{ cnt: 0 }] })),
+      countSeanceCompletions(clientId).catch(() => 0),
     ]);
     data = dataResult;
     completed = completedResult;
-    completionsBefore = Number((countResult as { rows: { cnt: string | number }[] }).rows[0]?.cnt ?? 0);
-    if (completed) completionsBefore = Math.max(0, completionsBefore - 1);
+    completionsBefore = seancesDone;
+    if (completed && !dataResult?.session.is_bonus) {
+      completionsBefore = Math.max(0, completionsBefore - 1);
+    }
   } catch { return notFound(); }
 
   if (!data) return notFound();
   const { session: rebootSession, exercises } = data;
+  const badge = BADGES[rebootSession.tab] ?? BADGES.salle;
 
   return (
     <div className="space-y-5 pb-8">
@@ -41,14 +54,14 @@ export default async function RebootSessionPage({ params }: { params: { sessionI
 
       <div>
         <div className="flex items-center gap-2 mb-1.5">
-          <span className={`text-xs font-semibold uppercase px-2 py-0.5 rounded-full ${
-            rebootSession.location === "salle" ? "bg-blue-500/15 text-blue-400" : "bg-green-500/15 text-green-400"
-          }`}>{rebootSession.location === "salle" ? "Salle" : "Maison"}</span>
+          <span className={`text-xs font-semibold uppercase px-2 py-0.5 rounded-full ${badge.className}`}>
+            {badge.label}
+          </span>
         </div>
         <h1 className="text-xl font-bold text-white">{rebootSession.name}</h1>
         {rebootSession.description && <p className="text-d5-muted text-sm mt-1">{rebootSession.description}</p>}
         <div className="flex items-center gap-3 mt-2 text-xs text-d5-muted">
-          <span>{exercises.length} exercices</span>
+          {!rebootSession.is_bonus && <span>{exercises.length} exercices</span>}
           {rebootSession.duration_minutes && <span>⏱ {rebootSession.duration_minutes} min</span>}
         </div>
       </div>
@@ -65,6 +78,7 @@ export default async function RebootSessionPage({ params }: { params: { sessionI
           sessionName={rebootSession.name}
           alreadyCompleted={completed}
           completionsBefore={completionsBefore}
+          isBonus={rebootSession.is_bonus}
         />
       )}
     </div>
