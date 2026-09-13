@@ -40,7 +40,7 @@ function contains(fragments: string[]): string[] {
   return fragments.map((f) => `%${f.toLowerCase()}%`);
 }
 
-type LibraryRow = { id: string; name: string };
+type LibraryRow = { id: string; name: string; vimeo_video_id: string };
 
 async function ensureSchema(): Promise<void> {
   await pool.query(`CREATE TABLE IF NOT EXISTS reboot_sessions (
@@ -76,7 +76,7 @@ async function ensureSchema(): Promise<void> {
 async function pickExercises(def: StrengthDef): Promise<LibraryRow[]> {
   const homeOnly = def.tab === "maison";
   const { rows } = await pool.query<LibraryRow>(
-    `SELECT id::text AS id, name,
+    `SELECT id::text AS id, name, vimeo_video_id,
             EXISTS (SELECT 1 FROM unnest(muscles) m WHERE LOWER(m) LIKE ANY($2::text[])) AS muscle_match
      FROM exercise_library
      WHERE is_active = true
@@ -111,7 +111,7 @@ async function pickExercises(def: StrengthDef): Promise<LibraryRow[]> {
 async function findVideo(def: VideoDef): Promise<LibraryRow | null> {
   const pattern = `%${def.match.map((m) => m.toLowerCase()).join("%")}%`;
   const { rows } = await pool.query<LibraryRow>(
-    `SELECT id::text AS id, name
+    `SELECT id::text AS id, name, vimeo_video_id
      FROM exercise_library
      WHERE is_active = true AND vimeo_video_id IS NOT NULL
        AND LOWER(name) LIKE $1
@@ -248,11 +248,15 @@ export async function GET(req: NextRequest) {
 
       await pool.query(`DELETE FROM reboot_exercises WHERE session_id = $1`, [sessionId]);
       for (let i = 0; i < picked.length; i++) {
+        // L'identifiant de la vidéo est recopié sur la ligne, en plus du lien
+        // vers la bibliothèque. Sans lui, l'affichage dépend entièrement de la
+        // jointure : désactiver une entrée de la bibliothèque ferait disparaître
+        // la démonstration d'une séance déjà en cours, sans erreur visible.
         await pool.query(
           `INSERT INTO reboot_exercises
-             (session_id, library_exercise_id, name, sets, reps, rest_seconds, order_index)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-          [sessionId, picked[i].id, picked[i].name, def.sets, def.reps, def.restSeconds, i]
+             (session_id, library_exercise_id, name, vimeo_video_id, sets, reps, rest_seconds, order_index)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [sessionId, picked[i].id, picked[i].name, picked[i].vimeo_video_id, def.sets, def.reps, def.restSeconds, i]
         );
       }
       report.push({
@@ -295,9 +299,9 @@ export async function GET(req: NextRequest) {
       await pool.query(`DELETE FROM reboot_exercises WHERE session_id = $1`, [sessionId]);
       await pool.query(
         `INSERT INTO reboot_exercises
-           (session_id, library_exercise_id, name, sets, reps, rest_seconds, order_index)
-         VALUES ($1,$2,$3,NULL,$4,NULL,0)`,
-        [sessionId, video.id, video.name, def.instruction]
+           (session_id, library_exercise_id, name, vimeo_video_id, sets, reps, rest_seconds, order_index)
+         VALUES ($1,$2,$3,$4,NULL,$5,NULL,0)`,
+        [sessionId, video.id, video.name, video.vimeo_video_id, def.instruction]
       );
       report.push({ slug: def.slug, name: video.name, exercises: 1, status: "vidéo liée" });
     }
