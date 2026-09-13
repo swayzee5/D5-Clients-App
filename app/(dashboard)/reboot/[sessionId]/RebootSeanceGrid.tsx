@@ -65,16 +65,18 @@ function ExerciseCard({ exercise, index, checked, onCheck, onPlay }: {
 }) {
   const [imgError, setImgError] = useState(false);
 
-  // La vignette enregistrée dans la bibliothèque d'abord. L'adresse devinée
-  // sur le CDN de Vimeo ne fonctionne que pour une partie des vidéos : le
-  // reste répond 404, et la tuile tombait sur le gros numéro gris alors que la
-  // vraie vignette était disponible et déjà chargée par la requête.
-  const thumbnailUrl = imgError
-    ? null
-    : exercise.thumbnail_url
-      || (exercise.vimeo_video_id
-          ? `https://i.vimeocdn.com/video/${exercise.vimeo_video_id}_640x360`
-          : null);
+  // Uniquement la vignette enregistrée dans la bibliothèque.
+  //
+  // L'app fabriquait avant une adresse à partir de l'identifiant de la vidéo,
+  // ce qui ne peut pas marcher : le CDN de Vimeo attend l'identifiant de
+  // l'image, pas celui de la vidéo. Il répondait donc par sa mire de barres
+  // colorées — une image valide, donc aucune erreur à intercepter, et six
+  // tuiles identiques qui donnaient l'air de vidéos cassées alors qu'elles
+  // sont lisibles.
+  //
+  // Faute de vignette, on assume la tuile sobre avec le numéro et le bouton de
+  // lecture. Mieux vaut pas d'aperçu qu'un faux aperçu.
+  const thumbnailUrl = imgError ? null : exercise.thumbnail_url;
   const seriesLabel = exercise.sets ? `${exercise.sets} série${exercise.sets > 1 ? "s" : ""}` : "1 phase";
 
   return (
