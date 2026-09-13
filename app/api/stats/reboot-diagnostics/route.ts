@@ -13,11 +13,23 @@ import { QUESTIONS, SCORE_AXES, choiceLabel, type Answers } from "@/lib/reboot-d
  * Cette route rend le tout en une page, questions et réponses mises en regard,
  * prête à être relue ou collée ailleurs.
  *
- * Données personnelles : ce sont les mots de vraies personnes sur leur santé et
- * leur fatigue. D'où le secret exigé, et le nom de famille réduit à son
- * initiale — assez pour reconnaître qui, dans un groupe de treize, sans
- * promener des identités complètes dans un presse-papier. `?complet=1` donne le
- * nom entier quand il faut vraiment trancher entre deux homonymes.
+ * Données personnelles : ce sont les mots de vraies personnes sur leur fatigue,
+ * leur sommeil, leur stress, l'image qu'elles ont de leur corps. Le formulaire
+ * leur annonce que leurs réponses servent à ce que leur coach leur prépare un
+ * message ; il ne leur annonce rien d'autre.
+ *
+ * D'où le choix par défaut : aucune identité. Chaque participant devient
+ * « Participant N », numéroté dans l'ordre de réponse, et le coach garde la
+ * correspondance de son côté. Relire les treize diagnostics pour en tirer une
+ * tendance, ou préparer un brief de vocal, ne demande pas de savoir qui est
+ * qui — seulement de pouvoir les distinguer.
+ *
+ * Les noms restent accessibles quand ils sont réellement nécessaires :
+ * `?noms=1` donne le prénom et l'initiale, `?complet=1` le nom entier. Ce sont
+ * des exceptions à demander, pas le comportement normal.
+ *
+ * Le secret est exigé dans tous les cas, et son absence côté serveur fait
+ * refuser la route au lieu de l'ouvrir à tous.
  */
 
 type Row = {
@@ -58,6 +70,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
   const complet = req.nextUrl.searchParams.get("complet") === "1";
+  const avecNoms = complet || req.nextUrl.searchParams.get("noms") === "1";
 
   try {
     const { rows } = await pool.query<Row>(
@@ -71,8 +84,17 @@ export async function GET(req: NextRequest) {
        ORDER BY d.submitted_at ASC NULLS LAST, c.first_name ASC`
     );
 
-    const nom = (r: Row) =>
-      complet ? `${r.first_name} ${r.last_name}` : `${r.first_name} ${r.last_name.charAt(0)}.`;
+    // Numérotation stable : l'ordre de la requête est celui des réponses, donc
+    // « Participant 3 » désigne la même personne d'un appel à l'autre tant
+    // qu'aucun nouveau diagnostic n'arrive.
+    const etiquettes = new Map<Row, string>();
+    rows.forEach((r, i) => etiquettes.set(r, `Participant ${i + 1}`));
+
+    const nom = (r: Row) => {
+      if (complet) return `${r.first_name} ${r.last_name}`;
+      if (avecNoms) return `${r.first_name} ${r.last_name.charAt(0)}.`;
+      return etiquettes.get(r) ?? "Participant";
+    };
 
     const remplis = rows.filter((r) => r.submitted_at !== null && r.answers !== null);
     const enAttente = rows.filter((r) => r.submitted_at === null || r.answers === null);
@@ -80,6 +102,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       participants: rows.length,
       remplis: remplis.length,
+      // Volontairement aucune table de correspondance ici : la sortie
+      // anonymisée est faite pour être copiée ailleurs, et y joindre les
+      // prénoms annulerait l'anonymisation dans le même geste. Pour retrouver
+      // qui est « Participant 3 », rappeler la route avec &noms=1 — l'ordre
+      // est le même.
+      identités: avecNoms
+        ? "prénoms affichés"
+        : "anonymisé — &noms=1 pour retrouver les prénoms, même ordre",
+      ordre: "par date de réponse, du plus ancien au plus récent",
       enAttente: enAttente.map(nom),
       diagnostics: remplis.map((r) => ({
         participant: nom(r),
