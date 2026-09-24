@@ -140,6 +140,13 @@ async function resolvePinned(
       problemes.push(`« ${entry.name} » introuvable dans la bibliothèque`);
       continue;
     }
+    if (entry.videoId) {
+      // Vidéo imposée : elle appartient à cet exercice, donc elle entre aussi
+      // dans le registre des vidéos déjà prises.
+      dejaVues.set(entry.videoId, found.name);
+      picked.push({ id: found.id, name: found.name, vimeo_video_id: entry.videoId });
+      continue;
+    }
     if (!found.vimeo_video_id && !entry.videoOptional) {
       problemes.push(`« ${entry.name} » sans vidéo`);
       continue;
