@@ -64,6 +64,7 @@ async function ensureSchema(): Promise<void> {
   await pool.query(`ALTER TABLE reboot_sessions ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`);
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS reboot_sessions_slug_key ON reboot_sessions (slug)`);
   await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS library_exercise_id UUID`);
+  await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS video_suppressed BOOLEAN NOT NULL DEFAULT false`);
 }
 
 /**
@@ -122,6 +123,8 @@ async function resolvePinned(
 ): Promise<{ picked: LibraryRow[]; problemes: string[] }> {
   const picked: LibraryRow[] = [];
   const problemes: string[] = [];
+  /** Video -> premier exercice de la liste qui l'utilise. */
+  const dejaVues = new Map<string, string>();
 
   for (const entry of pinned) {
     const { rows } = await pool.query<LibraryRow>(
@@ -141,6 +144,19 @@ async function resolvePinned(
       problemes.push(`« ${entry.name} » sans vidéo`);
       continue;
     }
+
+    // Une video deja prise par un exercice precedent de la meme seance n'est
+    // pas la sienne : c'est la bibliotheque qui l'a attribuee deux fois.
+    // L'exercice reste, sans demonstration, et le rapport le nomme.
+    if (found.vimeo_video_id && dejaVues.has(found.vimeo_video_id)) {
+      const proprietaire = dejaVues.get(found.vimeo_video_id);
+      problemes.push(
+        `« ${entry.name} » affiché sans vidéo : la bibliothèque lui donne celle de « ${proprietaire} »`
+      );
+      picked.push({ id: found.id, name: found.name, vimeo_video_id: "" });
+      continue;
+    }
+    if (found.vimeo_video_id) dejaVues.set(found.vimeo_video_id, found.name);
     picked.push(found);
   }
 
@@ -215,7 +231,7 @@ async function upsertSession(s: Upsert): Promise<string> {
   return rows[0].id;
 }
 
-type Report = { slug: string; name: string; exercises: number; status: string };
+type Report = { slug: string; name: string; exercises: number; status: string; videos?: string[] };
 
 export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("secret");
@@ -292,18 +308,32 @@ export async function GET(req: NextRequest) {
         for (let i = 0; i < picked.length; i++) {
           await pool.query(
             `INSERT INTO reboot_exercises
-               (session_id, library_exercise_id, name, vimeo_video_id, sets, reps, rest_seconds, order_index)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-            [sessionId, picked[i].id, picked[i].name, picked[i].vimeo_video_id, def.sets, def.reps, def.restSeconds, i]
+               (session_id, library_exercise_id, name, vimeo_video_id,
+                video_suppressed, sets, reps, rest_seconds, order_index)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+            [
+              sessionId,
+              picked[i].id || null,
+              picked[i].name,
+              picked[i].vimeo_video_id || null,
+              // Sans ce drapeau, l'affichage retrouverait la video par le nom
+              // et la ferait revenir : couper le lien ne suffit pas.
+              picked[i].vimeo_video_id === "",
+              def.sets, def.reps, def.restSeconds, i,
+            ]
           );
         }
         const sansVideo = picked.filter((e) => !e.vimeo_video_id).map((e) => e.name);
         report.push({
           slug: def.slug, name: def.name, exercises: picked.length,
+          // Le detail des videos est remonte tel quel : c'est ce qui permet de
+          // voir en un coup d'oeil que deux exercices partagent la meme, ce
+          // qu'aucun ecran ne montre autrement.
+          videos: picked.map((e) => `${e.name} = ${e.vimeo_video_id || "aucune"}`),
           status: [
             "liste imposée",
             problemes.length ? `non retenus : ${problemes.join(" ; ")}` : null,
-            sansVideo.length ? `en attente de vidéo : ${sansVideo.join(", ")}` : null,
+            sansVideo.length ? `sans vidéo : ${sansVideo.join(", ")}` : null,
           ].filter(Boolean).join(" — "),
         });
         continue;
@@ -397,9 +427,27 @@ export async function GET(req: NextRequest) {
       [ALL_SLUGS]
     );
 
+    // Une meme video attribuee a plusieurs exercices differents est une erreur
+    // de la bibliotheque, pas de la selection. Elle est invisible tant qu'on
+    // regarde les exercices un par un : elle ne saute aux yeux que dans une
+    // seance, ou trois vignettes identiques se suivent.
+    const { rows: videosPartagees } = await pool.query<{ video: string; exercices: string[] }>(
+      `SELECT el.vimeo_video_id AS video,
+              ARRAY_AGG(DISTINCT el.name ORDER BY el.name) AS exercices
+       FROM exercise_library el
+       WHERE el.is_active = true AND el.vimeo_video_id IS NOT NULL
+         AND EXISTS (SELECT 1 FROM reboot_exercises re WHERE re.library_exercise_id = el.id)
+       GROUP BY el.vimeo_video_id
+       HAVING COUNT(DISTINCT el.id) > 1
+       ORDER BY COUNT(DISTINCT el.id) DESC`
+    );
+
     const published = report.filter((r) => r.exercises >= 1 && !r.status.startsWith("masquée"));
     return NextResponse.json({
       ok: true,
+      videosPartagées: videosPartagees.length
+        ? videosPartagees.map((v) => `vidéo ${v.video} attribuée à : ${v.exercices.join(", ")}`)
+        : "aucune vidéo utilisée par deux exercices différents",
       publiées: published.length,
       masquées: report.length - published.length,
       anciennesRetirées: retired ?? 0,
