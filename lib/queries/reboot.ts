@@ -47,6 +47,7 @@ function ensureColumns(): Promise<void> {
     await pool.query(`ALTER TABLE reboot_sessions  ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`);
     await pool.query(`ALTER TABLE reboot_sessions  ADD COLUMN IF NOT EXISTS slug      TEXT`);
     await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS library_exercise_id UUID`);
+    await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS video_suppressed BOOLEAN NOT NULL DEFAULT false`);
   })().catch((err) => {
     // Ne pas mémoïser un échec : la tentative suivante doit pouvoir réussir.
     schemaReady = null;
@@ -112,8 +113,9 @@ export async function getRebootSessionWithExercises(sessionId: string): Promise<
        re.rest_seconds,
        re.order_index,
        re.notes,
-       COALESCE(re.vimeo_video_id, el.vimeo_video_id) AS vimeo_video_id,
-       el.thumbnail_url
+       CASE WHEN re.video_suppressed THEN NULL
+            ELSE COALESCE(re.vimeo_video_id, el.vimeo_video_id) END AS vimeo_video_id,
+       CASE WHEN re.video_suppressed THEN NULL ELSE el.thumbnail_url END AS thumbnail_url
      FROM reboot_exercises re
      ${exerciseLibraryLateral("re", "library_exercise_id")}
      WHERE re.session_id = $1

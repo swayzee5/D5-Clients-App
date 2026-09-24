@@ -86,6 +86,21 @@ export type PinnedExercise = {
   videoOptional?: boolean;
 };
 
+/**
+ * Dans une seance a liste imposee, une meme video ne sert qu'une fois.
+ *
+ * La bibliotheque attribue parfois le meme fichier a plusieurs exercices : les
+ * pompes classiques, declinees et diamant pointaient toutes les trois vers la
+ * video intitulee « Pompes ». Le participant voyait trois vignettes
+ * identiques, suivait une demonstration de pompes classiques en croyant faire
+ * des pompes diamant, et faisait donc le mauvais exercice en toute confiance.
+ *
+ * Le premier de la liste garde la video, les suivants s'affichent sans, et le
+ * rapport du seed nomme les exercices concernes. Aucun drapeau a ecrire a la
+ * main : le jour ou le coach attribue sa propre video a l'exercice, elle
+ * reapparait d'elle-meme.
+ */
+
 /** Une vidéo à suivre telle quelle : échauffement, étirement ou HIIT. */
 export type VideoDef = {
   slug: string;
@@ -197,8 +212,7 @@ const PINNED: Record<string, PinnedExercise[] | undefined> = {
     { name: "Pompes inclinées" },
     { name: "Pompes classiques" },
     { name: "Pompes déclinées" },
-    { name: "Pompes diamant" },
-    { name: "Pompes", videoOptional: true },
+    { name: "Pompes diamant", videoOptional: true },
   ],
 };
 
