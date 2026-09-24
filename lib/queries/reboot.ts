@@ -115,7 +115,15 @@ export async function getRebootSessionWithExercises(sessionId: string): Promise<
        re.notes,
        CASE WHEN re.video_suppressed THEN NULL
             ELSE COALESCE(re.vimeo_video_id, el.vimeo_video_id) END AS vimeo_video_id,
-       CASE WHEN re.video_suppressed THEN NULL ELSE el.thumbnail_url END AS thumbnail_url
+       CASE
+         WHEN re.video_suppressed THEN NULL
+         -- Une vignette illustre une vidéo précise. Quand l'exercice affiche
+         -- une autre vidéo que celle de la bibliothèque, garder la vignette
+         -- montrerait l'aperçu du mauvais mouvement.
+         WHEN re.vimeo_video_id IS NOT NULL
+              AND re.vimeo_video_id IS DISTINCT FROM el.vimeo_video_id THEN NULL
+         ELSE el.thumbnail_url
+       END AS thumbnail_url
      FROM reboot_exercises re
      ${exerciseLibraryLateral("re", "library_exercise_id")}
      WHERE re.session_id = $1

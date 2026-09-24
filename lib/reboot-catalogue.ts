@@ -84,6 +84,18 @@ export type PinnedExercise = {
    * maison, sans personne pour corriger, l'image est la seule consigne.
    */
   videoOptional?: boolean;
+  /**
+   * Identifiant Vimeo imposé, qui l'emporte sur celui de la bibliothèque.
+   *
+   * Utile quand la bibliothèque attribue la mauvaise vidéo à un exercice et
+   * que le coach connaît la bonne : la séance est juste immédiatement, sans
+   * attendre le nettoyage de la bibliothèque.
+   *
+   * C'est un pansement, pas le remède. Tant qu'il est là, cet exercice affiche
+   * une autre vidéo dans le Reboot que dans les programmes classiques, qui
+   * lisent la bibliothèque. À retirer une fois l'entrée corrigée.
+   */
+  videoId?: string;
 };
 
 /**
@@ -211,7 +223,9 @@ const PINNED: Record<string, PinnedExercise[] | undefined> = {
   "maison-pecs": [
     { name: "Pompes inclinées" },
     { name: "Pompes classiques" },
-    { name: "Pompes déclinées" },
+    // La bibliothèque lui donne la vidéo des pompes classiques ; celle-ci est
+    // la sienne, fournie par le coach.
+    { name: "Pompes déclinées", videoId: "1229824025" },
     { name: "Pompes diamant", videoOptional: true },
   ],
 };
