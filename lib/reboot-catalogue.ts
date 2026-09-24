@@ -55,8 +55,35 @@ export type StrengthDef = {
   sets: number;
   reps: string;
   restSeconds: number;
-  /** Nombre d'exercices visé. */
+  /** Nombre d'exercices visé, quand la sélection est automatique. */
   target: number;
+  /**
+   * Liste imposée par le coach, dans cet ordre, qui remplace entièrement la
+   * sélection automatique.
+   *
+   * La sélection par mots-clés fait au mieux avec ce que la bibliothèque
+   * contient ; elle ne sait pas qu'une démonstration est mal filmée, ni qu'un
+   * exercice n'a pas sa place dans une séance à la maison. Quand le coach a
+   * tranché, on n'a plus rien à deviner.
+   *
+   * Les noms sont ceux de exercise_library, compares sans tenir compte de la
+   * casse ni des espaces autour. Un nom introuvable est signale dans le
+   * rapport du seed plutot qu'ignore en silence.
+   */
+  pinned?: PinnedExercise[];
+};
+
+export type PinnedExercise = {
+  /** Nom exact dans exercise_library. */
+  name: string;
+  /**
+   * Accepte l'exercice meme sans video.
+   *
+   * Reserve aux cas ou le coach sait que la video arrive. La regle generale
+   * reste qu'un exercice sans demonstration n'entre pas dans une seance : a la
+   * maison, sans personne pour corriger, l'image est la seule consigne.
+   */
+  videoOptional?: boolean;
 };
 
 /** Une vidéo à suivre telle quelle : échauffement, étirement ou HIIT. */
@@ -152,6 +179,30 @@ const SALLE_GROUPS: Omit<StrengthDef, "slug" | "tab" | "durationMinutes" | "sets
 ];
 
 /**
+ * Séances dont le contenu est fixé à la main par le coach.
+ *
+ * Pectoraux maison a été refaite ainsi : des participants ont signalé de
+ * mauvaises démonstrations. La sélection automatique fait au mieux avec les
+ * mots-clés, mais elle ne sait pas qu'une vidéo est ratée, ni qu'un exercice
+ * n'a pas sa place à la maison. Quand le coach a tranché, il n'y a plus rien à
+ * deviner, et l'ordre affiché est le sien.
+ *
+ * « Pompes » attend encore sa vidéo, et passe quand même : le coach la tourne
+ * dans la journée. Dès qu'elle sera dans la bibliothèque, un nouvel appel du
+ * seed la rattachera sans rien changer d'autre. C'est la seule exception à la
+ * règle du « pas de démonstration, pas d'exercice ».
+ */
+const PINNED: Record<string, PinnedExercise[] | undefined> = {
+  "maison-pecs": [
+    { name: "Pompes inclinées" },
+    { name: "Pompes classiques" },
+    { name: "Pompes déclinées" },
+    { name: "Pompes diamant" },
+    { name: "Pompes", videoOptional: true },
+  ],
+};
+
+/**
  * Les mêmes groupes en salle et à la maison. Les séries et la récupération
  * diffèrent : sans charge, on compense par des répétitions plus nombreuses et
  * une récupération plus courte.
@@ -176,8 +227,10 @@ export const STRENGTH_SESSIONS: StrengthDef[] = [
     reps: "12-15",
     restSeconds: 60,
     target: 6,
+    pinned: PINNED[`maison-${g.muscleGroup}`],
   })),
 ];
+
 
 export const VIDEO_SESSIONS: VideoDef[] = [
   {

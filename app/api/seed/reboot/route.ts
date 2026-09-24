@@ -8,6 +8,7 @@ import {
   STRENGTH_SESSIONS,
   VIDEO_SESSIONS,
   isBonusTab,
+  type PinnedExercise,
   type StrengthDef,
   type VideoDef,
 } from "@/lib/reboot-catalogue";
@@ -105,6 +106,45 @@ async function pickExercises(def: StrengthDef): Promise<LibraryRow[]> {
     ]
   );
   return rows;
+}
+
+/**
+ * Résout une liste imposée par le coach, dans son ordre.
+ *
+ * Chaque nom est cherché tel quel, à la casse et aux espaces près. Un nom
+ * introuvable, ou sans vidéo alors qu'elle est exigée, n'est pas inséré : il
+ * ressort dans le rapport. Une liste écrite à la main contient tôt ou tard une
+ * faute de frappe, et un exercice qui disparaît sans un mot est bien pire
+ * qu'un exercice signalé.
+ */
+async function resolvePinned(
+  pinned: PinnedExercise[]
+): Promise<{ picked: LibraryRow[]; problemes: string[] }> {
+  const picked: LibraryRow[] = [];
+  const problemes: string[] = [];
+
+  for (const entry of pinned) {
+    const { rows } = await pool.query<LibraryRow>(
+      `SELECT id::text AS id, name, vimeo_video_id
+       FROM exercise_library
+       WHERE is_active = true AND LOWER(TRIM(name)) = LOWER(TRIM($1))
+       ORDER BY (vimeo_video_id IS NOT NULL) DESC, created_at ASC
+       LIMIT 1`,
+      [entry.name]
+    );
+    const found = rows[0];
+    if (!found) {
+      problemes.push(`« ${entry.name} » introuvable dans la bibliothèque`);
+      continue;
+    }
+    if (!found.vimeo_video_id && !entry.videoOptional) {
+      problemes.push(`« ${entry.name} » sans vidéo`);
+      continue;
+    }
+    picked.push(found);
+  }
+
+  return { picked, problemes };
 }
 
 /** La vidéo d'un échauffement, d'un étirement ou d'un HIIT, si elle existe. */
@@ -221,8 +261,51 @@ export async function GET(req: NextRequest) {
       // Une séance déjà garnie n'est pas retouchée : les participants peuvent
       // être en train de la suivre, et rejouer la sélection changerait les
       // exercices sous leurs yeux.
-      if (existing && existing.exercise_count >= MIN_EXERCISES && !reset) {
+      //
+      // Sauf si le coach en a fixé le contenu : là, la liste est stable par
+      // construction, et la rejouer est justement ce qui rattache une vidéo
+      // ajoutée depuis le dernier passage.
+      if (!def.pinned && existing && existing.exercise_count >= MIN_EXERCISES && !reset) {
         report.push({ slug: def.slug, name: def.name, exercises: existing.exercise_count, status: "inchangée" });
+        continue;
+      }
+
+      if (def.pinned) {
+        const { picked, problemes } = await resolvePinned(def.pinned);
+        if (picked.length === 0) {
+          if (existing) {
+            await pool.query(`UPDATE reboot_sessions SET is_active = false WHERE slug = $1`, [def.slug]);
+          }
+          report.push({
+            slug: def.slug, name: def.name, exercises: 0,
+            status: `masquée — aucun exercice de la liste imposée n'a pu être résolu : ${problemes.join(" ; ")}`,
+          });
+          continue;
+        }
+
+        const sessionId = await upsertSession({
+          slug: def.slug, name: def.name, muscleGroup: def.muscleGroup,
+          location: def.tab, tab: def.tab, description: def.description,
+          durationMinutes: def.durationMinutes, orderIndex,
+        });
+        await pool.query(`DELETE FROM reboot_exercises WHERE session_id = $1`, [sessionId]);
+        for (let i = 0; i < picked.length; i++) {
+          await pool.query(
+            `INSERT INTO reboot_exercises
+               (session_id, library_exercise_id, name, vimeo_video_id, sets, reps, rest_seconds, order_index)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+            [sessionId, picked[i].id, picked[i].name, picked[i].vimeo_video_id, def.sets, def.reps, def.restSeconds, i]
+          );
+        }
+        const sansVideo = picked.filter((e) => !e.vimeo_video_id).map((e) => e.name);
+        report.push({
+          slug: def.slug, name: def.name, exercises: picked.length,
+          status: [
+            "liste imposée",
+            problemes.length ? `non retenus : ${problemes.join(" ; ")}` : null,
+            sansVideo.length ? `en attente de vidéo : ${sansVideo.join(", ")}` : null,
+          ].filter(Boolean).join(" — "),
+        });
         continue;
       }
 
