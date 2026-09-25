@@ -137,6 +137,15 @@ async function resolvePinned(
     );
     const found = rows[0];
     if (!found) {
+      // Quand le coach a fourni l'identifiant de la vidéo, l'entrée de
+      // bibliothèque n'apporte plus rien : on a le nom et la démonstration.
+      // Nettoyer la bibliothèque ne doit pas faire disparaître un exercice
+      // d'une séance en cours.
+      if (entry.videoId) {
+        dejaVues.set(entry.videoId, entry.name);
+        picked.push({ id: "", name: entry.name, vimeo_video_id: entry.videoId });
+        continue;
+      }
       problemes.push(`« ${entry.name} » introuvable dans la bibliothèque`);
       continue;
     }
