@@ -6,6 +6,8 @@ import { pool } from "@/lib/db"
 import { PushInit } from "@/components/PushInit"
 import { needsRebootDiagnostic } from "@/lib/queries/reboot-diagnostic"
 import { RebootDiagnosticModal } from "@/components/reboot/RebootDiagnosticModal"
+import { needsIntroVideo } from "@/lib/queries/reboot-intro"
+import { RebootIntroGate } from "@/components/reboot/RebootIntroGate"
 
 async function getUnreadCount(clientId: string): Promise<number> {
   try {
@@ -35,6 +37,15 @@ export default async function DashboardLayout({
   // needsRebootDiagnostic renvoie false et rien ne change.
   if (await needsRebootDiagnostic(session.user.id)) {
     return <RebootDiagnosticModal firstName={session.user?.name?.split(" ")[0]} />
+  }
+
+  // Puis la vidéo d'explication, même principe. Elle vient après le diagnostic
+  // et jamais avant : la personne a d'abord mis des mots sur sa situation et vu
+  // son score, donc elle sait pourquoi elle regarde. Tant qu'aucune vidéo n'est
+  // réglée dans le CRM, cette porte n'existe pas.
+  const introVideoId = await needsIntroVideo(session.user.id)
+  if (introVideoId) {
+    return <RebootIntroGate videoId={introVideoId} firstName={session.user?.name?.split(" ")[0]} />
   }
 
   const unreadMessages = await getUnreadCount(session.user.id)
