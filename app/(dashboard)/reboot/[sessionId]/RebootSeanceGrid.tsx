@@ -292,9 +292,18 @@ export function RebootSeanceGrid({
           className="w-full bg-d5-gold text-black font-bold rounded-xl py-3.5 text-sm transition-colors active:scale-[0.98]">
           Message envoyé ✓
         </button>
-        <button onClick={finish} className="w-full text-center text-xs text-d5-muted hover:text-white py-1">
-          Passer cette étape
-        </button>
+        {/* Plus d'échappatoire ici : le message dans le groupe est l'un des dix
+            points du challenge, et c'est celui qui tient le groupe en vie. Le
+            bouton « passer » faisait sortir sans rien enregistrer, et ce point
+            était ensuite le plus souvent oublié.
+
+            Personne n'est enfermé pour autant : la barre de navigation reste
+            accessible, et la carte du message se valide plus tard depuis la
+            page du challenge. On insiste, on ne séquestre pas. */}
+        <p className="text-center text-xs text-d5-muted leading-relaxed">
+          C&apos;est ce message qui fait vivre le groupe.<br />
+          Les autres comptent sur le tien.
+        </p>
       </div>
     );
   }
