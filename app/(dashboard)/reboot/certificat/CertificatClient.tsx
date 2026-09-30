@@ -143,16 +143,35 @@ export default function CertificatClient({
       {/* Download / lock button */}
       <div className="no-print" style={{ maxWidth: "580px", margin: "20px auto 48px" }}>
         {allDone ? (
-          <button
-            onClick={() => window.print()}
-            style={{
-              width: "100%", padding: "15px", background: "#ff6a00",
-              border: "none", borderRadius: "13px", color: "#fff",
-              fontSize: "15px", fontWeight: 700, cursor: "pointer",
-            }}
-          >
-            ⬇ Télécharger en PDF
-          </button>
+          <>
+            {/* Vrai fichier, construit par le serveur. L'impression du
+                navigateur demandait d'ouvrir un panneau, d'y trouver
+                « Enregistrer au format PDF » et d'espérer que la mise en page
+                passe : trois occasions d'abandonner au moment précis où l'on
+                veut garder une preuve de ce qu'on a accompli. */}
+            <a
+              href="/api/reboot/certificat"
+              download
+              style={{
+                display: "block", width: "100%", padding: "15px", background: "#ff6a00",
+                border: "none", borderRadius: "13px", color: "#fff", textAlign: "center",
+                fontSize: "15px", fontWeight: 700, textDecoration: "none",
+              }}
+            >
+              ⬇ Télécharger mon certificat
+            </a>
+            {/* Repli : dans l'application, la vue web n'enregistre pas toujours
+                un fichier. L'impression, elle, fonctionne partout. */}
+            <button
+              onClick={() => window.print()}
+              style={{
+                width: "100%", marginTop: "10px", padding: "11px", background: "transparent",
+                border: "none", color: "#666", fontSize: "13px", cursor: "pointer",
+              }}
+            >
+              Le téléchargement ne démarre pas ? Imprimer la page
+            </button>
+          </>
         ) : (
           <div style={{
             width: "100%", padding: "15px", background: "#111",
