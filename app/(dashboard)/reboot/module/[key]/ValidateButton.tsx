@@ -55,10 +55,11 @@ export default function ValidateButton({
           className="w-full bg-d5-gold hover:bg-d5-gold/90 text-black font-bold rounded-xl py-3.5 text-sm transition-colors active:scale-[0.98]">
           Message envoyé ✓
         </button>
-        <button onClick={() => setStep("done")}
-          className="w-full text-center text-xs text-d5-muted hover:text-white transition-colors py-1">
-          Passer cette étape
-        </button>
+        {/* Même raison qu'après une séance : ce message fait vivre le groupe,
+            et c'est le point le plus facile à oublier une fois l'écran quitté. */}
+        <p className="text-center text-xs text-d5-muted leading-relaxed">
+          Partager ce que tu retiens aide les autres à tenir.
+        </p>
       </div>
     );
   }
