@@ -14,10 +14,18 @@ export default async function CertificatPage() {
   if (!session) redirect("/login");
   const clientId = session.user.id;
 
-  // Redirect if not a reboot client
-  const { rows: clientRows } = await pool
-    .query(`SELECT first_name, last_name, is_reboot_only FROM app_clients WHERE id = $1`, [clientId])
-    .catch(() => ({ rows: [] }));
+  // La table s'appelle « clients ». Interroger « app_clients » levait une
+  // erreur, avalée par le .catch, qui renvoyait une liste vide : le certificat
+  // concluait que la personne n'était pas participante et la renvoyait au
+  // tableau de bord. Le bouton « Télécharger mon certificat » ne menait donc
+  // nulle part, sans le moindre message.
+  //
+  // Le catch est retiré : si la base est indisponible, il vaut mieux une page
+  // en erreur qu'une redirection silencieuse vers un écran qui n'explique rien.
+  const { rows: clientRows } = await pool.query(
+    `SELECT first_name, last_name, is_reboot_only FROM clients WHERE id = $1`,
+    [clientId]
+  );
 
   const client = clientRows[0];
   if (!client?.is_reboot_only) redirect("/dashboard");
