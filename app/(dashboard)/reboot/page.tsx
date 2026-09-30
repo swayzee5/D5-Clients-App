@@ -2,12 +2,13 @@ export const dynamic = "force-dynamic";
 
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
-import { Zap, CheckCircle2, ArrowRight, MessageCircle, Lock } from "lucide-react";
+import { Zap, CheckCircle2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getRebootSessions } from "@/lib/queries/reboot";
 import { getRebootDiagnostic } from "@/lib/queries/reboot-diagnostic";
 import { pool } from "@/lib/db";
 import { SeancesSection } from "./SeancesSection";
+import { WhatsappSection } from "./WhatsappSection";
 import type { RebootTab } from "@/lib/reboot-catalogue";
 import type { Metadata } from "next";
 
@@ -111,12 +112,6 @@ export default async function RebootPage() {
   // fois à la validation du diagnostic.
   const diagnostic = await getRebootDiagnostic(clientId);
 
-  const waMessages = [
-    { ordinal: 1, label: "Message 1/3 envoyé", done: waCompleted >= 1 },
-    { ordinal: 2, label: "Message 2/3 envoyé", done: waCompleted >= 2 },
-    { ordinal: 3, label: "Message 3/3 envoyé", done: waCompleted >= 3 },
-  ];
-
   return (
     <div className="space-y-6">
       {/* Header card */}
@@ -172,39 +167,12 @@ export default async function RebootPage() {
         seancesGoal={SEANCES_GOAL}
       />
 
-      <section className="space-y-2">
-        <div className="flex items-center justify-between py-1">
-          <h2 className="text-white font-semibold text-sm">Messages WhatsApp</h2>
-          <span className="text-xs text-d5-muted">{waDoneForProgress}/{WA_GOAL} envoyés</span>
-        </div>
-        {waMessages.map(({ ordinal, label, done }) => {
-          const locked = sessionsCompleted < ordinal;
-          return (
-            <div key={ordinal} className={`card flex items-center gap-3 transition-all ${
-              done ? "border-green-500/20 bg-green-500/5" : locked ? "opacity-50" : "border-d5-gold/20"
-            }`}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                done ? "bg-green-500/10" : "bg-d5-surface-2"
-              }`}>
-                {done
-                  ? <CheckCircle2 size={18} className="text-green-400" />
-                  : locked
-                    ? <Lock size={16} className="text-d5-muted" />
-                    : <MessageCircle size={18} className="text-d5-gold" />}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className={`font-semibold text-sm ${done ? "text-gray-400" : locked ? "text-gray-500" : "text-white"}`}>
-                  {label}
-                </p>
-                <p className="text-d5-muted text-xs">
-                  {done ? "Envoyé ✓" : locked ? `Complète la séance ${ordinal} d'abord` : "Envoyé après ta séance"}
-                </p>
-              </div>
-              {done && <span className="text-xs text-green-400 font-medium shrink-0">✓</span>}
-            </div>
-          );
-        })}
-      </section>
+      <WhatsappSection
+        clientId={clientId}
+        waCompleted={waCompleted}
+        sessionsCompleted={sessionsCompleted}
+        goal={WA_GOAL}
+      />
 
       <section className="space-y-2">
         <div className="flex items-center justify-between py-1">
