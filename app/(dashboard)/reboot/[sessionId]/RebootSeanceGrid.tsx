@@ -34,7 +34,7 @@ type Step = "grid" | "checkin" | "whatsapp" | "done";
  */
 function VideoModal({ name, videoId, onClose }: { name: string; videoId: string; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-3" onClick={onClose}>
       <div
         className="w-full max-w-xl overflow-hidden rounded-2xl border border-gray-800 bg-gray-950"
         onClick={(e) => e.stopPropagation()}
@@ -385,7 +385,7 @@ export function RebootSeanceGrid({
         {isPending ? "Validation…" : "Séance terminée !"}
       </button>
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
           <div className="bg-gray-900 border border-gray-700 rounded-2xl p-6 w-full max-w-sm space-y-5">
             <div className="flex items-start justify-between gap-3">
               <p className="font-bold text-white text-base">Séance pas complètement terminée</p>

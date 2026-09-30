@@ -110,8 +110,14 @@ export function WhatsappSection({ clientId, waCompleted, sessionsCompleted, goal
       ))}
 
       {ouvert !== null && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 sm:items-center">
-          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-5">
+        // z-[60] et non z-50 : la barre de navigation du bas est elle-même en
+        // z-50 et, déclarée après dans la page, elle passait devant. Le bouton
+        // de confirmation se retrouvait dessous, visible mais intouchable.
+        //
+        // Centrée plutôt que collée en bas, et défilable : sur un écran court,
+        // une fenêtre ancrée en bas pousse ses derniers boutons hors de vue.
+        <div className="fixed inset-0 z-[60] flex items-center justify-center overflow-y-auto bg-black/70 p-4">
+          <div className="my-auto w-full max-w-sm space-y-4 rounded-2xl border border-gray-800 bg-gray-900 p-5">
             <div>
               <p className="font-bold text-white">Message {ouvert}/3</p>
               <p className="mt-0.5 text-xs text-d5-muted">Copie-le et colle-le dans le groupe WhatsApp D5</p>
