@@ -347,9 +347,14 @@ export function RebootSeanceGrid({
           className="w-full bg-d5-gold disabled:opacity-60 text-black font-bold rounded-xl py-3.5 text-sm active:scale-[0.98]">
           {isPending ? "Enregistrement…" : "Envoyer mon ressenti →"}
         </button>
-        <button onClick={() => setStep("whatsapp")} className="w-full text-center text-xs text-d5-muted hover:text-white py-1">
-          Passer cette étape
-        </button>
+        {/* Le ressenti est la seule chose que le coach reçoit entre deux
+            séances : l'énergie, la difficulté, la phrase libre. C'est elle qui
+            lui dit qui force trop et qui décroche. La sauter ne coûte rien au
+            participant, elle coûte le suivi. */}
+        <p className="text-center text-xs text-d5-muted leading-relaxed">
+          Deux réponses, dix secondes.<br />
+          C&apos;est ce qui permet à ton coach d&apos;ajuster.
+        </p>
       </div>
     );
   }
