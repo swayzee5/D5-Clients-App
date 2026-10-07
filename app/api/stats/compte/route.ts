@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonUtf8 } from "@/lib/json-utf8";
 import { pool } from "@/lib/db";
 
 /**
@@ -22,12 +23,12 @@ import { pool } from "@/lib/db";
 export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("secret");
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return jsonUtf8({ error: "Unauthorized" }, { status: 401 });
   }
 
   const email = (req.nextUrl.searchParams.get("email") ?? "").trim().toLowerCase();
   if (!email) {
-    return NextResponse.json({ error: "Paramètre email manquant" }, { status: 400 });
+    return jsonUtf8({ error: "Paramètre email manquant" }, { status: 400 });
   }
 
   try {
@@ -66,7 +67,7 @@ export async function GET(req: NextRequest) {
          ORDER BY email LIMIT 10`,
         [email, email.split("@")[0]]
       );
-      return NextResponse.json({
+      return jsonUtf8({
         email,
         existe: false,
         diagnostic:
@@ -86,7 +87,7 @@ export async function GET(req: NextRequest) {
             ? "Aucun mot de passe enregistré sur ce compte."
             : null;
 
-    return NextResponse.json({
+    return jsonUtf8({
       email: compte.email,
       existe: true,
       nom: `${compte.first_name} ${compte.last_name}`,
@@ -101,6 +102,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[stats/compte]", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return jsonUtf8({ error: String(err) }, { status: 500 });
   }
 }

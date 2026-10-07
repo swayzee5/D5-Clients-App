@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonUtf8 } from "@/lib/json-utf8";
 import { pool } from "@/lib/db";
 import { QUESTIONS, SCORE_AXES, choiceLabel, type Answers } from "@/lib/reboot-diagnostic";
 
@@ -67,7 +68,7 @@ function readable(id: string, answers: Answers): string | number | null {
 export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("secret");
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return jsonUtf8({ error: "Unauthorized" }, { status: 401 });
   }
   const complet = req.nextUrl.searchParams.get("complet") === "1";
   const avecNoms = complet || req.nextUrl.searchParams.get("noms") === "1";
@@ -99,7 +100,7 @@ export async function GET(req: NextRequest) {
     const remplis = rows.filter((r) => r.submitted_at !== null && r.answers !== null);
     const enAttente = rows.filter((r) => r.submitted_at === null || r.answers === null);
 
-    return NextResponse.json({
+    return jsonUtf8({
       participants: rows.length,
       remplis: remplis.length,
       // Volontairement aucune table de correspondance ici : la sortie
@@ -132,6 +133,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[stats/reboot-diagnostics]", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return jsonUtf8({ error: String(err) }, { status: 500 });
   }
 }
