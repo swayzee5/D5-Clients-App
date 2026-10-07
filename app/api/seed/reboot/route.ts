@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonUtf8 } from "@/lib/json-utf8";
 import { pool } from "@/lib/db";
 import {
   ALL_SLUGS,
@@ -258,7 +259,7 @@ export async function GET(req: NextRequest) {
     // la variable absente du déploiement, une valeur différente de celle
     // attendue, ou un caractère de trop copié avec. Les longueurs et le commit
     // déployé tranchent sans jamais révéler le secret lui-même.
-    return NextResponse.json(
+    return jsonUtf8(
       {
         error: "Unauthorized",
         diagnostic: {
@@ -459,7 +460,7 @@ export async function GET(req: NextRequest) {
     );
 
     const published = report.filter((r) => r.exercises >= 1 && !r.status.startsWith("masquée"));
-    return NextResponse.json({
+    return jsonUtf8({
       ok: true,
       videosPartagées: videosPartagees.length
         ? videosPartagees.map((v) => `vidéo ${v.video} attribuée à : ${v.exercices.join(", ")}`)
@@ -471,6 +472,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[seed/reboot]", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return jsonUtf8({ error: String(err) }, { status: 500 });
   }
 }

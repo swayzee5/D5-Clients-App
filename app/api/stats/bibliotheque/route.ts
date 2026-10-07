@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
+import { jsonUtf8 } from "@/lib/json-utf8";
 import { pool } from "@/lib/db";
 
 /**
@@ -31,7 +32,7 @@ type Row = {
 export async function GET(req: NextRequest) {
   const secret = req.nextUrl.searchParams.get("secret");
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return jsonUtf8({ error: "Unauthorized" }, { status: 401 });
   }
 
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
@@ -65,7 +66,7 @@ export async function GET(req: NextRequest) {
       [motifs.length, motifs]
     );
 
-    return NextResponse.json({
+    return jsonUtf8({
       recherche: q || "(tout)",
       trouvés: rows.length,
       exercices: rows.map((r) => ({
@@ -83,6 +84,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     console.error("[stats/bibliotheque]", err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    return jsonUtf8({ error: String(err) }, { status: 500 });
   }
 }
