@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth"
+import { estRoutePublique } from "@/lib/routes-publiques"
 
 export const authConfig: NextAuthConfig = {
   pages: {
@@ -14,6 +15,10 @@ export const authConfig: NextAuthConfig = {
         if (isLoggedIn) return Response.redirect(new URL("/dashboard", nextUrl.origin))
         return true
       }
+
+      // Même liste que le middleware : une page publique déclarée d'un seul
+      // côté marche par endroits et redirige ailleurs, sans qu'on le voie.
+      if (estRoutePublique(nextUrl.pathname)) return true
 
       if (!isLoggedIn) return Response.redirect(new URL("/login", nextUrl.origin))
       return true

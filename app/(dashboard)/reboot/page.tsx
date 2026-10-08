@@ -10,6 +10,7 @@ import { getBilan } from "@/lib/queries/reboot-bilan";
 import { pool } from "@/lib/db";
 import { SeancesSection } from "./SeancesSection";
 import { WhatsappSection } from "./WhatsappSection";
+import { InviterProche } from "@/components/reboot/InviterProche";
 import type { RebootTab } from "@/lib/reboot-catalogue";
 import type { Metadata } from "next";
 
@@ -207,6 +208,14 @@ export default async function RebootPage() {
           );
         })}
       </section>
+
+      {/* Après les modules, et visible dès le premier jour : l'envie de parler
+          du challenge vient surtout juste après une séance réussie, pas au
+          septième jour. */}
+      <InviterProche
+        firstName={session.user?.name?.split(" ")[0]}
+        points={bilan && diagnostic ? bilan.scores.global - diagnostic.scores.global : null}
+      />
 
       {allDone && (
         <div className="space-y-4 pb-4">

@@ -11,6 +11,7 @@ import {
   type Scores,
 } from "@/lib/reboot-diagnostic";
 import { submitBilan } from "@/app/(dashboard)/reboot/bilan-actions";
+import { messageInvitation } from "@/lib/invitation";
 
 /**
  * Bilan de fin de challenge.
@@ -132,6 +133,7 @@ export function BilanForm({
 
   const evolutions = arrivee ? comparer(depart, arrivee) : [];
   const ecartGlobal = arrivee ? arrivee.global - depart.global : 0;
+  const partage = messageInvitation(firstName, ecartGlobal > 0 ? ecartGlobal : null);
 
   if (phase === "resultat" && arrivee) {
     return (
@@ -241,27 +243,29 @@ export function BilanForm({
             depuis des mois. Envoie-lui ça.
           </p>
           <div className="rounded-xl border border-d5-gold/20 bg-d5-surface-2 p-3.5">
-            <p className="whitespace-pre-line text-sm leading-relaxed text-white">
-              {`Je viens de finir le challenge Reboot 40 de Daye.\n7 jours, 3 séances, et j'ai regagné ${
-                ecartGlobal > 0 ? ecartGlobal : 0
-              } points sur mon score de forme.\nSi tu veux essayer, écris-lui.`}
-            </p>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-white">{partage}</p>
           </div>
           <button
             onClick={async () => {
+              // Partage natif d'abord : il ouvre la liste des contacts et
+              // laisse choisir WhatsApp ou SMS en un geste. Sinon, copie.
+              if (typeof navigator !== "undefined" && navigator.share) {
+                try {
+                  await navigator.share({ text: partage });
+                  return;
+                } catch {
+                  // Annulé : la copie prend le relais.
+                }
+              }
               try {
-                await navigator.clipboard.writeText(
-                  `Je viens de finir le challenge Reboot 40 de Daye.\n7 jours, 3 séances, et j'ai regagné ${
-                    ecartGlobal > 0 ? ecartGlobal : 0
-                  } points sur mon score de forme.\nSi tu veux essayer, écris-lui.`
-                );
+                await navigator.clipboard.writeText(partage);
               } catch {
-                // Presse-papier refusé : le texte reste sélectionnable à la main.
+                // Presse-papier refusé : le texte reste sélectionnable.
               }
             }}
             className="w-full rounded-xl border border-d5-border bg-d5-surface-2 py-3 text-sm font-medium text-white"
           >
-            Copier le message
+            Envoyer le message
           </button>
         </div>
       ) : (
