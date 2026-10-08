@@ -378,3 +378,26 @@ export function explainScore(scores: Scores): ScoreExplanation {
     strength: scores[best.key] >= 60 ? { label: best.label, note: asNote(best.key) } : null,
   };
 }
+
+export type Evolution = {
+  axe: string;
+  emoji: string;
+  depart: number;
+  arrivee: number;
+  ecart: number;
+};
+
+/**
+ * L'écart axe par axe, en notes sur 10.
+ *
+ * Les scores sont stockés sur 100 pour l'affichage ; la personne, elle, a
+ * répondu sur 10. On lui rend ses propres chiffres, sinon elle ne reconnaît
+ * pas ce qu'elle a saisi.
+ */
+export function comparer(depart: Scores, arrivee: Scores): Evolution[] {
+  return SCORE_AXES.map(({ key, label, emoji }) => {
+    const d = Math.round(depart[key] / 10);
+    const a = Math.round(arrivee[key] / 10);
+    return { axe: label, emoji, depart: d, arrivee: a, ecart: a - d };
+  });
+}

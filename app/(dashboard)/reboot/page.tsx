@@ -6,6 +6,7 @@ import { Zap, CheckCircle2, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { getRebootSessions } from "@/lib/queries/reboot";
 import { getRebootDiagnostic } from "@/lib/queries/reboot-diagnostic";
+import { getBilan } from "@/lib/queries/reboot-bilan";
 import { pool } from "@/lib/db";
 import { SeancesSection } from "./SeancesSection";
 import { WhatsappSection } from "./WhatsappSection";
@@ -111,6 +112,9 @@ export default async function RebootPage() {
   // fin des 7 jours, il doit rester accessible et pas seulement s'afficher une
   // fois à la validation du diagnostic.
   const diagnostic = await getRebootDiagnostic(clientId);
+  // Le bilan n'est proposé qu'une fois les dix étapes faites, et une seule
+  // fois : c'est une mesure datée, pas un formulaire qu'on rejoue.
+  const bilan = allDone ? await getBilan(clientId) : null;
 
   return (
     <div className="space-y-6">
@@ -241,6 +245,30 @@ export default async function RebootPage() {
               ))}
             </div>
           </div>
+          {/* Avant le certificat : c'est la mesure qui compte, et elle se perd
+              si on la propose après le trophée. */}
+          <Link
+            href="/reboot/bilan"
+            className={`flex items-center gap-3 rounded-2xl border p-4 transition-colors ${
+              bilan
+                ? "border-d5-border bg-d5-surface hover:border-d5-gold/30"
+                : "border-d5-gold/50 bg-d5-gold/10"
+            }`}
+          >
+            <span className="text-2xl">📈</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-bold text-white">
+                {bilan ? "Mon bilan de fin" : "Fais ton bilan"}
+              </span>
+              <span className="block text-xs text-d5-muted">
+                {bilan
+                  ? `Score ${diagnostic?.scores.global ?? "?"} → ${bilan.scores.global}`
+                  : "Les 6 mêmes notes qu'au départ, pour voir ce qui a changé"}
+              </span>
+            </span>
+            <ArrowRight size={16} className="shrink-0 text-d5-gold" />
+          </Link>
+
           <div className="space-y-3">
             {/* Certificate download button */}
             <Link
