@@ -11,6 +11,8 @@ import { pool } from "@/lib/db";
 import { SeancesSection } from "./SeancesSection";
 import { WhatsappSection } from "./WhatsappSection";
 import { InviterProche } from "@/components/reboot/InviterProche";
+import { prochaineEtape } from "@/lib/reboot-prochaine-etape";
+import { SectionTerminee } from "@/components/reboot/SectionTerminee";
 import type { RebootTab } from "@/lib/reboot-catalogue";
 import type { Metadata } from "next";
 
@@ -117,6 +119,14 @@ export default async function RebootPage() {
   // fois : c'est une mesure datée, pas un formulaire qu'on rejoue.
   const bilan = allDone ? await getBilan(clientId) : null;
 
+  const etape = prochaineEtape({
+    seances: sessionsCompleted,
+    messages: waCompleted,
+    modules: completedModules.length,
+    bilanFait: bilan !== null,
+    premierModuleAFaire: MODULES.find((m) => !completedModules.includes(m.key))?.key ?? null,
+  });
+
   return (
     <div className="space-y-6">
       {/* Header card */}
@@ -166,19 +176,59 @@ export default async function RebootPage() {
         </div>
       </div>
 
+
+      {/* La seule décision retirée au participant : par où commencer. Tout le
+          reste de la page est toujours là, mais rangé en dessous. */}
+      <Link
+        href={etape.href}
+        className="flex items-center gap-4 rounded-2xl border-2 border-d5-gold bg-d5-gold/10 p-5 transition-transform active:scale-[0.98]"
+      >
+        <span className="text-4xl">{etape.emoji}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[11px] font-bold uppercase tracking-wider text-d5-gold">
+            Prochaine étape
+          </span>
+          <span className="block text-lg font-bold leading-tight text-white">{etape.titre}</span>
+          <span className="mt-0.5 block text-xs leading-relaxed text-d5-muted">{etape.detail}</span>
+        </span>
+        <ArrowRight size={20} className="shrink-0 text-d5-gold" />
+      </Link>
+
+      <div id="seances" className="scroll-mt-4" />
+      {sessionsCompleted >= SEANCES_GOAL ? (
+        <SectionTerminee
+          titre="Tes 3 séances sont faites"
+          detail="Touche pour revoir les séances et continuer à t'entraîner."
+        >
+          <SeancesSection
+            sessionsByTab={sessionsByTab}
+            sessionsCompleted={sessionsCompleted}
+            seancesGoal={SEANCES_GOAL}
+          />
+        </SectionTerminee>
+      ) : (
       <SeancesSection
         sessionsByTab={sessionsByTab}
         sessionsCompleted={sessionsCompleted}
         seancesGoal={SEANCES_GOAL}
       />
+      )}
 
+      <div id="messages" className="scroll-mt-4" />
+      {waCompleted >= WA_GOAL ? (
+        <SectionTerminee titre="Tes 3 messages sont postés" detail="Le groupe t'a vu avancer." />
+      ) : (
       <WhatsappSection
         clientId={clientId}
         waCompleted={waCompleted}
         sessionsCompleted={sessionsCompleted}
         goal={WA_GOAL}
       />
+      )}
 
+      {completedModules.length >= MODULES_GOAL ? (
+        <SectionTerminee titre="Tes 4 modules sont lus" detail="Régularité, hydratation, sommeil, protéines." />
+      ) : (
       <section className="space-y-2">
         <div className="flex items-center justify-between py-1">
           <h2 className="text-white font-semibold text-sm">Modules lifestyle</h2>
@@ -208,6 +258,8 @@ export default async function RebootPage() {
           );
         })}
       </section>
+
+      )}
 
       {/* Après les modules, et visible dès le premier jour : l'envie de parler
           du challenge vient surtout juste après une séance réussie, pas au
