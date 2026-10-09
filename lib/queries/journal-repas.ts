@@ -4,9 +4,10 @@ import type { AnalyseRepas } from "@/lib/analyse-repas";
 /**
  * Le journal des repas, côté lecture.
  *
- * Le statut est calculé ici et nulle part ailleurs. Il tient en trois états,
- * et c'est volontaire : « envoyé », « vu », « répondu ». Un quatrième état
- * aurait demandé au client de comprendre une nuance dont il n'a rien à faire.
+ * Le statut est calculé ici et nulle part ailleurs. Trois états existent —
+ * « envoyé », « vu », « répondu » — mais le client n'en voit que deux : « vu »
+ * sert au tri du coach et n'est pas montré. Un accusé de lecture transforme
+ * chaque silence en négligence affichée, ce qui coûte plus qu'il ne rassure.
  *
  * Les tables sont créées à la volée comme ailleurs dans ce projet : les deux
  * applications se partagent une base sans outil de migration commun, et une

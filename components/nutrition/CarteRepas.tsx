@@ -5,12 +5,12 @@ import type { Repas } from "@/lib/queries/journal-repas";
 /**
  * Un repas dans le journal du client.
  *
- * Le statut est l'élément le plus important de cette carte, bien avant
- * l'analyse. Il répond à la seule question que se pose quelqu'un qui vient
- * d'envoyer une photo : est-ce que quelqu'un l'a vue ?
- *
- * Trois états, empruntés à la messagerie parce que tout le monde les connaît
- * déjà et que personne n'a besoin qu'on les explique : envoyé, vu, répondu.
+ * Deux états seulement : envoyé, puis répondu. Le « vu par le coach » existe
+ * en base et sert à la file de tri côté CRM, mais il n'est pas montré ici —
+ * délibérément. Un accusé de lecture transforme chaque silence en négligence
+ * affichée : un repas marqué vu et resté sans réponse pendant trois jours se
+ * remarque bien plus qu'un repas simplement en attente. La promesse serait
+ * plus coûteuse que le confort qu'elle apporte.
  *
  * L'analyse automatique est présentée pour ce qu'elle est — une lecture de
  * l'image — et jamais comme la parole du coach. Les deux sont visuellement
@@ -18,14 +18,11 @@ import type { Repas } from "@/lib/queries/journal-repas";
  * écrites.
  */
 
-const STATUTS = {
-  envoye: { label: "Envoyé", Icone: Check, couleur: "text-d5-muted" },
-  vu: { label: "Vu par Daye", Icone: CheckCheck, couleur: "text-blue-400" },
-  repondu: { label: "Répondu", Icone: CheckCheck, couleur: "text-green-400" },
-} as const;
-
 export function CarteRepas({ repas }: { repas: Repas }) {
-  const { label, Icone, couleur } = STATUTS[repas.statut];
+  const repondu = repas.statut === "repondu";
+  const label = repondu ? "Répondu" : "Envoyé";
+  const Icone = repondu ? CheckCheck : Check;
+  const couleur = repondu ? "text-green-400" : "text-d5-muted";
 
   return (
     <article className="card space-y-3">
@@ -87,9 +84,7 @@ export function CarteRepas({ repas }: { repas: Repas }) {
       ) : (
         <p className="flex items-center gap-1.5 text-xs text-d5-muted">
           <Clock size={12} />
-          {repas.statut === "vu"
-            ? "Daye a vu ton repas, sa réponse arrive."
-            : "En attente de la réponse de ton coach."}
+          Daye te répond dès qu&apos;il passe sur tes repas.
         </p>
       )}
     </article>

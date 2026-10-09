@@ -5,11 +5,14 @@
 -- idée de ce que le client mangeait réellement. Le journal renverse le sens de
 -- la circulation — c'est le client qui montre, et le coach qui répond.
 --
--- Deux colonnes portent l'essentiel de la valeur, et ce ne sont pas celles de
--- l'analyse : `coach_seen_at` et `coach_replied_at`. Le client voit où en est
--- son repas, donc il sait qu'il n'écrit pas dans le vide. C'est aussi une
--- promesse opposable : un « Vu » suivi de trois jours de silence se remarque
--- davantage qu'un silence complet, et c'est voulu.
+-- `coach_replied_at` est la colonne qui porte la valeur : c'est elle que voit
+-- le client, et elle qui alimente le compteur de retard du coach.
+--
+-- `coach_seen_at` sert au tri du coach — distinguer ce qu'il a déjà regardé de
+-- ce qui vient d'arriver — et n'est pas montré au client. Un accusé de lecture
+-- transformerait chaque silence en négligence affichée : un repas marqué vu et
+-- resté sans réponse pendant trois jours se remarque bien plus qu'un repas
+-- simplement en attente.
 --
 -- L'analyse automatique est stockée en JSON plutôt qu'en colonnes : sa forme
 -- va bouger pendant les premières semaines, et faire une migration à chaque
