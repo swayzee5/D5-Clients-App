@@ -74,6 +74,7 @@ async function ensureSchema(): Promise<void> {
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS reboot_sessions_slug_key ON reboot_sessions (slug)`);
   await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS library_exercise_id UUID`);
   await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS video_suppressed BOOLEAN NOT NULL DEFAULT false`);
+  await pool.query(`ALTER TABLE reboot_sessions ADD COLUMN IF NOT EXISTS manually_edited BOOLEAN NOT NULL DEFAULT false`);
 }
 
 /**
@@ -204,11 +205,17 @@ function findVideo(def: VideoDef, bibliotheque: Map<string, LibraryRow>): Librar
   return candidates[0] ?? null;
 }
 
-type SessionRow = { id: string; exercise_count: number; library_ids: string[] };
+type SessionRow = {
+  id: string;
+  exercise_count: number;
+  library_ids: string[];
+  manually_edited: boolean;
+};
 
 async function findSession(slug: string): Promise<SessionRow | null> {
   const { rows } = await pool.query<SessionRow>(
     `SELECT rs.id::text AS id,
+            rs.manually_edited,
             (SELECT COUNT(*)::int FROM reboot_exercises WHERE session_id = rs.id) AS exercise_count,
             COALESCE(
               (SELECT ARRAY_AGG(library_exercise_id::text)
@@ -239,6 +246,10 @@ async function upsertSession(s: Upsert): Promise<string> {
         description, duration_minutes, order_index)
      VALUES ($1,$2,$3,$4,$5,$6,true,$7,$8,$9)
      ON CONFLICT (slug) DO UPDATE SET
+       -- Reprise depuis le catalogue : la séance n'est plus une version
+       -- retouchée à la main, et la marque doit tomber avec elle. La laisser
+       -- ferait croire à un travail qui vient d'être écrasé.
+       manually_edited = false,
        name = EXCLUDED.name,
        muscle_group = EXCLUDED.muscle_group,
        location = EXCLUDED.location,
@@ -289,6 +300,10 @@ export async function GET(req: NextRequest) {
     );
   }
   const reset = req.nextUrl.searchParams.get("reset") === "1";
+  // Repartir du catalogue écrit dans le code, y compris pour les séances que
+  // le coach a modifiées depuis le CRM. Volontairement séparé de « reset » :
+  // écraser le travail de quelqu'un ne doit pas être un effet de bord.
+  const force = req.nextUrl.searchParams.get("force") === "1";
 
   try {
     await ensureSchema();
@@ -300,6 +315,17 @@ export async function GET(req: NextRequest) {
     for (const def of STRENGTH_SESSIONS) {
       orderIndex++;
       const existing = await findSession(def.slug);
+
+      // Séance retouchée depuis le CRM : elle fait autorité, pas le catalogue.
+      // Sans cette sortie, chaque appel du seed effacerait le travail du coach
+      // sans rien dire, et il ne le découvrirait qu'en ouvrant l'app.
+      if (existing?.manually_edited && !force) {
+        report.push({
+          slug: def.slug, name: def.name, exercises: existing.exercise_count,
+          status: "modifiée dans le CRM — laissée telle quelle",
+        });
+        continue;
+      }
 
       // Une séance déjà garnie n'est pas retouchée : les participants peuvent
       // être en train de la suivre, et rejouer la sélection changerait les
@@ -404,6 +430,14 @@ export async function GET(req: NextRequest) {
       orderIndex++;
       const video = findVideo(def, bibliotheque);
       const existingVideo = await findSession(def.slug);
+
+      if (existingVideo?.manually_edited && !force) {
+        report.push({
+          slug: def.slug, name: def.name, exercises: existingVideo.exercise_count,
+          status: "modifiée dans le CRM — laissée telle quelle",
+        });
+        continue;
+      }
 
       if (video && !reset && existingVideo?.library_ids.length === 1 && existingVideo.library_ids[0] === video.id) {
         // Déjà reliée à cette vidéo : ne rien réécrire. Sans cette sortie, la
