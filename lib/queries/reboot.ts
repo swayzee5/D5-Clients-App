@@ -27,6 +27,8 @@ export type RebootExercise = {
   thumbnail_url: string | null;
   order_index: number;
   notes: string | null;
+  /** Description venue de la bibliothèque, utilisée faute de consigne. */
+  description: string | null;
 };
 
 /**
@@ -113,6 +115,7 @@ export async function getRebootSessionWithExercises(sessionId: string): Promise<
        re.rest_seconds,
        re.order_index,
        re.notes,
+       el.description,
        CASE WHEN re.video_suppressed THEN NULL
             ELSE COALESCE(re.vimeo_video_id, el.vimeo_video_id) END AS vimeo_video_id,
        CASE
