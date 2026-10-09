@@ -20,8 +20,36 @@ export async function GET(req: NextRequest) {
   }
 
   const email = (req.nextUrl.searchParams.get("email") ?? "").trim().toLowerCase();
+  // Permet de régler la vidéo sans passer par le CRM. Le réglage y a sa place
+  // normale, mais le CRM est une autre application, déployée séparément : en
+  // dépendre pour débloquer l'app cliente ajoute une panne possible là où il
+  // n'en faut aucune. Même secret, même exigence.
+  const aDefinir = (req.nextUrl.searchParams.get("definir") ?? "").trim();
 
   try {
+    if (aDefinir) {
+      // Le coach colle l'adresse complète plutôt que l'identifiant : on en
+      // extrait la première suite longue de chiffres. « vide » efface le
+      // réglage et rend le challenge accessible sans vidéo.
+      const identifiant = aDefinir === "vide" ? "" : (aDefinir.match(/(\d{6,})/)?.[1] ?? "");
+      if (aDefinir !== "vide" && !identifiant) {
+        return jsonUtf8(
+          { error: "Aucun identifiant Vimeo trouvé dans ce qui a été fourni.", reçu: aDefinir },
+          { status: 400 }
+        );
+      }
+      await pool.query(
+        `CREATE TABLE IF NOT EXISTS app_settings (
+           key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ DEFAULT now()
+         )`
+      );
+      await pool.query(
+        `INSERT INTO app_settings (key, value, updated_at)
+         VALUES ('reboot_intro_video_id', $1, now())
+         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
+        [identifiant]
+      );
+    }
     const { rows: reglage } = await pool
       .query<{ value: string; updated_at: Date }>(
         `SELECT value, updated_at FROM app_settings WHERE key = 'reboot_intro_video_id'`
