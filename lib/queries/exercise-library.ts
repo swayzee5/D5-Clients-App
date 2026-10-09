@@ -30,7 +30,7 @@ export function exerciseLibraryLateral(
     : `LOWER(TRIM(el.name)) = LOWER(TRIM(${alias}.name))`
 
   return `LEFT JOIN LATERAL (
-       SELECT el.vimeo_video_id, el.thumbnail_url
+       SELECT el.vimeo_video_id, el.thumbnail_url, el.description
        FROM exercise_library el
        WHERE el.is_active = true
          AND ${matchesRow}

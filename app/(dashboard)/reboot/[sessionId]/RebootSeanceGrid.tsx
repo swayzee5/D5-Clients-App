@@ -124,7 +124,15 @@ function ExerciseCard({ exercise, index, checked, onCheck, onPlay }: {
           {exercise.reps && <div><p className="text-gray-500 text-xs">Reps</p><p className="text-white font-semibold text-sm">{exercise.reps}</p></div>}
           {exercise.rest_seconds && <div><p className="text-gray-500 text-xs">Récup.</p><p className="text-white font-semibold text-sm">{formatRest(exercise.rest_seconds)}</p></div>}
         </div>
-        {exercise.notes && <p className="text-gray-500 text-xs italic">{exercise.notes}</p>}
+        {/* Une consigne écrite pour cette séance d'abord, sinon la description
+            de la bibliothèque. Avant, un exercice sur deux n'avait rien sous
+            lui : la séance avait l'air à moitié remplie alors que
+            l'information existait déjà, à un autre endroit. */}
+        {(exercise.notes || exercise.description) && (
+          <p className="text-xs italic leading-relaxed text-gray-500">
+            {exercise.notes || exercise.description}
+          </p>
+        )}
       </div>
     </div>
   );
