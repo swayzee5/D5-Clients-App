@@ -60,6 +60,42 @@ function VideoModal({ name, videoId, onClose }: { name: string; videoId: string;
   );
 }
 
+/**
+ * L'explication d'un exercice, repliée par défaut.
+ *
+ * Les descriptions de la bibliothèque font parfois dix lignes : installation,
+ * exécution, respiration, rythme, erreurs courantes. Affichées en entier dans
+ * une grille à deux colonnes, elles donnaient des cartes de hauteurs très
+ * différentes et poussaient le bouton de fin de séance hors de l'écran.
+ *
+ * Trois lignes suffisent à reconnaître le mouvement. Le reste se déplie pour
+ * qui en a besoin, et ne gêne pas les autres.
+ */
+function Explication({ texte }: { texte: string }) {
+  const [deplie, setDeplie] = useState(false);
+  // Au-delà d'une description courte, le pliage a un intérêt. En deçà, un
+  // bouton « voir plus » qui révèle une demi-ligne est une gêne de plus.
+  const long = texte.length > 110;
+
+  if (!long) {
+    return <p className="text-xs italic leading-relaxed text-gray-500">{texte}</p>;
+  }
+
+  return (
+    <div className="space-y-1">
+      <p className={`text-xs italic leading-relaxed text-gray-500 ${deplie ? "" : "line-clamp-3"}`}>
+        {texte}
+      </p>
+      <button
+        onClick={(e) => { e.stopPropagation(); setDeplie(!deplie); }}
+        className="text-xs font-semibold text-d5-gold"
+      >
+        {deplie ? "Voir moins" : "Voir plus"}
+      </button>
+    </div>
+  );
+}
+
 function ExerciseCard({ exercise, index, checked, onCheck, onPlay }: {
   exercise: RebootExercise; index: number; checked: boolean; onCheck: () => void; onPlay: () => void;
 }) {
@@ -129,9 +165,7 @@ function ExerciseCard({ exercise, index, checked, onCheck, onPlay }: {
             lui : la séance avait l'air à moitié remplie alors que
             l'information existait déjà, à un autre endroit. */}
         {(exercise.notes || exercise.description) && (
-          <p className="text-xs italic leading-relaxed text-gray-500">
-            {exercise.notes || exercise.description}
-          </p>
+          <Explication texte={(exercise.notes || exercise.description) as string} />
         )}
       </div>
     </div>
