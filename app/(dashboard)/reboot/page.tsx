@@ -8,12 +8,9 @@ import { getRebootSessions } from "@/lib/queries/reboot";
 import { getRebootDiagnostic } from "@/lib/queries/reboot-diagnostic";
 import { getBilan } from "@/lib/queries/reboot-bilan";
 import { pool } from "@/lib/db";
-import { SeancesSection } from "./SeancesSection";
-import { WhatsappSection } from "./WhatsappSection";
 import { InviterProche } from "@/components/reboot/InviterProche";
 import { prochaineEtape } from "@/lib/reboot-prochaine-etape";
 import { SectionTerminee } from "@/components/reboot/SectionTerminee";
-import type { RebootTab } from "@/lib/reboot-catalogue";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Reboot 40" };
@@ -74,14 +71,6 @@ export default async function RebootPage() {
     if (rows[0]?.value) welcomeMessage = rows[0].value;
   } catch {}
 
-  const sessionsByTab = { salle: [], maison: [], mobilite: [], hiit: [] } as Record<
-    RebootTab,
-    typeof sessions
-  >;
-  for (const s of sessions) {
-    const tab = (s.tab ?? "salle") as RebootTab;
-    (sessionsByTab[tab] ?? sessionsByTab.salle).push(s);
-  }
 
   // Seules les séances de renforcement comptent dans l'objectif : un
   // échauffement suivi ne vaut pas une séance du challenge, sinon les trois
@@ -194,37 +183,26 @@ export default async function RebootPage() {
         <ArrowRight size={20} className="shrink-0 text-d5-gold" />
       </Link>
 
-      <div id="seances" className="scroll-mt-4" />
-      {sessionsCompleted >= SEANCES_GOAL ? (
-        <SectionTerminee
-          titre="Tes 3 séances sont faites"
-          detail="Touche pour revoir les séances et continuer à t'entraîner."
-        >
-          <SeancesSection
-            sessionsByTab={sessionsByTab}
-            sessionsCompleted={sessionsCompleted}
-            seancesGoal={SEANCES_GOAL}
-          />
-        </SectionTerminee>
-      ) : (
-      <SeancesSection
-        sessionsByTab={sessionsByTab}
-        sessionsCompleted={sessionsCompleted}
-        seancesGoal={SEANCES_GOAL}
+      {/* Sommaire, pas contenu : chaque ligne mène à son écran. La page
+          montrait les séances ET les messages ET les modules les uns sous les
+          autres, si bien qu'ouvrir « ta première séance » ramenait à la même
+          chose. Une action nommée doit mener à un écran qui ne contient
+          qu'elle. */}
+      <LigneSommaire
+        href="/reboot/seances"
+        emoji="🏋️"
+        titre="Mes séances"
+        detail={`${Math.min(sessionsCompleted, SEANCES_GOAL)}/${SEANCES_GOAL} faites`}
+        termine={sessionsCompleted >= SEANCES_GOAL}
       />
-      )}
 
-      <div id="messages" className="scroll-mt-4" />
-      {waCompleted >= WA_GOAL ? (
-        <SectionTerminee titre="Tes 3 messages sont postés" detail="Le groupe t'a vu avancer." />
-      ) : (
-      <WhatsappSection
-        clientId={clientId}
-        waCompleted={waCompleted}
-        sessionsCompleted={sessionsCompleted}
-        goal={WA_GOAL}
+      <LigneSommaire
+        href="/reboot/messages"
+        emoji="💬"
+        titre="Mes messages"
+        detail={`${Math.min(waCompleted, WA_GOAL)}/${WA_GOAL} postés`}
+        termine={waCompleted >= WA_GOAL}
       />
-      )}
 
       {completedModules.length >= MODULES_GOAL ? (
         <SectionTerminee titre="Tes 4 modules sont lus" detail="Régularité, hydratation, sommeil, protéines." />
@@ -348,5 +326,50 @@ export default async function RebootPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Une ligne du sommaire du challenge.
+ *
+ * Volontairement petite : ce n'est pas elle qui doit attirer l'œil, c'est la
+ * carte « prochaine étape ». Elle existe pour que rien ne soit caché, pas pour
+ * concurrencer l'action du jour.
+ */
+function LigneSommaire({
+  href,
+  emoji,
+  titre,
+  detail,
+  termine,
+}: {
+  href: string;
+  emoji: string;
+  titre: string;
+  detail: string;
+  termine: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`card flex items-center gap-3 transition-all active:scale-[0.98] ${
+        termine ? "border-green-500/20 bg-green-500/5" : "hover:border-d5-gold/30"
+      }`}
+    >
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-d5-surface-2 text-lg">
+        {emoji}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className={`block text-sm font-semibold ${termine ? "text-gray-400" : "text-white"}`}>
+          {titre}
+        </span>
+        <span className="block text-xs text-d5-muted">{detail}</span>
+      </span>
+      {termine ? (
+        <CheckCircle2 size={16} className="shrink-0 text-green-400" />
+      ) : (
+        <ArrowRight size={15} className="shrink-0 text-d5-muted" />
+      )}
+    </Link>
   );
 }
