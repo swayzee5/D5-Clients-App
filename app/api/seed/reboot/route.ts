@@ -44,6 +44,14 @@ function contains(fragments: string[]): string[] {
 
 type LibraryRow = { id: string; name: string; vimeo_video_id: string };
 
+/** Exercice résolu, avec la prescription qui l'accompagne. */
+type Prescrit = LibraryRow & {
+  sets?: number;
+  reps?: string;
+  restSeconds?: number;
+  notes?: string;
+};
+
 async function ensureSchema(): Promise<void> {
   await pool.query(`CREATE TABLE IF NOT EXISTS reboot_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL,
@@ -110,6 +118,16 @@ async function pickExercises(def: StrengthDef): Promise<LibraryRow[]> {
   return rows;
 }
 
+/** Les réglages propres à un exercice, quand le coach en a fixé. */
+function prescription(entry: PinnedExercise) {
+  return {
+    sets: entry.sets,
+    reps: entry.reps,
+    restSeconds: entry.restSeconds,
+    notes: entry.notes,
+  };
+}
+
 /**
  * Résout une liste imposée par le coach, dans son ordre.
  *
@@ -121,8 +139,8 @@ async function pickExercises(def: StrengthDef): Promise<LibraryRow[]> {
  */
 async function resolvePinned(
   pinned: PinnedExercise[]
-): Promise<{ picked: LibraryRow[]; problemes: string[] }> {
-  const picked: LibraryRow[] = [];
+): Promise<{ picked: Prescrit[]; problemes: string[] }> {
+  const picked: Prescrit[] = [];
   const problemes: string[] = [];
   /** Video -> premier exercice de la liste qui l'utilise. */
   const dejaVues = new Map<string, string>();
@@ -144,7 +162,7 @@ async function resolvePinned(
       // d'une séance en cours.
       if (entry.videoId) {
         dejaVues.set(entry.videoId, entry.name);
-        picked.push({ id: "", name: entry.name, vimeo_video_id: entry.videoId });
+        picked.push({ ...prescription(entry), id: "", name: entry.name, vimeo_video_id: entry.videoId });
         continue;
       }
       problemes.push(`« ${entry.name} » introuvable dans la bibliothèque`);
@@ -154,7 +172,7 @@ async function resolvePinned(
       // Vidéo imposée : elle appartient à cet exercice, donc elle entre aussi
       // dans le registre des vidéos déjà prises.
       dejaVues.set(entry.videoId, found.name);
-      picked.push({ id: found.id, name: found.name, vimeo_video_id: entry.videoId });
+      picked.push({ ...prescription(entry), id: found.id, name: found.name, vimeo_video_id: entry.videoId });
       continue;
     }
     if (!found.vimeo_video_id && !entry.videoOptional) {
@@ -170,11 +188,11 @@ async function resolvePinned(
       problemes.push(
         `« ${entry.name} » affiché sans vidéo : la bibliothèque lui donne celle de « ${proprietaire} »`
       );
-      picked.push({ id: found.id, name: found.name, vimeo_video_id: "" });
+      picked.push({ ...prescription(entry), id: found.id, name: found.name, vimeo_video_id: "" });
       continue;
     }
     if (found.vimeo_video_id) dejaVues.set(found.vimeo_video_id, found.name);
-    picked.push(found);
+    picked.push({ ...prescription(entry), ...found });
   }
 
   return { picked, problemes };
@@ -326,8 +344,8 @@ export async function GET(req: NextRequest) {
           await pool.query(
             `INSERT INTO reboot_exercises
                (session_id, library_exercise_id, name, vimeo_video_id,
-                video_suppressed, sets, reps, rest_seconds, order_index)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
+                video_suppressed, sets, reps, rest_seconds, notes, order_index)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
             [
               sessionId,
               picked[i].id || null,
@@ -336,7 +354,11 @@ export async function GET(req: NextRequest) {
               // Sans ce drapeau, l'affichage retrouverait la video par le nom
               // et la ferait revenir : couper le lien ne suffit pas.
               picked[i].vimeo_video_id === "",
-              def.sets, def.reps, def.restSeconds, i,
+              picked[i].sets ?? def.sets,
+              picked[i].reps ?? def.reps,
+              picked[i].restSeconds ?? def.restSeconds,
+              picked[i].notes ?? null,
+              i,
             ]
           );
         }

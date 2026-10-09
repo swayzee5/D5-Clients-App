@@ -36,6 +36,11 @@ export async function GET(req: NextRequest) {
   }
 
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
+  // « compact » rend la bibliothèque entière en une ligne par exercice, pour
+  // qu'elle tienne dans un seul copier-coller. Écrire de vraies séances
+  // demande de voir tout le catalogue d'un coup : on ne compose pas une séance
+  // dos en cherchant « tirage » puis « rowing » puis « traction » un par un.
+  const compact = req.nextUrl.searchParams.get("format") === "compact";
   // Chaque mot doit être présent, dans n'importe quel ordre : on tape rarement
   // le nom exact, et « marteau curl » doit trouver autant que « curl marteau ».
   const motifs = q ? q.split(/\s+/).map((mot) => `%${mot.toLowerCase()}%`) : [];
@@ -62,9 +67,25 @@ export async function GET(req: NextRequest) {
        WHERE el.is_active = true
          AND ($1::int = 0 OR LOWER(el.name) LIKE ALL($2::text[]))
        ORDER BY el.name
-       LIMIT 50`,
-      [motifs.length, motifs]
+       LIMIT $3`,
+      [motifs.length, motifs, compact ? 1000 : 50]
     );
+
+    if (compact) {
+      // Une ligne par exercice : nom, identifiant vidéo, muscles tagués. Tout
+      // ce qu'il faut pour composer, rien de plus.
+      return jsonUtf8({
+        total: rows.length,
+        avecVideo: rows.filter((r) => r.vimeo_video_id).length,
+        exercices: rows.map((r) =>
+          [
+            r.name,
+            r.vimeo_video_id ? `vidéo ${r.vimeo_video_id}` : "SANS VIDÉO",
+            (r.muscles ?? []).join("/") || "non tagué",
+          ].join(" | ")
+        ),
+      });
+    }
 
     return jsonUtf8({
       recherche: q || "(tout)",

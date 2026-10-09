@@ -77,6 +77,22 @@ export type PinnedExercise = {
   /** Nom exact dans exercise_library. */
   name: string;
   /**
+   * Prescription propre à cet exercice.
+   *
+   * Une vraie séance ne prescrit pas la même chose du premier au dernier
+   * mouvement : le tirage lourd en ouverture ne se fait pas en 15
+   * répétitions, et le gainage de fin ne se compte pas en séries de 10. Sans
+   * ces champs, toute la séance héritait d'un réglage unique, ce qui est le
+   * signe qu'elle a été composée par une machine.
+   *
+   * Laissés vides, les réglages de la séance s'appliquent.
+   */
+  sets?: number;
+  reps?: string;
+  restSeconds?: number;
+  /** Consigne courte affichée sous l'exercice. */
+  notes?: string;
+  /**
    * Accepte l'exercice meme sans video.
    *
    * Reserve aux cas ou le coach sait que la video arrive. La regle generale
