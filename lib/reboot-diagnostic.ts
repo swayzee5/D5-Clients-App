@@ -95,7 +95,7 @@ export const QUESTIONS: Question[] = [
     kind: "text",
     prompt:
       "Quand avez-vous senti que votre corps a cessé de répondre comme avant, malgré vos efforts ?",
-    help: "Pour beaucoup, ça commence vers la trentaine. Prenez le temps de raconter.",
+    help: "Pour la plupart des hommes, ça commence entre 35 et 40 ans. Prenez le temps de raconter.",
     placeholder: "ex : vers 35 ans, quand le rythme de travail a changé…",
   },
   {

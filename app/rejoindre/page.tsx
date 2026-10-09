@@ -4,9 +4,9 @@ import { pool } from "@/lib/db";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Reboot 40 — 7 jours pour se remettre en mouvement",
+  title: "Reboot 40 — 7 jours pour relancer la machine",
   description:
-    "Un challenge de 7 jours pour les 40-65 ans : 3 séances, 4 modules, et un score de forme mesuré au début et à la fin.",
+    "Un challenge de 7 jours pour les hommes de 40 ans et plus : 3 séances, 4 modules, et un score de forme mesuré au début et à la fin.",
 };
 
 /**
@@ -70,9 +70,11 @@ export default async function RejoindrePage({
         Reboot 40
       </h1>
       <p className="mt-2 text-center text-base leading-relaxed text-gray-300">
-        7 jours pour se remettre en mouvement.
+        7 jours pour relancer la machine.
         <br />
-        Sans salle obligatoire, sans y passer ses soirées.
+        Pour les hommes qui ont passé la quarantaine.
+        <br />
+        Sans salle obligatoire, sans y passer vos soirées.
       </p>
 
       {parrain && (
@@ -110,7 +112,7 @@ export default async function RejoindrePage({
           ["🏋️", "3 séances au choix", "En salle ou à la maison, avec la vidéo de chaque exercice."],
           ["📊", "Un score de forme", "Mesuré le premier jour, remesuré le dernier. L'écart est chiffré."],
           ["📚", "4 modules courts", "Sommeil, hydratation, régularité, protéines. Deux minutes chacun."],
-          ["💬", "Un groupe", "Les autres participants avancent en même temps que vous."],
+          ["💬", "Un groupe", "D'autres hommes de votre âge avancent en même temps que vous."],
         ].map(([emoji, titre, detail]) => (
           <div key={titre} className="flex gap-3">
             <span className="text-lg">{emoji}</span>
@@ -123,7 +125,8 @@ export default async function RejoindrePage({
       </div>
 
       <p className="mt-8 text-center text-xs text-d5-muted">
-        Conçu pour les 40-65 ans qui ont déjà essayé plusieurs fois.
+        Conçu pour les hommes de 40 ans et plus qui ont déjà essayé plusieurs
+        fois.
       </p>
     </main>
   );

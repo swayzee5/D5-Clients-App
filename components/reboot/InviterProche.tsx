@@ -51,7 +51,7 @@ export function InviterProche({ firstName, points }: { firstName?: string | null
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-white">Inviter un proche</p>
           <p className="text-xs text-d5-muted">
-            {copie ? "Message copié ✓" : "Quelqu'un autour de toi dit « il faudrait que je m'y remette »"}
+            {copie ? "Message copié ✓" : "Un collègue, un frère, un pote qui dit « il faudrait que je m'y remette »"}
           </p>
         </div>
       </button>
