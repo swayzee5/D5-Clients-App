@@ -310,6 +310,22 @@ export async function GET(req: NextRequest) {
       // ajoutée depuis le dernier passage.
       if (def.pinned) {
         const { picked, problemes } = await resolvePinned(def.pinned, bibliotheque);
+        // Une séance amputée ne doit pas être publiée. Quand des noms ne
+        // correspondent pas à la bibliothèque, il reste parfois un ou deux
+        // exercices : « Dos & Biceps » avec un seul tirage est pire que pas de
+        // séance du tout, parce que le participant croit que c'est le
+        // programme prévu pour lui.
+        if (picked.length > 0 && picked.length < 4) {
+          if (existing) {
+            await pool.query(`UPDATE reboot_sessions SET is_active = false WHERE slug = $1`, [def.slug]);
+          }
+          report.push({
+            slug: def.slug, name: def.name, exercises: picked.length,
+            videos: picked.map((e) => `${e.name} = ${e.vimeo_video_id || "aucune"}`),
+            status: `masquée — ${picked.length} exercice(s) seulement : ${problemes.join(" ; ")}`,
+          });
+          continue;
+        }
         if (picked.length === 0) {
           if (existing) {
             await pool.query(`UPDATE reboot_sessions SET is_active = false WHERE slug = $1`, [def.slug]);
