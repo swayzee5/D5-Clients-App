@@ -3,9 +3,6 @@ import { jsonUtf8 } from "@/lib/json-utf8";
 import { pool } from "@/lib/db";
 import {
   ALL_SLUGS,
-  GYM_ONLY_MARKERS,
-  MIN_EXERCISES,
-  NOT_AN_EXERCISE_MARKERS,
   STRENGTH_SESSIONS,
   VIDEO_SESSIONS,
   isBonusTab,
@@ -36,11 +33,6 @@ import {
  * `?reset=1` force la reconstruction de toutes les séances. Les validations des
  * participants (reboot_completions) ne sont jamais touchées.
  */
-
-/** Pour LIKE : minuscules, et `%` autour de chaque fragment. */
-function contains(fragments: string[]): string[] {
-  return fragments.map((f) => `%${f.toLowerCase()}%`);
-}
 
 type LibraryRow = { id: string; name: string; vimeo_video_id: string };
 
@@ -74,48 +66,6 @@ async function ensureSchema(): Promise<void> {
   await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS reboot_sessions_slug_key ON reboot_sessions (slug)`);
   await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS library_exercise_id UUID`);
   await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS video_suppressed BOOLEAN NOT NULL DEFAULT false`);
-}
-
-/**
- * Exercices de la bibliothèque correspondant à un groupe musculaire.
- *
- * `homeOnly` écarte tout ce qui nomme une machine ou une charge. La
- * bibliothèque n'a pas de colonne matériel : le nom est la seule indication
- * disponible, et raisonner par exclusion est le seul sens qui ne laisse pas de
- * trous.
- */
-async function pickExercises(def: StrengthDef): Promise<LibraryRow[]> {
-  const homeOnly = def.tab === "maison";
-  const { rows } = await pool.query<LibraryRow>(
-    `SELECT id::text AS id, name, vimeo_video_id,
-            EXISTS (SELECT 1 FROM unnest(muscles) m WHERE LOWER(m) LIKE ANY($2::text[])) AS muscle_match
-     FROM exercise_library
-     WHERE is_active = true
-       AND vimeo_video_id IS NOT NULL
-       AND NOT (LOWER(name) LIKE ANY($1::text[]))
-       AND (
-         EXISTS (SELECT 1 FROM unnest(muscles) m WHERE LOWER(m) LIKE ANY($2::text[]))
-         OR LOWER(name) LIKE ANY($3::text[])
-       )
-       AND ($4::boolean = false OR NOT (LOWER(name) LIKE ANY($5::text[])))
-     -- Le muscle tagué passe avant le mot trouvé dans le nom. Sans cet ordre,
-     -- « Développé militaire » entrait dans la séance pectoraux : le mot
-     -- « développé » y est cherché, alors que l'exercice est tagué Épaules. Les
-     -- mots du nom ne servent que de repli quand les tags manquent.
-     ORDER BY muscle_match DESC,
-              (thumbnail_url IS NOT NULL AND thumbnail_url <> '') DESC,
-              name ASC
-     LIMIT $6`,
-    [
-      contains(NOT_AN_EXERCISE_MARKERS),
-      contains(def.muscles),
-      contains(def.nameKeywords),
-      homeOnly,
-      contains(GYM_ONLY_MARKERS),
-      def.target,
-    ]
-  );
-  return rows;
 }
 
 /** Les réglages propres à un exercice, quand le coach en a fixé. */
@@ -316,11 +266,6 @@ export async function GET(req: NextRequest) {
       // Sauf si le coach en a fixé le contenu : là, la liste est stable par
       // construction, et la rejouer est justement ce qui rattache une vidéo
       // ajoutée depuis le dernier passage.
-      if (!def.pinned && existing && existing.exercise_count >= MIN_EXERCISES && !reset) {
-        report.push({ slug: def.slug, name: def.name, exercises: existing.exercise_count, status: "inchangée" });
-        continue;
-      }
-
       if (def.pinned) {
         const { picked, problemes } = await resolvePinned(def.pinned);
         if (picked.length === 0) {
@@ -378,43 +323,15 @@ export async function GET(req: NextRequest) {
         continue;
       }
 
-      const picked = await pickExercises(def);
-      if (picked.length < MIN_EXERCISES) {
-        // Pas assez de vidéos dans la bibliothèque pour ce groupe. La séance
-        // est retirée de l'app au lieu d'y figurer à moitié vide.
-        if (existing) {
-          await pool.query(`UPDATE reboot_sessions SET is_active = false WHERE slug = $1`, [def.slug]);
-        }
-        report.push({
-          slug: def.slug, name: def.name, exercises: picked.length,
-          status: `masquée — ${picked.length} exercice(s) avec vidéo, minimum ${MIN_EXERCISES}`,
-        });
-        continue;
-      }
-
-      const sessionId = await upsertSession({
-        slug: def.slug, name: def.name, muscleGroup: def.muscleGroup,
-        location: def.tab, tab: def.tab, description: def.description,
-        durationMinutes: def.durationMinutes, orderIndex,
-      });
-
-      await pool.query(`DELETE FROM reboot_exercises WHERE session_id = $1`, [sessionId]);
-      for (let i = 0; i < picked.length; i++) {
-        // L'identifiant de la vidéo est recopié sur la ligne, en plus du lien
-        // vers la bibliothèque. Sans lui, l'affichage dépend entièrement de la
-        // jointure : désactiver une entrée de la bibliothèque ferait disparaître
-        // la démonstration d'une séance déjà en cours, sans erreur visible.
-        await pool.query(
-          `INSERT INTO reboot_exercises
-             (session_id, library_exercise_id, name, vimeo_video_id, sets, reps, rest_seconds, order_index)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-          [sessionId, picked[i].id, picked[i].name, picked[i].vimeo_video_id, def.sets, def.reps, def.restSeconds, i]
-        );
-      }
+      // Toutes les séances sont écrites à la main. Une séance sans liste est
+      // une erreur de catalogue, pas un cas à rattraper en devinant.
       report.push({
-        slug: def.slug, name: def.name, exercises: picked.length,
-        status: existing ? "reconstruite" : "créée",
+        slug: def.slug, name: def.name, exercises: 0,
+        status: "masquée — aucune liste d'exercices définie dans le catalogue",
       });
+      if (existing) {
+        await pool.query(`UPDATE reboot_sessions SET is_active = false WHERE slug = $1`, [def.slug]);
+      }
     }
 
     for (const def of VIDEO_SESSIONS) {
