@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, TrendingUp, User, Plus, X, Activity, CalendarPlus, Ruler, MessageCircle, ClipboardList } from "lucide-react"
+import { Home, TrendingUp, User, Plus, X, Activity, CalendarPlus, Ruler, MessageCircle, ClipboardList, Camera } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useState, useEffect, useCallback } from "react"
 
@@ -68,6 +68,19 @@ export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
             className="absolute bottom-24 left-4 right-4 max-w-lg mx-auto bg-d5-surface border border-d5-border rounded-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* En tête du menu : c'est l'action la plus fréquente de la
+                journée, et la seule qui se fasse debout devant une assiette
+                qui refroidit. */}
+            <Link href="/nutrition/journal" onClick={() => setOpen(false)}
+              className="flex items-center gap-4 px-5 py-4 border-b border-d5-border hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
+              <div className="w-10 h-10 rounded-xl bg-orange-400/10 flex items-center justify-center flex-shrink-0">
+                <Camera size={18} className="text-orange-400" />
+              </div>
+              <div>
+                <p className="text-white font-semibold text-sm">Photographier un repas</p>
+                <p className="text-d5-muted text-xs">Ton coach le regarde et te répond</p>
+              </div>
+            </Link>
             <Link href="/activites" onClick={() => setOpen(false)}
               className="flex items-center gap-4 px-5 py-4 border-b border-d5-border hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
               <div className="w-10 h-10 rounded-xl bg-d5-gold/10 flex items-center justify-center flex-shrink-0">
