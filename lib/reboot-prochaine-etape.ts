@@ -44,7 +44,7 @@ export function prochaineEtape({
       emoji: "💬",
       titre: `Ton message ${messages + 1} sur 3`,
       detail: "Poste-le dans le groupe, les autres l'attendent.",
-      href: "/reboot#messages",
+      href: "/reboot/messages",
     };
   }
 
@@ -53,7 +53,7 @@ export function prochaineEtape({
       emoji: "🏋️",
       titre: seances === 0 ? "Ta première séance" : `Ta séance ${seances + 1} sur 3`,
       detail: "En salle ou à la maison, avec la vidéo de chaque exercice.",
-      href: "/reboot#seances",
+      href: "/reboot/seances",
     };
   }
 
