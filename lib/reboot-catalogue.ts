@@ -48,15 +48,9 @@ export type StrengthDef = {
   name: string;
   description: string;
   durationMinutes: number;
-  /** Mots-clés cherchés dans exercise_library.muscles. */
-  muscles: string[];
-  /** Repli cherché dans exercise_library.name quand les muscles sont mal tagués. */
-  nameKeywords: string[];
   sets: number;
   reps: string;
   restSeconds: number;
-  /** Nombre d'exercices visé, quand la sélection est automatique. */
-  target: number;
   /**
    * Liste imposée par le coach, dans cet ordre, qui remplace entièrement la
    * sélection automatique.
@@ -149,132 +143,334 @@ export type VideoDef = {
   instruction: string;
 };
 
-/** Dédoublonne. La cible TypeScript du projet est ES5 : pas d'itération de Set. */
-function unique(values: string[]): string[] {
-  return values.filter((v, i) => values.indexOf(v) === i);
-}
-
-// ── Groupes musculaires ────────────────────────────────────────────────────
-// Les tags `muscles` de la bibliothèque sont inégalement remplis, d'où le
-// doublon systématique entre mots-clés de muscle et mots-clés de nom.
-
-// Des radicaux, pas des mots entiers : les tags sont au pluriel dans la
-// bibliothèque (« Pectoraux », « Mollets », « Fessiers »), et chercher
-// « pectoral » ne trouve pas « Pectoraux ». Le piège est silencieux — la
-// sélection basculait sur le repli par nom, ce qui faisait entrer un
-// « Développé militaire » dans la séance pectoraux.
-const PECS_M = ["pectora", "pecs", "poitrine", "chest"];
-const DOS_M = ["dos", "dorsal", "latissimus", "trapèz", "trapez", "rhombo"];
-const EPAULES_M = ["épaule", "epaule", "deltoï", "deltoi", "delta", "shoulder"];
-const BRAS_M = ["biceps", "triceps", "avant-bras", "brachial"];
-const JAMBES_M = [
-  "quadriceps", "quads", "ischio", "fémor", "femor",
-  "fessier", "glute", "mollet", "jambe", "adducteur",
-];
-const GAINAGE_M = ["abdo", "core", "gainage", "oblique", "transverse", "lombaire"];
-const CARDIO_M = ["cardio", "mobilit", "souplesse", "étirement", "etirement"];
-const FULL_M = unique([...PECS_M, ...DOS_M, ...EPAULES_M, ...JAMBES_M]);
-
-const PECS_N = ["développé", "developpe", "écarté", "ecarte", "pompe", "dips", "peck deck", "pull-over"];
-const DOS_N = ["tirage", "rowing", "traction", "shrug", "hyperextension", "superman", "deadlift", "soulevé"];
-const EPAULES_N = ["militaire", "élévation", "elevation", "oiseau", "arnold", "upright", "rotation externe"];
-const BRAS_N = ["curl", "extension", "kickback", "dips", "barre au front", "poignet"];
-const JAMBES_N = [
-  "squat", "fente", "presse", "leg", "mollet", "soulevé de terre",
-  "roumain", "pont fessier", "hip thrust", "chaise", "montée",
-];
-const GAINAGE_N = ["planche", "gainage", "crunch", "relevé de jambes", "russian twist", "mountain climber", "abdo"];
-const CARDIO_N = ["marche", "course", "vélo", "velo", "rameur", "corde", "burpee", "jumping", "escalier", "étirement", "etirement"];
-const FULL_N = unique([...PECS_N, ...DOS_N, ...EPAULES_N, ...JAMBES_N]);
-
 /**
- * Marqueurs de matériel de salle, exclus des séances « à la maison ».
+ * Les séances, écrites à la main.
  *
- * La bibliothèque n'a pas de colonne matériel : seul le nom de l'exercice
- * renseigne sur ce qu'il faut. On raisonne donc par exclusion — tout ce qui ne
- * nomme aucune machine reste faisable à la maison. L'inverse (lister ce qui est
- * faisable sans matériel) laisserait passer des trous, parce qu'il faudrait
- * avoir prévu chaque nom à l'avance.
- */
-export const GYM_ONLY_MARKERS = [
-  "machine", "câble", "cable", "poulie", "smith", "barre", "presse",
-  "tirage", "banc", "haltère", "haltere", "peck deck", "leg curl",
-  "leg extension", "butterfly", "hack", "rameur", "vélo", "velo",
-  "elliptique", "tapis",
-];
-
-/**
- * Entrées de la bibliothèque qui décrivent une séance ou un programme entier
- * plutôt qu'un exercice. Elles n'ont rien à faire dans une liste d'exercices.
- */
-export const NOT_AN_EXERCISE_MARKERS = ["(seance)", "(séance)", "(programme)"];
-
-const SALLE_GROUPS: Omit<StrengthDef, "slug" | "tab" | "durationMinutes" | "sets" | "reps" | "restSeconds" | "target">[] = [
-  { muscleGroup: "pecs", name: "Pectoraux", description: "Poitrine, épaules et triceps.", muscles: PECS_M, nameKeywords: PECS_N },
-  { muscleGroup: "dos", name: "Dos & Biceps", description: "Grand dorsal, trapèzes et biceps.", muscles: [...DOS_M, "biceps"], nameKeywords: [...DOS_N, "curl"] },
-  { muscleGroup: "epaules", name: "Épaules", description: "Deltoïdes, trapèzes et rotateurs.", muscles: EPAULES_M, nameKeywords: EPAULES_N },
-  { muscleGroup: "bras", name: "Bras", description: "Biceps, triceps et avant-bras.", muscles: BRAS_M, nameKeywords: BRAS_N },
-  { muscleGroup: "jambes", name: "Jambes & Fessiers", description: "Cuisses, ischio-jambiers, fessiers et mollets.", muscles: JAMBES_M, nameKeywords: JAMBES_N },
-  { muscleGroup: "haut", name: "Haut du corps", description: "Pectoraux, dos, épaules et bras en une séance.", muscles: [...PECS_M, ...DOS_M, ...EPAULES_M, ...BRAS_M], nameKeywords: [...PECS_N, ...DOS_N, ...EPAULES_N, ...BRAS_N] },
-  { muscleGroup: "fullbody", name: "Full Body", description: "Le corps entier en une séance.", muscles: FULL_M, nameKeywords: FULL_N },
-  { muscleGroup: "gainage", name: "Gainage & Abdominaux", description: "Sangle abdominale, stabilité et bas du dos.", muscles: GAINAGE_M, nameKeywords: GAINAGE_N },
-  { muscleGroup: "cardio", name: "Cardio & Mobilité", description: "Endurance douce, souplesse et récupération.", muscles: CARDIO_M, nameKeywords: CARDIO_N },
-];
-
-/**
- * Séances dont le contenu est fixé à la main par le coach.
+ * La sélection automatique par mots-clés produisait des séances plausibles et
+ * fausses : « Dos & Biceps » ne contenait que des curls, parce que le mot
+ * « curl » est fréquent et que rien ne disait à la machine qu'un dos commence
+ * par un tirage. Trouver des exercices pertinents et composer une séance sont
+ * deux métiers différents.
  *
- * Pectoraux maison a été refaite ainsi : des participants ont signalé de
- * mauvaises démonstrations. La sélection automatique fait au mieux avec les
- * mots-clés, mais elle ne sait pas qu'une vidéo est ratée, ni qu'un exercice
- * n'a pas sa place à la maison. Quand le coach a tranché, il n'y a plus rien à
- * deviner, et l'ordre affiché est le sien.
+ * Chaque séance suit donc trois règles tenues partout :
  *
- * « Pompes » attend encore sa vidéo, et passe quand même : le coach la tourne
- * dans la journée. Dès qu'elle sera dans la bibliothèque, un nouvel appel du
- * seed la rattachera sans rien changer d'autre. C'est la seule exception à la
- * règle du « pas de démonstration, pas d'exercice ».
+ *   1. Le mouvement le plus exigeant en premier, quand on est frais, et
+ *      l'isolation en dernier. L'inverse donne une séance où l'on finit par
+ *      les exercices qui méritaient le plus d'énergie.
+ *   2. Les séries baissent et les répétitions montent au fil de la séance, avec
+ *      un repos qui raccourcit. Un réglage unique du premier au dernier
+ *      exercice est la signature d'une séance produite par une machine.
+ *   3. Rien qui demande du matériel absent du lieu. À la maison, pas de barre,
+ *      pas de machine ; ce qui exige un élastique le dit dans sa consigne.
+ *
+ * Le public a entre 40 et 65 ans et a souvent arrêté depuis longtemps. D'où le
+ * gobelet plutôt que la barre, les fentes plutôt que les sauts, et des
+ * amplitudes annoncées plutôt que des charges.
+ *
+ * Les noms sont ceux de la bibliothèque, au caractère près. Un nom qui n'y
+ * correspond pas est signalé par le rapport du seed, jamais silencieux.
  */
-const PINNED: Record<string, PinnedExercise[] | undefined> = {
-  "maison-pecs": [
-    { name: "Pompes inclinées" },
-    { name: "Pompes classiques" },
-    // La bibliothèque lui donne la vidéo des pompes classiques ; celle-ci est
-    // la sienne, fournie par le coach.
-    { name: "Pompes déclinées", videoId: "1229824025" },
-    { name: "Pompes diamant", videoOptional: true },
-  ],
+type SeanceEcrite = {
+  slug: string;
+  tab: "salle" | "maison";
+  muscleGroup: string;
+  name: string;
+  description: string;
+  durationMinutes: number;
+  exercices: PinnedExercise[];
 };
 
-/**
- * Les mêmes groupes en salle et à la maison. Les séries et la récupération
- * diffèrent : sans charge, on compense par des répétitions plus nombreuses et
- * une récupération plus courte.
- */
-export const STRENGTH_SESSIONS: StrengthDef[] = [
-  ...SALLE_GROUPS.map((g) => ({
-    ...g,
-    slug: `salle-${g.muscleGroup}`,
-    tab: "salle" as const,
+const SEANCES: SeanceEcrite[] = [
+  // ── EN SALLE ──────────────────────────────────────────────────────────
+  {
+    slug: "salle-pecs",
+    tab: "salle",
+    muscleGroup: "pecs",
+    name: "Pectoraux",
+    description: "Poitrine, épaules avant et triceps.",
     durationMinutes: 50,
-    sets: 4,
-    reps: "10-12",
-    restSeconds: 90,
-    target: 6,
-  })),
-  ...SALLE_GROUPS.map((g) => ({
-    ...g,
-    slug: `maison-${g.muscleGroup}`,
-    tab: "maison" as const,
+    exercices: [
+      { name: "Développé couché haltères", sets: 4, reps: "8-10", restSeconds: 90, notes: "Descente lente, les coudes à 45° du buste." },
+      { name: "Développé incliné haltères", sets: 3, reps: "10", restSeconds: 90 },
+      { name: "Écarté couché haltères", sets: 3, reps: "12", restSeconds: 60, notes: "Bras légèrement fléchis, on cherche l'étirement." },
+      { name: "Peck deck machine", sets: 3, reps: "15", restSeconds: 60 },
+      { name: "Pompes inclinées", sets: 2, reps: "maximum", restSeconds: 60, notes: "Mains sur un banc, pour finir sans charge." },
+    ],
+  },
+  {
+    slug: "salle-dos",
+    tab: "salle",
+    muscleGroup: "dos",
+    name: "Dos & Biceps",
+    description: "Grand dorsal, milieu du dos, puis biceps en finition.",
+    durationMinutes: 50,
+    exercices: [
+      { name: "Tirage vertical prise large", sets: 4, reps: "10", restSeconds: 90, notes: "Tirer avec les coudes, pas avec les mains." },
+      { name: "Rowing haltère unilatéral", sets: 3, reps: "10 par bras", restSeconds: 75 },
+      { name: "Rowing câble assis", sets: 3, reps: "12", restSeconds: 75, notes: "Buste droit, sans balancer." },
+      { name: "Face pull", sets: 3, reps: "15", restSeconds: 60 },
+      { name: "Curl barre EZ", sets: 3, reps: "10", restSeconds: 60 },
+      { name: "Curl marteau", sets: 3, reps: "12", restSeconds: 60 },
+    ],
+  },
+  {
+    slug: "salle-epaules",
+    tab: "salle",
+    muscleGroup: "epaules",
+    name: "Épaules",
+    description: "Les trois faisceaux, et la coiffe pour finir.",
+    durationMinutes: 45,
+    exercices: [
+      { name: "Développé militaire haltères", sets: 4, reps: "8-10", restSeconds: 90 },
+      { name: "Élévations latérales haltères", sets: 3, reps: "12-15", restSeconds: 60, notes: "Léger. Monter à hauteur d'épaule, pas plus haut." },
+      { name: "Oiseau haltères", sets: 3, reps: "15", restSeconds: 60 },
+      { name: "Face pull", sets: 3, reps: "15", restSeconds: 60 },
+      { name: "Shrugs haltères", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Rotation externe élastique", sets: 2, reps: "15 par bras", restSeconds: 45, notes: "Prévention. Très léger, coude collé au corps." },
+    ],
+  },
+  {
+    slug: "salle-bras",
+    tab: "salle",
+    muscleGroup: "bras",
+    name: "Bras",
+    description: "Biceps et triceps en alternance.",
     durationMinutes: 40,
-    sets: 3,
-    reps: "12-15",
-    restSeconds: 60,
-    target: 6,
-    pinned: PINNED[`maison-${g.muscleGroup}`],
-  })),
+    exercices: [
+      { name: "Curl barre EZ", sets: 4, reps: "10", restSeconds: 75 },
+      { name: "Dips triceps aux barres", sets: 3, reps: "8-10", restSeconds: 75, notes: "Buste vertical. Machine d'assistance ou pieds au sol si besoin." },
+      { name: "Curl incliné haltères", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Extensions triceps câble corde", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Curl marteau", sets: 3, reps: "12", restSeconds: 45 },
+      { name: "Kick-back haltères", sets: 3, reps: "15 par bras", restSeconds: 45 },
+    ],
+  },
+  {
+    slug: "salle-jambes",
+    tab: "salle",
+    muscleGroup: "jambes",
+    name: "Jambes & Fessiers",
+    description: "Cuisses, fessiers, ischio-jambiers et mollets.",
+    durationMinutes: 55,
+    exercices: [
+      { name: "Squat gobelet", sets: 4, reps: "10", restSeconds: 90, notes: "Un haltère contre la poitrine. Descendre autant que les genoux le permettent." },
+      { name: "Leg press", sets: 3, reps: "12", restSeconds: 90 },
+      { name: "Deadlift roumain haltères", sets: 3, reps: "10", restSeconds: 90, notes: "Dos plat, hanches en arrière, jambes presque tendues." },
+      { name: "Fentes arrière haltères", sets: 3, reps: "10 par jambe", restSeconds: 75 },
+      { name: "Leg curl couché machine", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Mollets debout machine", sets: 3, reps: "15", restSeconds: 45 },
+    ],
+  },
+  {
+    slug: "salle-haut",
+    tab: "salle",
+    muscleGroup: "haut",
+    name: "Haut du corps",
+    description: "Pousser, tirer, et finir par les bras. Tout le haut en une séance.",
+    durationMinutes: 50,
+    exercices: [
+      { name: "Développé couché haltères", sets: 4, reps: "10", restSeconds: 90 },
+      { name: "Tirage vertical prise large", sets: 4, reps: "10", restSeconds: 90 },
+      { name: "Développé militaire haltères", sets: 3, reps: "10", restSeconds: 75 },
+      { name: "Rowing câble assis", sets: 3, reps: "12", restSeconds: 75 },
+      { name: "Curl haltères alternés", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Extensions triceps câble corde", sets: 3, reps: "12", restSeconds: 60 },
+    ],
+  },
+  {
+    slug: "salle-fullbody",
+    tab: "salle",
+    muscleGroup: "fullbody",
+    name: "Full Body",
+    description: "Un mouvement par grande fonction : pousser, tirer, s'accroupir, charnière de hanche.",
+    durationMinutes: 50,
+    exercices: [
+      { name: "Squat gobelet", sets: 3, reps: "10", restSeconds: 90 },
+      { name: "Développé couché haltères", sets: 3, reps: "10", restSeconds: 90 },
+      { name: "Tirage vertical prise large", sets: 3, reps: "10", restSeconds: 90 },
+      { name: "Deadlift roumain haltères", sets: 3, reps: "10", restSeconds: 90 },
+      { name: "Développé militaire haltères", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Planche", sets: 3, reps: "40 secondes", restSeconds: 45 },
+    ],
+  },
+  {
+    slug: "salle-gainage",
+    tab: "salle",
+    muscleGroup: "gainage",
+    name: "Gainage & Abdominaux",
+    description: "Sangle abdominale, obliques et bas du dos. Tenir, pas se tordre.",
+    durationMinutes: 35,
+    exercices: [
+      { name: "Planche", sets: 3, reps: "45 secondes", restSeconds: 45, notes: "Fessiers serrés, ne pas creuser le bas du dos." },
+      { name: "Dead bug", sets: 3, reps: "10 par côté", restSeconds: 45 },
+      { name: "Pallof press", sets: 3, reps: "12 par côté", restSeconds: 45, notes: "Au câble ou à l'élastique. Résister à la rotation." },
+      { name: "Crunch câble", sets: 3, reps: "15", restSeconds: 45 },
+      { name: "Planche latérale", sets: 3, reps: "30 secondes par côté", restSeconds: 45 },
+      { name: "Bird dog", sets: 3, reps: "10 par côté", restSeconds: 30 },
+    ],
+  },
+  {
+    slug: "salle-cardio",
+    tab: "salle",
+    muscleGroup: "cardio",
+    name: "Cardio & Mobilité",
+    description: "Monter le cardiaque sans impact, puis rouvrir les hanches et le dos.",
+    durationMinutes: 40,
+    exercices: [
+      { name: "Vélo stationnaire", sets: 1, reps: "12 minutes", restSeconds: 60, notes: "Rythme où l'on peut encore parler, pas chanter." },
+      { name: "Jumping jack", sets: 3, reps: "45 secondes", restSeconds: 45 },
+      { name: "Mountain climber", sets: 3, reps: "30 secondes", restSeconds: 45 },
+      { name: "Worlds greatest stretch", sets: 2, reps: "5 par côté", restSeconds: 30 },
+      { name: "Cat-cow", sets: 2, reps: "10", restSeconds: 30 },
+    ],
+  },
+
+  // ── À LA MAISON ───────────────────────────────────────────────────────
+  {
+    slug: "maison-pecs",
+    tab: "maison",
+    muscleGroup: "pecs",
+    name: "Pectoraux",
+    description: "Quatre angles de pompes, du plus accessible au plus dur.",
+    durationMinutes: 35,
+    exercices: [
+      { name: "Pompes inclinées", sets: 4, reps: "12-15", restSeconds: 60, notes: "Mains sur une table ou un plan de travail." },
+      { name: "Pompes classiques", sets: 3, reps: "10-12", restSeconds: 60 },
+      { name: "Pompes déclinées", sets: 3, reps: "8-10", restSeconds: 60, notes: "Pieds sur une chaise.", videoId: "1229824025" },
+      { name: "Pompes diamant", sets: 3, reps: "8", restSeconds: 60, notes: "Mains en triangle sous la poitrine.", videoOptional: true },
+      { name: "Dips banc", sets: 3, reps: "12", restSeconds: 45, notes: "Mains sur une chaise stable, dos près du bord." },
+    ],
+  },
+  {
+    slug: "maison-dos",
+    tab: "maison",
+    muscleGroup: "dos",
+    name: "Dos",
+    description: "Sans barre de traction, le dos se travaille au sol et à l'élastique.",
+    durationMinutes: 35,
+    exercices: [
+      { name: "Superman", sets: 3, reps: "12", restSeconds: 45, notes: "Au sol, lever bras et jambes sans forcer la nuque." },
+      { name: "Prone Y T W", sets: 3, reps: "8 de chaque", restSeconds: 45 },
+      { name: "Banded pull-apart", sets: 3, reps: "15", restSeconds: 45, notes: "Avec un élastique. Sans élastique, enchaîne les Superman." },
+      { name: "Face pull léger élastique", sets: 3, reps: "15", restSeconds: 45 },
+      { name: "Scapular push-up", sets: 3, reps: "10", restSeconds: 45, notes: "En position de pompe, bras tendus : seules les omoplates bougent." },
+      { name: "Bird dog", sets: 3, reps: "10 par côté", restSeconds: 30 },
+    ],
+  },
+  {
+    slug: "maison-epaules",
+    tab: "maison",
+    muscleGroup: "epaules",
+    name: "Épaules",
+    description: "Pousser au poids du corps, puis l'élastique pour le détail.",
+    durationMinutes: 30,
+    exercices: [
+      { name: "Pompes inclinées", sets: 4, reps: "12", restSeconds: 60 },
+      { name: "Élévation latérale légère", sets: 3, reps: "15", restSeconds: 45, notes: "Deux bouteilles d'eau font l'affaire." },
+      { name: "Banded pull-apart", sets: 3, reps: "15", restSeconds: 45 },
+      { name: "Prone Y T W", sets: 3, reps: "8 de chaque", restSeconds: 45 },
+      { name: "Rotation externe élastique", sets: 3, reps: "15 par bras", restSeconds: 45 },
+    ],
+  },
+  {
+    slug: "maison-jambes",
+    tab: "maison",
+    muscleGroup: "jambes",
+    name: "Jambes & Fessiers",
+    description: "Cuisses et fessiers au poids du corps, sans matériel.",
+    durationMinutes: 35,
+    exercices: [
+      { name: "Fentes marchées", sets: 3, reps: "10 par jambe", restSeconds: 60 },
+      { name: "Squat pulse", sets: 3, reps: "15", restSeconds: 60, notes: "Descendre à mi-hauteur et rebondir sans se relever." },
+      { name: "Step-up", sets: 3, reps: "12 par jambe", restSeconds: 60, notes: "Sur une marche d'escalier." },
+      { name: "Glute bridge", sets: 3, reps: "15", restSeconds: 45 },
+      { name: "Fentes latérales", sets: 3, reps: "10 par côté", restSeconds: 45 },
+      { name: "Mollets sur marche", sets: 3, reps: "15", restSeconds: 45 },
+    ],
+  },
+  {
+    slug: "maison-haut",
+    tab: "maison",
+    muscleGroup: "haut",
+    name: "Haut du corps",
+    description: "Pousser et tirer, sans rien d'autre que le sol et une chaise.",
+    durationMinutes: 35,
+    exercices: [
+      { name: "Pompes inclinées", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Superman", sets: 3, reps: "12", restSeconds: 45 },
+      { name: "Dips banc", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Banded pull-apart", sets: 3, reps: "15", restSeconds: 45 },
+      { name: "Élévation latérale légère", sets: 3, reps: "15", restSeconds: 45 },
+      { name: "Scapular push-up", sets: 3, reps: "10", restSeconds: 45 },
+    ],
+  },
+  {
+    slug: "maison-fullbody",
+    tab: "maison",
+    muscleGroup: "fullbody",
+    name: "Full Body",
+    description: "Le corps entier, sans matériel, en trente minutes.",
+    durationMinutes: 35,
+    exercices: [
+      { name: "Fentes marchées", sets: 3, reps: "10 par jambe", restSeconds: 60 },
+      { name: "Pompes inclinées", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Glute bridge", sets: 3, reps: "15", restSeconds: 45 },
+      { name: "Superman", sets: 3, reps: "12", restSeconds: 45 },
+      { name: "Planche", sets: 3, reps: "40 secondes", restSeconds: 45 },
+      { name: "Jumping jack", sets: 3, reps: "45 secondes", restSeconds: 45 },
+    ],
+  },
+  {
+    slug: "maison-gainage",
+    tab: "maison",
+    muscleGroup: "gainage",
+    name: "Gainage & Abdominaux",
+    description: "Tenir la position plutôt que multiplier les crunchs.",
+    durationMinutes: 30,
+    exercices: [
+      { name: "Planche", sets: 3, reps: "40 secondes", restSeconds: 45, notes: "Fessiers serrés, ne pas creuser le bas du dos." },
+      { name: "Dead bug", sets: 3, reps: "10 par côté", restSeconds: 45 },
+      { name: "Crunch inversé", sets: 3, reps: "12", restSeconds: 45 },
+      { name: "Planche latérale", sets: 3, reps: "30 secondes par côté", restSeconds: 45 },
+      { name: "Bicycle crunch", sets: 3, reps: "20", restSeconds: 45 },
+      { name: "Bird dog", sets: 3, reps: "10 par côté", restSeconds: 30 },
+    ],
+  },
+  {
+    slug: "maison-cardio",
+    tab: "maison",
+    muscleGroup: "cardio",
+    name: "Cardio & Mobilité",
+    description: "Faire monter le cœur dans un salon, puis rouvrir les hanches.",
+    durationMinutes: 30,
+    exercices: [
+      { name: "Jumping jack", sets: 4, reps: "45 secondes", restSeconds: 45 },
+      { name: "High knees", sets: 3, reps: "30 secondes", restSeconds: 45 },
+      { name: "Mountain climber", sets: 3, reps: "30 secondes", restSeconds: 45 },
+      { name: "Inchworm", sets: 3, reps: "8", restSeconds: 45 },
+      { name: "Worlds greatest stretch", sets: 2, reps: "5 par côté", restSeconds: 30 },
+      { name: "Cat-cow", sets: 2, reps: "10", restSeconds: 30 },
+    ],
+  },
 ];
 
+/**
+ * Les réglages de séance ne servent plus que de repli : chaque exercice porte
+ * les siens. Ils restent définis pour qu'un exercice ajouté sans prescription
+ * ne se retrouve pas sans rien.
+ */
+export const STRENGTH_SESSIONS: StrengthDef[] = SEANCES.map((s) => ({
+  slug: s.slug,
+  tab: s.tab,
+  muscleGroup: s.muscleGroup,
+  name: s.name,
+  description: s.description,
+  durationMinutes: s.durationMinutes,
+  sets: 3,
+  reps: "12",
+  restSeconds: 60,
+  pinned: s.exercices,
+}));
 
 export const VIDEO_SESSIONS: VideoDef[] = [
   {
@@ -374,13 +570,6 @@ export const ALL_SLUGS = [
   ...STRENGTH_SESSIONS.map((s) => s.slug),
   ...VIDEO_SESSIONS.map((s) => s.slug),
 ];
-
-/**
- * En dessous de ce nombre d'exercices, une séance de renforcement n'est pas
- * publiée. Mieux vaut une séance absente qu'une séance qui s'ouvre sur deux
- * exercices et laisse croire que c'est tout le programme.
- */
-export const MIN_EXERCISES = 4;
 
 /** Les onglets ne comptant pas dans l'objectif de 3 séances du challenge. */
 export function isBonusTab(tab: RebootTab): boolean {
