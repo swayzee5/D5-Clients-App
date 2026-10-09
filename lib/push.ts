@@ -3,6 +3,7 @@ import { countSeanceCompletions } from "@/lib/queries/reboot";
 
 const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID ?? "";
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY ?? "";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.d5coaching-distance.com";
 
 async function ensureNotificationLog() {
   await pool
@@ -18,10 +19,19 @@ async function ensureNotificationLog() {
     .catch(() => {});
 }
 
+/**
+ * Envoie une notification à un client.
+ *
+ * `chemin` ouvre directement l'écran concerné, par exemple « /reboot/bilan ».
+ * Sans lui, la notification dépose le participant sur l'accueil et lui laisse
+ * retrouver seul ce qu'on vient de lui demander — ce qui annule l'essentiel du
+ * bénéfice du rappel.
+ */
 export async function sendPushToClient(
   clientId: string,
   title: string,
-  message: string
+  message: string,
+  chemin?: string
 ): Promise<void> {
   if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) return;
   try {
@@ -37,6 +47,14 @@ export async function sendPushToClient(
         target_channel: "push",
         headings: { fr: title, en: title },
         contents: { fr: message, en: message },
+        ...(chemin
+          ? {
+              url: `${APP_URL}${chemin}`,
+              // Le même chemin en donnée : l'app native n'ouvre pas une URL,
+              // elle lit ce champ pour naviguer dans sa propre vue.
+              data: { chemin },
+            }
+          : {}),
       }),
     });
     if (!res.ok) {
