@@ -237,10 +237,10 @@ export function BilanForm({
 
       {(satisfaction ?? 0) >= 4 ? (
         <div className="card space-y-3">
-          <p className="text-sm font-semibold text-white">Quelqu&apos;un autour de toi en a besoin</p>
+          <p className="text-sm font-semibold text-white">Un gars autour de toi en a besoin</p>
           <p className="text-xs leading-relaxed text-d5-muted">
-            Tu connais forcément une personne qui dit « il faudrait que je m&apos;y remette »
-            depuis des mois. Envoie-lui ça.
+            Tu connais forcément un collègue, un frère ou un pote qui dit
+            « il faudrait que je m&apos;y remette » depuis des mois. Envoie-lui ça.
           </p>
           <div className="rounded-xl border border-d5-gold/20 bg-d5-surface-2 p-3.5">
             <p className="whitespace-pre-line text-sm leading-relaxed text-white">{partage}</p>

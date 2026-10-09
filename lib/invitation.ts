@@ -34,6 +34,7 @@ export function messageInvitation(prenom: string | null | undefined, points: num
     return [
       "Je viens de terminer le Reboot 40 avec Daye.",
       `En 7 jours j'ai repris ${points} points sur mon score de forme.`,
+      "C'est fait pour des gars comme nous, qui ont passé la quarantaine et qui n'ont pas trois heures par jour.",
       `Si tu veux essayer : ${lien}`,
     ].join("\n");
   }
@@ -41,6 +42,7 @@ export function messageInvitation(prenom: string | null | undefined, points: num
   return [
     "Je fais le challenge Reboot 40 avec Daye en ce moment.",
     "7 jours, 3 séances, et un score de forme mesuré au début et à la fin.",
+    "C'est pensé pour les quadras qui veulent s'y remettre sans tout casser.",
     `Si ça te parle : ${lien}`,
   ].join("\n");
 }

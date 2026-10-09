@@ -125,7 +125,7 @@ export default async function RebootPage() {
           <span className="text-d5-gold text-xs font-semibold uppercase tracking-wider">Challenge offert</span>
         </div>
         <h1 className="text-xl font-bold text-white">Reboot 40</h1>
-        <p className="text-gray-400 text-sm mt-0.5">{TOTAL_TASKS} étapes pour te remettre en mouvement</p>
+        <p className="text-gray-400 text-sm mt-0.5">{TOTAL_TASKS} étapes pour relancer la machine</p>
         <div className="mt-4">
           <div className="flex items-center justify-between text-xs mb-1.5">
             <span className="text-gray-400">{totalCompleted}/{TOTAL_TASKS} étapes complétées</span>
@@ -317,7 +317,11 @@ export default async function RebootPage() {
               🏅 Télécharger mon certificat PDF
             </Link>
             <p className="text-gray-400 text-sm text-center leading-relaxed">
-              Tu as prouvé que tu peux être régulier. L&apos;accompagnement coaching va 10× plus loin — programme personnalisé, suivi nutritionnel, et coaching direct.
+              Tu as prouvé que tu peux être régulier, avec le travail et la famille
+              par-dessus. C&apos;est exactement ce qui manque à la plupart des hommes
+              de ton âge. L&apos;accompagnement va chercher la suite : un programme
+              calibré sur ta récupération, la nutrition, et moi derrière toi
+              pendant 6 mois.
             </p>
             <div className="bg-d5-gold text-black rounded-xl px-4 py-4 text-sm font-bold text-center cursor-pointer hover:bg-d5-gold/90 transition-colors active:scale-[0.98]">
               Réserver mon appel découverte gratuit →

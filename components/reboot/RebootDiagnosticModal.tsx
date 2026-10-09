@@ -23,10 +23,10 @@ const COACH_EMAIL = "d5fitnesstraining@gmail.com"
 /**
  * Diagnostic de départ Reboot 40, bloquant.
  *
- * Une question par écran plutôt qu'un long formulaire : le public a 40-65 ans,
- * répond sur téléphone, et la moitié des questions sont du texte libre. Un mur
- * de champs ferait abandonner, et une réponse bâclée ne sert ni le score ni le
- * message vocal.
+ * Une question par écran plutôt qu'un long formulaire : le public est masculin,
+ * a passé la quarantaine, répond sur téléphone, et la moitié des questions sont
+ * du texte libre. Un mur de champs ferait abandonner, et une réponse bâclée ne
+ * sert ni le score ni le message vocal.
  *
  * Le composant est rendu à la place du tableau de bord, pas par-dessus : rien
  * d'autre n'est monté, donc rien d'autre n'est atteignable, même au clavier ou
