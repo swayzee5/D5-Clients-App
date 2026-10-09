@@ -16,7 +16,11 @@ export const pool =
     ssl: { rejectUnauthorized: false },
     max: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
+    // 2 secondes ne suffisent pas : la base se met en veille et son réveil
+    // prend parfois plusieurs secondes. Le symptôme était « Connection
+    // terminated due to connection timeout » sur une page qui fonctionne le
+    // reste du temps — donc une panne intermittente, la pire à diagnostiquer.
+    connectionTimeoutMillis: 15000,
   })
 
 if (process.env.NODE_ENV !== "production") {

@@ -34,6 +34,14 @@ import {
  * participants (reboot_completions) ne sont jamais touchées.
  */
 
+/**
+ * La reconstruction complète dépasse le budget par défaut d'une fonction
+ * serveur. Sans ce réglage, l'appel est coupé en plein travail et rend
+ * « Connection terminated », ce qui ressemble à une panne de base alors que
+ * c'est une limite de temps.
+ */
+export const maxDuration = 60;
+
 type LibraryRow = { id: string; name: string; vimeo_video_id: string };
 
 /** Exercice résolu, avec la prescription qui l'accompagne. */
@@ -68,6 +76,34 @@ async function ensureSchema(): Promise<void> {
   await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS video_suppressed BOOLEAN NOT NULL DEFAULT false`);
 }
 
+/**
+ * Toute la bibliothèque en mémoire, en une requête.
+ *
+ * Chaque exercice était cherché par son propre aller-retour : dix-sept séances
+ * de six exercices font une centaine d'interrogations, et la route finissait
+ * par dépasser son temps. Le catalogue tient en quelques centaines de lignes,
+ * autant le lire d'un coup.
+ *
+ * La clé est le nom normalisé — minuscules, espaces retirés aux extrémités —
+ * puisque c'est ainsi que les séances y font référence. À noms égaux, celui
+ * qui a une vidéo l'emporte : un doublon sans vidéo ne doit pas masquer
+ * l'entrée utile.
+ */
+async function chargerBibliotheque(): Promise<Map<string, LibraryRow>> {
+  const { rows } = await pool.query<LibraryRow>(
+    `SELECT id::text AS id, name, vimeo_video_id
+     FROM exercise_library
+     WHERE is_active = true
+     ORDER BY (vimeo_video_id IS NOT NULL) DESC, created_at ASC`
+  );
+  const index = new Map<string, LibraryRow>();
+  for (const row of rows) {
+    const cle = row.name.trim().toLowerCase();
+    if (!index.has(cle)) index.set(cle, row);
+  }
+  return index;
+}
+
 /** Les réglages propres à un exercice, quand le coach en a fixé. */
 function prescription(entry: PinnedExercise) {
   return {
@@ -88,7 +124,8 @@ function prescription(entry: PinnedExercise) {
  * qu'un exercice signalé.
  */
 async function resolvePinned(
-  pinned: PinnedExercise[]
+  pinned: PinnedExercise[],
+  bibliotheque: Map<string, LibraryRow>
 ): Promise<{ picked: Prescrit[]; problemes: string[] }> {
   const picked: Prescrit[] = [];
   const problemes: string[] = [];
@@ -96,15 +133,8 @@ async function resolvePinned(
   const dejaVues = new Map<string, string>();
 
   for (const entry of pinned) {
-    const { rows } = await pool.query<LibraryRow>(
-      `SELECT id::text AS id, name, vimeo_video_id
-       FROM exercise_library
-       WHERE is_active = true AND LOWER(TRIM(name)) = LOWER(TRIM($1))
-       ORDER BY (vimeo_video_id IS NOT NULL) DESC, created_at ASC
-       LIMIT 1`,
-      [entry.name]
-    );
-    const found = rows[0];
+    const found = bibliotheque.get(entry.name.trim().toLowerCase()) ?? null;
+
     if (!found) {
       // Quand le coach a fourni l'identifiant de la vidéo, l'entrée de
       // bibliothèque n'apporte plus rien : on a le nom et la démonstration.
@@ -118,6 +148,7 @@ async function resolvePinned(
       problemes.push(`« ${entry.name} » introuvable dans la bibliothèque`);
       continue;
     }
+
     if (entry.videoId) {
       // Vidéo imposée : elle appartient à cet exercice, donc elle entre aussi
       // dans le registre des vidéos déjà prises.
@@ -125,6 +156,7 @@ async function resolvePinned(
       picked.push({ ...prescription(entry), id: found.id, name: found.name, vimeo_video_id: entry.videoId });
       continue;
     }
+
     if (!found.vimeo_video_id && !entry.videoOptional) {
       problemes.push(`« ${entry.name} » sans vidéo`);
       continue;
@@ -148,19 +180,28 @@ async function resolvePinned(
   return { picked, problemes };
 }
 
-/** La vidéo d'un échauffement, d'un étirement ou d'un HIIT, si elle existe. */
-async function findVideo(def: VideoDef): Promise<LibraryRow | null> {
-  const pattern = `%${def.match.map((m) => m.toLowerCase()).join("%")}%`;
-  const { rows } = await pool.query<LibraryRow>(
-    `SELECT id::text AS id, name, vimeo_video_id
-     FROM exercise_library
-     WHERE is_active = true AND vimeo_video_id IS NOT NULL
-       AND LOWER(name) LIKE $1
-     ORDER BY LENGTH(name) ASC, name ASC
-     LIMIT 1`,
-    [pattern]
-  );
-  return rows[0] ?? null;
+/**
+ * La vidéo d'un échauffement, d'un étirement ou d'un HIIT, si elle existe.
+ *
+ * Cherchée dans la bibliothèque déjà chargée : les fragments doivent
+ * apparaître dans cet ordre dans le nom. À plusieurs candidates, la plus
+ * courte gagne — « Échauffement full body 1 » plutôt que « Échauffement full
+ * body 1 et 2 ».
+ */
+function findVideo(def: VideoDef, bibliotheque: Map<string, LibraryRow>): LibraryRow | null {
+  const fragments = def.match.map((m) => m.toLowerCase());
+  const candidates = Array.from(bibliotheque.values()).filter((row) => {
+    if (!row.vimeo_video_id) return false;
+    let position = 0;
+    for (const fragment of fragments) {
+      const trouve = row.name.toLowerCase().indexOf(fragment, position);
+      if (trouve === -1) return false;
+      position = trouve + fragment.length;
+    }
+    return true;
+  });
+  candidates.sort((a, b) => a.name.length - b.name.length || a.name.localeCompare(b.name));
+  return candidates[0] ?? null;
 }
 
 type SessionRow = { id: string; exercise_count: number; library_ids: string[] };
@@ -251,6 +292,7 @@ export async function GET(req: NextRequest) {
 
   try {
     await ensureSchema();
+    const bibliotheque = await chargerBibliotheque();
 
     const report: Report[] = [];
     let orderIndex = 0;
@@ -267,7 +309,7 @@ export async function GET(req: NextRequest) {
       // construction, et la rejouer est justement ce qui rattache une vidéo
       // ajoutée depuis le dernier passage.
       if (def.pinned) {
-        const { picked, problemes } = await resolvePinned(def.pinned);
+        const { picked, problemes } = await resolvePinned(def.pinned, bibliotheque);
         if (picked.length === 0) {
           if (existing) {
             await pool.query(`UPDATE reboot_sessions SET is_active = false WHERE slug = $1`, [def.slug]);
@@ -285,26 +327,34 @@ export async function GET(req: NextRequest) {
           durationMinutes: def.durationMinutes, orderIndex,
         });
         await pool.query(`DELETE FROM reboot_exercises WHERE session_id = $1`, [sessionId]);
-        for (let i = 0; i < picked.length; i++) {
+        // Une seule requête pour toute la séance. Une insertion par exercice
+        // multipliait les allers-retours par six, et c'est ce qui faisait
+        // dépasser le temps imparti à la route.
+        if (picked.length > 0) {
+          const valeurs: unknown[] = [];
+          const lignes = picked.map((e, i) => {
+            const d = i * 9;
+            valeurs.push(
+              sessionId,
+              e.id || null,
+              e.name,
+              e.vimeo_video_id || null,
+              // Sans ce drapeau, l'affichage retrouverait la vidéo par le nom
+              // et la ferait revenir : couper le lien ne suffit pas.
+              e.vimeo_video_id === "",
+              e.sets ?? def.sets,
+              e.reps ?? def.reps,
+              e.restSeconds ?? def.restSeconds,
+              e.notes ?? null
+            );
+            return `($${d + 1},$${d + 2},$${d + 3},$${d + 4},$${d + 5},$${d + 6},$${d + 7},$${d + 8},$${d + 9},${i})`;
+          });
           await pool.query(
             `INSERT INTO reboot_exercises
                (session_id, library_exercise_id, name, vimeo_video_id,
                 video_suppressed, sets, reps, rest_seconds, notes, order_index)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-            [
-              sessionId,
-              picked[i].id || null,
-              picked[i].name,
-              picked[i].vimeo_video_id || null,
-              // Sans ce drapeau, l'affichage retrouverait la video par le nom
-              // et la ferait revenir : couper le lien ne suffit pas.
-              picked[i].vimeo_video_id === "",
-              picked[i].sets ?? def.sets,
-              picked[i].reps ?? def.reps,
-              picked[i].restSeconds ?? def.restSeconds,
-              picked[i].notes ?? null,
-              i,
-            ]
+             VALUES ${lignes.join(",")}`,
+            valeurs
           );
         }
         const sansVideo = picked.filter((e) => !e.vimeo_video_id).map((e) => e.name);
@@ -336,7 +386,7 @@ export async function GET(req: NextRequest) {
 
     for (const def of VIDEO_SESSIONS) {
       orderIndex++;
-      const video = await findVideo(def);
+      const video = findVideo(def, bibliotheque);
       const existingVideo = await findSession(def.slug);
 
       if (video && !reset && existingVideo?.library_ids.length === 1 && existingVideo.library_ids[0] === video.id) {
