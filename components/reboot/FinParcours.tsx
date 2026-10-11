@@ -114,11 +114,14 @@ export function FinParcours({
               : "Sept jours, c'est court. Ce qui se construit sur six mois n'a rien à voir, et c'est précisément de ça qu'on parlerait."}
           </p>
 
-          {reglages.prix && (
-            <p className="rounded-xl bg-black/25 px-4 py-3 text-sm font-semibold text-white">
-              {reglages.prix}
-            </p>
-          )}
+          {/* Sans prix réglé, le bloc dirait seulement « réserve un appel »,
+              ce qui ne dit pas ce qu'on réserve. La ligne de repli décrit
+              l'engagement sans chiffre : tant que le coach a plus de créneaux
+              que de demandes, annoncer le montant ici lui fait perdre des
+              gens qu'un appel aurait convaincus. */}
+          <p className="rounded-xl bg-black/25 px-4 py-3 text-sm font-semibold text-white">
+            {reglages.prix || "Accompagnement individuel sur 6 mois, en petit comité."}
+          </p>
 
           <a
             href={reglages.lienReservation}
