@@ -107,11 +107,14 @@ export const QUESTIONS: Question[] = [
   {
     id: "strategie_15h",
     kind: "single",
-    prompt: "Vers 15h, quelle est votre stratégie pour tenir ?",
+    prompt: "Vers 15h, quand l'énergie retombe, comment faites-vous ?",
+    // Les trois réponses sont à la première personne et décrivent une action.
+    // « Café, sucre, ou les deux » se lisait comme une liste de courses : on
+    // comprenait les mots sans comprendre ce qu'on devait en faire.
     choices: [
-      { value: "cafe_sucre", label: "Café, sucre, ou les deux" },
+      { value: "cafe_sucre", label: "Je prends un café, un truc sucré, ou les deux" },
       { value: "force_mentale", label: "Je serre les dents, à la force mentale" },
-      { value: "ca_va", label: "Rien de particulier, tout va bien" },
+      { value: "ca_va", label: "Rien de particulier, je n'ai pas de coup de barre" },
     ],
   },
   {
