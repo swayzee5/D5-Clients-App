@@ -8,6 +8,8 @@ import { getRebootDiagnostic } from "@/lib/queries/reboot-diagnostic";
 import { getBilan } from "@/lib/queries/reboot-bilan";
 import { comparer } from "@/lib/reboot-diagnostic";
 import { BilanForm } from "@/components/reboot/BilanForm";
+import { FinParcours } from "@/components/reboot/FinParcours";
+import { getReglagesFin } from "@/lib/queries/reboot-fin";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Mon bilan — Reboot 40" };
@@ -34,6 +36,7 @@ export default async function BilanPage() {
 
   const bilan = await getBilan(clientId);
   const prenom = session.user?.name?.split(" ")[0];
+  const reglagesFin = await getReglagesFin();
 
   return (
     <div className="space-y-5 pb-8">
@@ -46,14 +49,22 @@ export default async function BilanPage() {
       </Link>
 
       {bilan ? (
-        <BilanFige
-          departGlobal={depart.scores.global}
-          arriveeGlobal={bilan.scores.global}
-          evolutions={comparer(depart.scores, bilan.scores)}
-          temoignage={bilan.temoignage}
-        />
+        <>
+          <BilanFige
+            departGlobal={depart.scores.global}
+            arriveeGlobal={bilan.scores.global}
+            evolutions={comparer(depart.scores, bilan.scores)}
+            temoignage={bilan.temoignage}
+          />
+          {/* Après l'écart, jamais avant : la proposition ne tient que parce
+              qu'il vient de voir ce que sept jours ont produit. */}
+          <FinParcours
+            reglages={reglagesFin}
+            ecart={bilan.scores.global - depart.scores.global}
+          />
+        </>
       ) : (
-        <BilanForm depart={depart.scores} firstName={prenom} />
+        <BilanForm depart={depart.scores} firstName={prenom} reglagesFin={reglagesFin} />
       )}
     </div>
   );

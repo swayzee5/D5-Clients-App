@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { confirmIntroWatched } from "@/app/(dashboard)/reboot/intro-actions";
+import { FORMAT_VERTICAL } from "@/lib/vimeo";
 
 const COACH_EMAIL = "d5fitnesstraining@gmail.com";
 
@@ -25,21 +26,6 @@ const COACH_EMAIL = "d5fitnesstraining@gmail.com";
  * qui l'a utilisée pour lui envoyer la vidéo en privé.
  */
 
-type PlayerVimeo = {
-  on: (evt: string, cb: (data: { seconds: number; duration: number }) => void) => void;
-  getCurrentTime: () => Promise<number>;
-  setCurrentTime: (s: number) => Promise<number>;
-  getVideoWidth: () => Promise<number>;
-  getVideoHeight: () => Promise<number>;
-  ready: () => Promise<void>;
-};
-
-declare global {
-  interface Window {
-    Vimeo?: { Player: new (el: HTMLElement | HTMLIFrameElement) => PlayerVimeo };
-  }
-}
-
 /** Au-delà de ce saut en avant, on considère que la vidéo a été passée. */
 const TOLERANCE_SAUT = 3;
 
@@ -51,7 +37,7 @@ const TOLERANCE_SAUT = 3;
  * horizontale, ce qui se remarque à peine. L'erreur inverse réduit une vidéo
  * verticale à un timbre-poste au milieu de l'écran.
  */
-const FORMAT_PAR_DEFAUT = 9 / 16;
+const FORMAT_PAR_DEFAUT = FORMAT_VERTICAL;
 
 export function RebootIntroGate({ videoId, firstName }: { videoId: string; firstName?: string | null }) {
   const router = useRouter();

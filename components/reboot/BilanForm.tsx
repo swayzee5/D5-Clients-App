@@ -12,6 +12,8 @@ import {
 } from "@/lib/reboot-diagnostic";
 import { submitBilan } from "@/app/(dashboard)/reboot/bilan-actions";
 import { messageInvitation } from "@/lib/invitation";
+import { FinParcours } from "@/components/reboot/FinParcours";
+import type { ReglagesFin } from "@/lib/queries/reboot-fin";
 
 /**
  * Bilan de fin de challenge.
@@ -33,9 +35,11 @@ type Phase = "notes" | "resultat" | "avis" | "merci";
 export function BilanForm({
   depart,
   firstName,
+  reglagesFin,
 }: {
   depart: Scores;
   firstName?: string | null;
+  reglagesFin: ReglagesFin;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -234,6 +238,12 @@ export function BilanForm({
       {arrivee && (
         <Comparaison depart={depart} arrivee={arrivee} ecart={ecartGlobal} evolutions={evolutions} />
       )}
+
+      {/* La vidéo de clôture et la prise de rendez-vous viennent juste après
+          l'écart, et avant le partage. L'ordre compte : la proposition ne
+          tient que tant qu'il a ses propres chiffres sous les yeux, alors que
+          le partage se demande très bien une minute plus tard. */}
+      <FinParcours reglages={reglagesFin} ecart={ecartGlobal} />
 
       {(satisfaction ?? 0) >= 4 ? (
         <div className="card space-y-3">
