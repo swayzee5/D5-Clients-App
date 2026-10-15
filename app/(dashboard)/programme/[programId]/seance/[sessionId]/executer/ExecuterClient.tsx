@@ -8,6 +8,7 @@ import {
   completeWorkoutSession,
   saveSessionNote,
   getExerciseHistory,
+  getDerniereCharge,
 } from "./actions";
 import type { ProgramSession } from "@/lib/queries/programme";
 
@@ -38,6 +39,12 @@ export function ExecuterClient({ seance, clientId, programId }: Props) {
   const [showHistory, setShowHistory] = useState(false);
   const [showVideo, setShowVideo] = useState(false);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  // Ce qui a été fait la dernière fois sur cette série. Affiché d'office :
+  // chercher sa charge au milieu d'une séance coûte plus de temps que la
+  // série elle-même.
+  const [derniere, setDerniere] = useState<
+    { date: string; reps: number | null; charge: string | null } | null
+  >(null);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
@@ -172,9 +179,26 @@ export function ExecuterClient({ seance, clientId, programId }: Props) {
     setShowNote(false);
   }
 
+  // Rechargé à chaque exercice et à chaque série : la série 3 se compare à la
+  // série 3, pas à une moyenne. Les erreurs sont silencieuses — ne pas
+  // afficher le rappel est acceptable, bloquer la séance ne l'est pas.
+  useEffect(() => {
+    let annule = false;
+    if (!currentExercise) return;
+    setDerniere(null);
+    getDerniereCharge(currentExercise.id, setIdx)
+      .then((d) => {
+        if (!annule) setDerniere(d);
+      })
+      .catch(() => {});
+    return () => {
+      annule = true;
+    };
+  }, [currentExercise?.id, setIdx]);
+
   async function handleShowHistory() {
     if (!currentExercise) return;
-    const h = await getExerciseHistory(currentExercise.id, clientId);
+    const h = await getExerciseHistory(currentExercise.id);
     setHistory(h);
     setShowHistory(true);
   }
@@ -304,6 +328,32 @@ export function ExecuterClient({ seance, clientId, programId }: Props) {
                 </div>
               )}
             </div>
+
+            {/* Le rappel de la dernière fois, avant les champs : c'est ce
+                qu'on regarde juste avant de charger la barre. Tapper dessus
+                remplit les deux champs — le geste le plus fréquent est de
+                refaire la même chose, ou la même chose plus lourde. */}
+            {derniere && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (derniere.reps !== null) setReps(String(derniere.reps));
+                  if (derniere.charge) setWeight(derniere.charge);
+                }}
+                className="flex w-full items-center justify-between rounded-xl border border-d5-border bg-d5-surface-2 px-4 py-2.5 text-left transition-colors active:border-d5-gold/50"
+              >
+                <span className="text-xs text-d5-muted">
+                  Dernière fois ·{" "}
+                  {new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short" }).format(
+                    new Date(derniere.date)
+                  )}
+                </span>
+                <span className="text-sm font-bold text-white">
+                  {derniere.reps ?? "—"} reps
+                  {derniere.charge ? ` · ${derniere.charge}` : ""}
+                </span>
+              </button>
+            )}
 
             {/* Inputs */}
             <div className="grid grid-cols-2 gap-3">
