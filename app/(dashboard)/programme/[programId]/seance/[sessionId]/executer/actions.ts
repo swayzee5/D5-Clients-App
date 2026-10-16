@@ -1,6 +1,8 @@
 "use server";
 
 import { pool } from "@/lib/db";
+import { auth } from "@/auth";
+import { historiqueCharges, derniereCharge } from "@/lib/queries/charges";
 
 async function ensureTables() {
   await pool.query(`
@@ -122,28 +124,40 @@ export async function saveSessionNote(
   );
 }
 
+/**
+ * L'historique des charges pour un exercice.
+ *
+ * L'identifiant du client vient de la session, jamais du composant : il
+ * transitait par les propriétés du client, où n'importe qui pouvait le
+ * remplacer par celui d'un autre et lire ses performances.
+ *
+ * La recherche remonte par le mouvement et non par la ligne de séance, pour
+ * que refaire le programme n'efface pas l'historique — voir lib/queries/charges.
+ */
 export async function getExerciseHistory(
-  exerciseId: string,
-  clientId: string
+  exerciseId: string
 ): Promise<{ date: string; sets: { reps: number | null; weight: string | null }[] }[]> {
-  await ensureTables();
-  const { rows } = await pool.query(
-    `SELECT ws.started_at::date as date, sp.reps_done, sp.weight_used, sp.set_index
-     FROM set_performances sp
-     JOIN workout_sessions ws ON ws.id = sp.workout_session_id
-     WHERE sp.exercise_id = $1 AND ws.client_id = $2 AND ws.status = 'completed'
-     ORDER BY ws.started_at DESC, sp.set_index ASC
-     LIMIT 40`,
-    [exerciseId, clientId]
-  );
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  const seances = await historiqueCharges(exerciseId, session.user.id);
+  return seances.map((s) => ({
+    date: s.date,
+    sets: s.series.map((serie) => ({ reps: serie.reps, weight: serie.charge })),
+  }));
+}
 
-  const grouped: Record<string, { reps: number | null; weight: string | null }[]> = {};
-  for (const row of rows) {
-    const d = row.date;
-    if (!grouped[d]) grouped[d] = [];
-    grouped[d].push({ reps: row.reps_done, weight: row.weight_used });
-  }
-  return Object.entries(grouped)
-    .slice(0, 5)
-    .map(([date, sets]) => ({ date, sets }));
+/**
+ * Ce qui a été fait la dernière fois, sur cette série précise.
+ *
+ * Affiché d'office pendant la série en cours : c'est la réponse à « je mets
+ * du temps à trouver la bonne charge », et elle ne vaut que si elle est là
+ * sans qu'on ait à la demander.
+ */
+export async function getDerniereCharge(
+  exerciseId: string,
+  setIndex: number
+): Promise<{ date: string; reps: number | null; charge: string | null } | null> {
+  const session = await auth();
+  if (!session?.user?.id) return null;
+  return derniereCharge(exerciseId, session.user.id, setIndex);
 }
