@@ -9,6 +9,31 @@ import { pool } from "@/lib/db";
  * pour une modification qui n'en est pas une.
  */
 
+/**
+ * Ajoute les colonnes de suivi si elles manquent.
+ *
+ * Le fichier de migration existe, mais rien ne l'exécute : les deux
+ * applications se partagent une base sans outil de migration commun. Une
+ * colonne absente faisait échouer la page du coach, qui affichait alors
+ * « personne n'a terminé » — une panne déguisée en vérité.
+ *
+ * Mémoïsé : l'ordre est idempotent mais inutile à rejouer à chaque clic.
+ */
+let colonnesPretes = false;
+async function ensureColonnesFin(): Promise<void> {
+  if (colonnesPretes) return;
+  await pool
+    .query(
+      `ALTER TABLE reboot_bilans
+         ADD COLUMN IF NOT EXISTS video_fin_vue_at TIMESTAMPTZ,
+         ADD COLUMN IF NOT EXISTS cta_clique_at    TIMESTAMPTZ,
+         ADD COLUMN IF NOT EXISTS rdv_confirme_at  TIMESTAMPTZ,
+         ADD COLUMN IF NOT EXISTS relance_at       TIMESTAMPTZ`
+    )
+    .catch(() => {});
+  colonnesPretes = true;
+}
+
 export type ReglagesFin = {
   /** Identifiant Vimeo de la vidéo de clôture. Null = pas de vidéo. */
   videoId: string | null;
@@ -49,6 +74,7 @@ export type SuiviFin = {
 
 export async function getSuiviFin(clientId: string): Promise<SuiviFin | null> {
   try {
+    await ensureColonnesFin();
     const { rows } = await pool.query<{
       video_fin_vue_at: Date | null;
       cta_clique_at: Date | null;
@@ -82,6 +108,7 @@ export async function marquerFin(
   quoi: "video" | "cta"
 ): Promise<void> {
   const colonne = quoi === "video" ? "video_fin_vue_at" : "cta_clique_at";
+  await ensureColonnesFin();
   await pool
     .query(
       `UPDATE reboot_bilans
