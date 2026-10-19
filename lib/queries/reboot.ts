@@ -48,6 +48,10 @@ function ensureColumns(): Promise<void> {
     await pool.query(`ALTER TABLE reboot_sessions  ADD COLUMN IF NOT EXISTS is_bonus  BOOLEAN NOT NULL DEFAULT false`);
     await pool.query(`ALTER TABLE reboot_sessions  ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`);
     await pool.query(`ALTER TABLE reboot_sessions  ADD COLUMN IF NOT EXISTS slug      TEXT`);
+    // Oubliée ici alors que le CRM la déclare : son absence faisait échouer
+    // toute requête Prisma sur les séances, donc la page du coach n'affichait
+    // plus rien. Prisma sélectionne toutes les colonnes qu'il connaît.
+    await pool.query(`ALTER TABLE reboot_sessions  ADD COLUMN IF NOT EXISTS manually_edited BOOLEAN NOT NULL DEFAULT false`);
     await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS library_exercise_id UUID`);
     await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS video_suppressed BOOLEAN NOT NULL DEFAULT false`);
   })().catch((err) => {
