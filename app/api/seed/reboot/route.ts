@@ -124,6 +124,48 @@ function prescription(entry: PinnedExercise) {
  * faute de frappe, et un exercice qui disparaît sans un mot est bien pire
  * qu'un exercice signalé.
  */
+/**
+ * Les noms de bibliothèque les plus proches d'un nom introuvable.
+ *
+ * « Introuvable » laisse le coach chercher à la main dans deux cent et
+ * quelques entrées, alors que l'écart est presque toujours un mot en trop ou
+ * un accent. Proposer trois candidats transforme une recherche en lecture.
+ *
+ * Comparaison par mots communs, accents retirés : « Élévations latérales
+ * haltères » et « Elevations laterales » partagent deux mots sur trois, ce qui
+ * suffit à les rapprocher. Les mots d'un seul caractère sont ignorés, ils ne
+ * discriminent rien.
+ */
+function nomsProches(nom: string, bibliotheque: Map<string, LibraryRow>): string[] {
+  const mots = (texte: string): string[] =>
+    texte
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .split(/[^a-z0-9]+/)
+      .filter((m) => m.length > 1);
+
+  const cherches = mots(nom);
+  if (cherches.length === 0) return [];
+
+  const scores: { nom: string; score: number }[] = [];
+  bibliotheque.forEach((row) => {
+    const candidats = mots(row.name);
+    let communs = 0;
+    for (const m of cherches) {
+      if (candidats.indexOf(m) !== -1) communs += 1;
+      else if (candidats.some((c) => c.indexOf(m) === 0 || m.indexOf(c) === 0)) communs += 0.5;
+    }
+    if (communs > 0) scores.push({ nom: row.name, score: communs / cherches.length });
+  });
+
+  return scores
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .filter((c) => c.score >= 0.34)
+    .map((c) => `« ${c.nom} »`);
+}
+
 async function resolvePinned(
   pinned: PinnedExercise[],
   bibliotheque: Map<string, LibraryRow>
@@ -142,7 +184,12 @@ async function resolvePinned(
       // exercices ne sont pas rattachés à la bibliothèque se fige : elle ne
       // voit plus les vidéos retournées ensuite, ni les descriptions
       // corrigées. Mieux vaut un exercice signalé qu'un exercice orphelin.
-      problemes.push(`« ${entry.name} » introuvable dans la bibliothèque`);
+      const proches = nomsProches(entry.name, bibliotheque);
+      problemes.push(
+        proches.length > 0
+          ? `« ${entry.name} » introuvable — peut-être ${proches.join(" ou ")} ?`
+          : `« ${entry.name} » introuvable dans la bibliothèque`
+      );
       continue;
     }
 
