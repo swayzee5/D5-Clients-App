@@ -68,8 +68,24 @@ export type StrengthDef = {
 };
 
 export type PinnedExercise = {
-  /** Nom exact dans exercise_library. */
+  /** Nom exact dans exercise_library. Le choix préféré. */
   name: string;
+  /**
+   * Noms de repli, essayés dans l'ordre si le premier est introuvable.
+   *
+   * Deux usages, et ils se confondent ici. D'abord la robustesse : une liste
+   * écrite à la main contient toujours une variante de nom — « Élévations
+   * latérales haltères » contre « Élévations latérales » — et un emplacement
+   * qui tombe ampute la séance d'un exercice sans prévenir.
+   *
+   * Ensuite la préférence : la machine est demandée en premier, l'haltère en
+   * second. Pour des hommes de quarante à soixante ans qui reprennent sans
+   * personne pour les corriger, la machine demande moins de technique et se
+   * charge progressivement sans mettre l'épaule ou le bas du dos en jeu dès
+   * la première répétition. Si le coach n'a pas filmé la machine, la séance
+   * garde l'haltère plutôt que de perdre le mouvement.
+   */
+  alternatives?: string[];
   /**
    * Prescription propre à cet exercice.
    *
@@ -190,11 +206,11 @@ const SEANCES: SeanceEcrite[] = [
     description: "Poitrine, épaules avant et triceps.",
     durationMinutes: 50,
     exercices: [
-      { name: "Développé couché haltères", sets: 4, reps: "8-10", restSeconds: 90, notes: "Descente lente, coudes à 45° du buste." },
-      { name: "Développé incliné haltères", sets: 3, reps: "10", restSeconds: 90 },
-      { name: "Écarté couché", sets: 3, reps: "12", restSeconds: 60, notes: "Bras légèrement fléchis, chercher l'étirement." },
-      { name: "Pec Fly sur machine", sets: 3, reps: "15", restSeconds: 60 },
+      { name: "Développé assis pectoraux", alternatives: ["Développé couché haltères"], sets: 4, reps: "8-10", restSeconds: 90, notes: "Omoplates serrées contre le dossier, coudes un peu sous la ligne des épaules." },
+      { name: "Pec Fly sur machine", alternatives: ["Écarté couché"], sets: 3, reps: "12", restSeconds: 60, notes: "L'angle du coude ne bouge pas : si tu plies et déplies, c'est un développé." },
+      { name: "Développé incliné haltères", sets: 3, reps: "10", restSeconds: 90, notes: "Le seul angle qu'aucune machine ne remplace ici." },
       { name: "Dips pectoraux", sets: 3, reps: "10", restSeconds: 60, notes: "Buste penché en avant. Assistance si besoin." },
+      { name: "Pompes classiques", sets: 2, reps: "maximum", restSeconds: 60, notes: "En finition, sans aller à l'échec complet." },
     ],
   },
   {
@@ -206,10 +222,10 @@ const SEANCES: SeanceEcrite[] = [
     durationMinutes: 50,
     exercices: [
       { name: "Tirage vertical prise large", sets: 4, reps: "10", restSeconds: 90, notes: "Tirer avec les coudes, pas avec les mains." },
-      { name: "Rowing penché en avant avec haltères", sets: 3, reps: "10", restSeconds: 90, notes: "Dos plat, buste incliné à 45°." },
+      { name: "Tirage horizontal prise large", alternatives: ["Rowing penché en avant avec haltères"], sets: 3, reps: "10", restSeconds: 90, notes: "Tirer avec les coudes, serrer les omoplates en fin de course." },
       { name: "Tirage horizontal prise serrée", sets: 3, reps: "12", restSeconds: 75 },
       { name: "Face pull assis (poulie)", sets: 3, reps: "15", restSeconds: 60 },
-      { name: "Bicep curl debout barre Z", sets: 3, reps: "10", restSeconds: 60 },
+      { name: "Bicep curl à la poulie basse", alternatives: ["Bicep curl poulie basse", "Bicep curl debout barre Z"], sets: 3, reps: "10", restSeconds: 60, notes: "La poulie garde la tension sur toute l'amplitude." },
       { name: "Bicep curl marteau avec haltères", sets: 3, reps: "12", restSeconds: 60 },
     ],
   },
@@ -221,8 +237,8 @@ const SEANCES: SeanceEcrite[] = [
     description: "Les trois faisceaux, et les trapèzes pour finir.",
     durationMinutes: 45,
     exercices: [
-      { name: "Développé militaire haltères", sets: 4, reps: "8-10", restSeconds: 90 },
-      { name: "Élévations latérales haltères", sets: 3, reps: "12-15", restSeconds: 60, notes: "Léger. Monter à hauteur d'épaule, pas plus haut." },
+      { name: "Développé épaules sur machine", alternatives: ["Développé épaules machine", "Développé militaire haltères"], sets: 4, reps: "8-10", restSeconds: 90, notes: "Dos plaqué, ne pas verrouiller les coudes en haut." },
+      { name: "Élévations latérales", alternatives: ["Élévations latérales haltères"], sets: 3, reps: "12-15", restSeconds: 60, notes: "Léger. Monter à hauteur d'épaule, pas plus haut." },
       { name: "Pec fly inversé sur machine", sets: 3, reps: "15", restSeconds: 60 },
       { name: "Face pull assis (poulie)", sets: 3, reps: "15", restSeconds: 60 },
       { name: "Élévations frontales", sets: 3, reps: "12", restSeconds: 60 },
@@ -237,9 +253,9 @@ const SEANCES: SeanceEcrite[] = [
     description: "Biceps et triceps en alternance, du lourd vers l'isolation.",
     durationMinutes: 40,
     exercices: [
-      { name: "Bicep curl debout barre Z", sets: 4, reps: "10", restSeconds: 75 },
-      { name: "Dips triceps aux barres", sets: 3, reps: "8-10", restSeconds: 75, notes: "Buste vertical. Assistance ou pieds au sol si besoin." },
-      { name: "Curl incliné", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Bicep curl à la poulie basse", alternatives: ["Bicep curl poulie basse", "Bicep curl debout barre Z"], sets: 4, reps: "10", restSeconds: 75 },
+      { name: "Dips triceps sur machine", alternatives: ["Dips triceps aux barres"], sets: 3, reps: "10", restSeconds: 75, notes: "Coudes collés au corps : dès qu'ils s'écartent, l'effort part dans l'épaule." },
+      { name: "Curl incliné", sets: 3, reps: "12", restSeconds: 60, notes: "L'étirement du biceps que la poulie ne donne pas." },
       { name: "Extensions Triceps Poulie Haute En Supination", sets: 3, reps: "12", restSeconds: 60 },
       { name: "Bicep curl marteau avec haltères", sets: 3, reps: "12", restSeconds: 45 },
       { name: "Triceps tate press", sets: 3, reps: "12", restSeconds: 45 },
@@ -253,11 +269,11 @@ const SEANCES: SeanceEcrite[] = [
     description: "Cuisses, fessiers, ischio-jambiers et mollets.",
     durationMinutes: 55,
     exercices: [
-      { name: "Squat goblet", sets: 4, reps: "10", restSeconds: 90, notes: "Un haltère contre la poitrine. Descendre autant que les genoux le permettent." },
-      { name: "Leg press", sets: 3, reps: "12", restSeconds: 90 },
-      { name: "Soulevé de terre haltères", sets: 3, reps: "10", restSeconds: 90, notes: "Dos plat, hanches en arrière, jambes presque tendues." },
-      { name: "Fentes arrière haltères", sets: 3, reps: "10 par jambe", restSeconds: 75 },
+      { name: "Leg press horizontal", alternatives: ["Leg press"], sets: 4, reps: "12", restSeconds: 90, notes: "Descends seulement jusqu'où ton bassin reste collé au siège." },
+      { name: "Squat goblet", sets: 3, reps: "10", restSeconds: 90, notes: "Gardé volontairement : c'est le meilleur apprentissage du squat, et aucune machine ne l'apprend." },
       { name: "Leg curl couché", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Soulevé de terre haltères", sets: 3, reps: "10", restSeconds: 90, notes: "Dos plat, hanches en arrière. La charnière de hanche n'a pas d'équivalent sur machine." },
+      { name: "Abductions sur machine", alternatives: ["Abduction sur machine", "Fentes arrière haltères"], sets: 3, reps: "15", restSeconds: 60, notes: "C'est le retour qui travaille : ne laisse pas la pile claquer." },
       { name: "Extensions des mollets debout", sets: 3, reps: "15", restSeconds: 45 },
     ],
   },
@@ -269,12 +285,12 @@ const SEANCES: SeanceEcrite[] = [
     description: "Pousser, tirer, puis les bras. Tout le haut en une séance.",
     durationMinutes: 50,
     exercices: [
-      { name: "Développé couché haltères", sets: 4, reps: "10", restSeconds: 90 },
+      { name: "Développé assis pectoraux", alternatives: ["Développé couché haltères"], sets: 4, reps: "10", restSeconds: 90 },
       { name: "Tirage vertical prise large", sets: 4, reps: "10", restSeconds: 90 },
-      { name: "Développé militaire haltères", sets: 3, reps: "10", restSeconds: 75 },
+      { name: "Développé épaules sur machine", alternatives: ["Développé épaules machine", "Développé militaire haltères"], sets: 3, reps: "10", restSeconds: 75 },
       { name: "Tirage horizontal prise serrée", sets: 3, reps: "12", restSeconds: 75 },
-      { name: "Bicep curl à la poulie basse", sets: 3, reps: "12", restSeconds: 60 },
-      { name: "Extension des triceps couché sur le dos", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Bicep curl à la poulie basse", alternatives: ["Bicep curl poulie basse", "Bicep curl debout barre Z"], sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Extensions Triceps Poulie Haute En Supination", alternatives: ["Extension des triceps couché sur le dos"], sets: 3, reps: "12", restSeconds: 60 },
     ],
   },
   {
@@ -285,11 +301,11 @@ const SEANCES: SeanceEcrite[] = [
     description: "Un mouvement par grande fonction : s'accroupir, pousser, tirer, charnière de hanche.",
     durationMinutes: 50,
     exercices: [
-      { name: "Squat goblet", sets: 3, reps: "10", restSeconds: 90 },
-      { name: "Développé couché haltères", sets: 3, reps: "10", restSeconds: 90 },
+      { name: "Leg press horizontal", alternatives: ["Leg press", "Squat goblet"], sets: 3, reps: "12", restSeconds: 90 },
+      { name: "Développé assis pectoraux", alternatives: ["Développé couché haltères"], sets: 3, reps: "10", restSeconds: 90 },
       { name: "Tirage vertical prise large", sets: 3, reps: "10", restSeconds: 90 },
-      { name: "Soulevé de terre haltères", sets: 3, reps: "10", restSeconds: 90 },
-      { name: "Développé militaire haltères", sets: 3, reps: "12", restSeconds: 60 },
+      { name: "Soulevé de terre haltères", sets: 3, reps: "10", restSeconds: 90, notes: "La charnière de hanche : aucune machine ne l'apprend." },
+      { name: "Développé épaules sur machine", alternatives: ["Développé épaules machine", "Développé militaire haltères"], sets: 3, reps: "12", restSeconds: 60 },
       { name: "Planche", sets: 3, reps: "40 secondes", restSeconds: 45 },
     ],
   },
@@ -302,8 +318,8 @@ const SEANCES: SeanceEcrite[] = [
     durationMinutes: 35,
     exercices: [
       { name: "Planche", sets: 3, reps: "45 secondes", restSeconds: 45, notes: "Fessiers serrés, ne pas creuser le bas du dos." },
-      { name: "Le pont bras et jambe levés", sets: 3, reps: "10 par côté", restSeconds: 45 },
-      { name: "Crunch câble", sets: 3, reps: "15", restSeconds: 45 },
+      { name: "Crunch sur machine", alternatives: ["Crunch câble"], sets: 3, reps: "15", restSeconds: 45, notes: "Le mouvement est court. Si tu bascules en bloc depuis les hanches, c'est trop lourd." },
+      { name: "Crunch Inversé", alternatives: ["Crunch câble"], sets: 3, reps: "12", restSeconds: 45 },
       { name: "Planche latérale", sets: 3, reps: "30 secondes par côté", restSeconds: 45 },
       { name: "Élévations de jambes", sets: 3, reps: "12", restSeconds: 45 },
       { name: "Mountain climber", sets: 3, reps: "30 secondes", restSeconds: 45 },
@@ -336,7 +352,7 @@ const SEANCES: SeanceEcrite[] = [
     exercices: [
       { name: "Pompes inclinées", sets: 4, reps: "12-15", restSeconds: 60, notes: "Mains sur une table ou un plan de travail." },
       { name: "Pompes classiques", sets: 3, reps: "10-12", restSeconds: 60 },
-      { name: "Pompes déclinées", sets: 3, reps: "8-10", restSeconds: 60, notes: "Pieds sur une chaise." },
+      { name: "Pompes diamant", alternatives: ["Pompes déclinées"], sets: 3, reps: "8-10", restSeconds: 60, notes: "Pieds sur une chaise." },
       { name: "Dips sur banc", sets: 3, reps: "12", restSeconds: 45, notes: "Mains sur une chaise stable, dos près du bord." },
       { name: "Pompes triceps", sets: 3, reps: "10", restSeconds: 45 },
     ],
@@ -369,7 +385,7 @@ const SEANCES: SeanceEcrite[] = [
       { name: "Pompes classiques", sets: 3, reps: "10", restSeconds: 60 },
       { name: "Dips sur banc", sets: 3, reps: "12", restSeconds: 60 },
       { name: "Pompes triceps", sets: 3, reps: "10", restSeconds: 45 },
-      { name: "Le pont bras et jambe levés", sets: 3, reps: "10 par côté", restSeconds: 45 },
+      { name: "Planche latérale", alternatives: ["Planche"], sets: 3, reps: "30 secondes par côté", restSeconds: 45 },
       { name: "Mountain climber", sets: 3, reps: "30 secondes", restSeconds: 45 },
     ],
   },
@@ -384,7 +400,7 @@ const SEANCES: SeanceEcrite[] = [
       { name: "Squats poids de corps", sets: 3, reps: "15", restSeconds: 60 },
       { name: "Pompes inclinées", sets: 3, reps: "12", restSeconds: 60 },
       { name: "Fentes avant", sets: 3, reps: "10 par jambe", restSeconds: 60 },
-      { name: "Le pont bras et jambe levés", sets: 3, reps: "10 par côté", restSeconds: 45 },
+      { name: "Planche latérale", alternatives: ["Planche"], sets: 3, reps: "30 secondes par côté", restSeconds: 45 },
       { name: "Planche", sets: 3, reps: "40 secondes", restSeconds: 45 },
       { name: "Jumping jack", sets: 3, reps: "45 secondes", restSeconds: 45 },
     ],
@@ -402,7 +418,7 @@ const SEANCES: SeanceEcrite[] = [
       { name: "Planche latérale", sets: 3, reps: "30 secondes par côté", restSeconds: 45 },
       { name: "Ciseaux", sets: 3, reps: "20", restSeconds: 45 },
       { name: "Crunch Inversé", sets: 3, reps: "12", restSeconds: 45 },
-      { name: "Le pont bras et jambe levés", sets: 3, reps: "10 par côté", restSeconds: 45 },
+      { name: "Mountain climber", sets: 3, reps: "30 secondes", restSeconds: 45, notes: "En finition : le gainage se tient aussi en mouvement." },
     ],
   },
   {

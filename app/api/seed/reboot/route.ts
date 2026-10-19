@@ -176,7 +176,16 @@ async function resolvePinned(
   const dejaVues = new Map<string, string>();
 
   for (const entry of pinned) {
-    const found = bibliotheque.get(entry.name.trim().toLowerCase()) ?? null;
+    // La machine d'abord, l'haltère ensuite : le premier nom trouvé gagne.
+    const candidats = [entry.name, ...(entry.alternatives ?? [])];
+    let found: LibraryRow | null = null;
+    for (const candidat of candidats) {
+      const essai = bibliotheque.get(candidat.trim().toLowerCase());
+      if (essai) {
+        found = essai;
+        break;
+      }
+    }
 
     if (!found) {
       // Aucun exercice hors bibliothèque n'est inséré, même quand le
@@ -184,11 +193,12 @@ async function resolvePinned(
       // exercices ne sont pas rattachés à la bibliothèque se fige : elle ne
       // voit plus les vidéos retournées ensuite, ni les descriptions
       // corrigées. Mieux vaut un exercice signalé qu'un exercice orphelin.
+      const essayes = candidats.map((c) => `« ${c} »`).join(", ");
       const proches = nomsProches(entry.name, bibliotheque);
       problemes.push(
         proches.length > 0
-          ? `« ${entry.name} » introuvable — peut-être ${proches.join(" ou ")} ?`
-          : `« ${entry.name} » introuvable dans la bibliothèque`
+          ? `${essayes} introuvable(s) — peut-être ${proches.join(" ou ")} ?`
+          : `${essayes} introuvable(s) dans la bibliothèque`
       );
       continue;
     }
