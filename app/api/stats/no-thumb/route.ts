@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 
+/**
+ * Reprendre toutes les miniatures demande un appel à Vimeo par exercice. En
+ * série, deux cents exercices dépassent largement le temps imparti à une
+ * fonction serveur — la route était coupée en plein travail et laissait la
+ * moitié des miniatures à jour, l'autre non, sans rien dire.
+ */
+export const maxDuration = 60;
+
+/** Appels simultanés à Vimeo. Assez pour tenir dans le temps imparti, assez
+ *  peu pour ne pas se faire limiter par leur API. */
+const LOT = 8;
+
 type ExNoThumb = {
   id: string;
   name: string;
@@ -14,19 +26,34 @@ export async function GET(req: NextRequest) {
   }
 
   const fix = req.nextUrl.searchParams.get("fix") === "1";
+  // `tout=1` reprend aussi les miniatures déjà présentes.
+  //
+  // Une miniature illustre une vidéo précise : corriger l'identifiant Vimeo
+  // d'un exercice sans la renouveler laisse l'aperçu de l'ancien mouvement
+  // sur le nouveau. Ces cas-là ne sont pas des miniatures manquantes, ils
+  // sont pires — une image fausse se lit comme une information, une image
+  // absente se voit.
+  //
+  // Reste une option explicite : reprendre les deux cent et quelques
+  // exercices fait autant d'appels à Vimeo, inutiles la plupart du temps.
+  const tout = req.nextUrl.searchParams.get("tout") === "1";
   const token = process.env.VIMEO_ACCESS_TOKEN;
 
   const { rows: exercises } = await pool.query<ExNoThumb>(
     `SELECT id::text, name, vimeo_video_id
      FROM exercise_library
      WHERE vimeo_video_id IS NOT NULL
-       AND (thumbnail_url IS NULL OR thumbnail_url = '')
+       AND ($1::boolean OR thumbnail_url IS NULL OR thumbnail_url = '')
        AND is_active = true
-     ORDER BY name`
+     ORDER BY name`,
+    [tout]
   );
 
   if (!fix) {
     return NextResponse.json({
+      périmètre: tout
+        ? "tous les exercices ayant une vidéo"
+        : "exercices ayant une vidéo mais aucune miniature",
       total: exercises.length,
       exercises: exercises.map((e) => ({ name: e.name, vimeo_video_id: e.vimeo_video_id })),
     });
@@ -43,7 +70,7 @@ export async function GET(req: NextRequest) {
     action: string;
   }[] = [];
 
-  for (const ex of exercises) {
+  async function traiter(ex: ExNoThumb) {
     let httpStatus: number | string = "error";
     let action = "skipped";
 
@@ -88,10 +115,17 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  for (let i = 0; i < exercises.length; i += LOT) {
+    await Promise.all(exercises.slice(i, i + LOT).map(traiter));
+  }
+
   const nullified = results.filter((r) => r.action.startsWith("vimeo_video_id set NULL")).length;
   const updated = results.filter((r) => r.action === "thumbnail updated").length;
 
   return NextResponse.json({
+    périmètre: tout
+      ? "tous les exercices ayant une vidéo"
+      : "exercices ayant une vidéo mais aucune miniature",
     total: exercises.length,
     nullified,
     updated,
