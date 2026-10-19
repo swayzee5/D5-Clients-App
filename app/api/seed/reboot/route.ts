@@ -200,12 +200,25 @@ async function resolvePinned(
     // La machine d'abord, l'haltère ensuite : le premier nom trouvé gagne.
     const candidats = [entry.name, ...(entry.alternatives ?? [])];
     let found: LibraryRow | null = null;
+    let rangCandidat = 0;
     for (const candidat of candidats) {
       const essai = bibliotheque.get(cleNom(candidat));
       if (essai) {
         found = essai;
         break;
       }
+      rangCandidat += 1;
+    }
+
+    // Un repli a servi : la séance est complète, mais le premier choix — la
+    // machine — n'a pas été trouvé. Sans ce signalement, la préférence se
+    // dégrade en silence et le coach croit avoir la machine alors qu'il a
+    // l'haltère. C'est exactement ce qui est arrivé avec un nom mal
+    // orthographié dans la bibliothèque.
+    if (found && rangCandidat > 0) {
+      problemes.push(
+        `« ${entry.name} » introuvable : replié sur « ${found.name} »`
+      );
     }
 
     if (!found) {

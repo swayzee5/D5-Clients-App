@@ -222,7 +222,7 @@ const SEANCES: SeanceEcrite[] = [
     durationMinutes: 50,
     exercices: [
       { name: "Tirage vertical prise large", sets: 4, reps: "10", restSeconds: 90, notes: "Tirer avec les coudes, pas avec les mains." },
-      { name: "Tirage horizontal prise large", alternatives: ["Rowing penché en avant avec haltères"], sets: 3, reps: "10", restSeconds: 90, notes: "Tirer avec les coudes, serrer les omoplates en fin de course." },
+      { name: "Tirage horizonzal prise large (poulie)", alternatives: ["Tirage horizontal prise large (poulie)", "Tirage horizontal prise large", "Tirage assis prise large", "Rowing penché en avant avec haltères"], sets: 3, reps: "10", restSeconds: 90, notes: "Tirer avec les coudes, serrer les omoplates en fin de course." },
       { name: "Tirage horizontal prise serrée", sets: 3, reps: "12", restSeconds: 75 },
       { name: "Face pull assis (poulie)", sets: 3, reps: "15", restSeconds: 60 },
       { name: "Bicep curl à la poulie basse", alternatives: ["Bicep curl poulie basse", "Bicep curl debout barre Z"], sets: 3, reps: "10", restSeconds: 60, notes: "La poulie garde la tension sur toute l'amplitude." },
