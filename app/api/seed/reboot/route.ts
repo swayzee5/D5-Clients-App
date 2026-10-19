@@ -90,6 +90,27 @@ async function ensureSchema(): Promise<void> {
  * qui a une vidéo l'emporte : un doublon sans vidéo ne doit pas masquer
  * l'entrée utile.
  */
+/**
+ * La clé sous laquelle un nom d'exercice est cherché.
+ *
+ * Normalisation Unicode avant tout le reste. « Élévations latérales » peut
+ * s'écrire avec un « É » d'un seul caractère ou avec un « E » suivi d'un
+ * accent combinant : deux chaînes identiques à l'œil, différentes pour une
+ * Map. Le catalogue a été tapé ici, la bibliothèque remplie depuis un
+ * navigateur, parfois par copier-coller — les deux formes coexistent.
+ *
+ * Le symptôme était déroutant : le rapport déclarait « Élévations latérales »
+ * introuvable, puis suggérait « Élévations latérales » dans la même phrase.
+ * La suggestion, elle, retirait les accents pour comparer.
+ *
+ * Les espaces internes sont aussi réduits : une espace insécable ou une
+ * double espace collée en fin de nom suffit à faire disparaître un exercice
+ * d'une séance sans que rien ne le dise.
+ */
+function cleNom(nom: string): string {
+  return nom.normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
+}
+
 async function chargerBibliotheque(): Promise<Map<string, LibraryRow>> {
   const { rows } = await pool.query<LibraryRow>(
     `SELECT id::text AS id, name, vimeo_video_id
@@ -99,7 +120,7 @@ async function chargerBibliotheque(): Promise<Map<string, LibraryRow>> {
   );
   const index = new Map<string, LibraryRow>();
   for (const row of rows) {
-    const cle = row.name.trim().toLowerCase();
+    const cle = cleNom(row.name);
     if (!index.has(cle)) index.set(cle, row);
   }
   return index;
@@ -180,7 +201,7 @@ async function resolvePinned(
     const candidats = [entry.name, ...(entry.alternatives ?? [])];
     let found: LibraryRow | null = null;
     for (const candidat of candidats) {
-      const essai = bibliotheque.get(candidat.trim().toLowerCase());
+      const essai = bibliotheque.get(cleNom(candidat));
       if (essai) {
         found = essai;
         break;
