@@ -137,22 +137,19 @@ async function resolvePinned(
     const found = bibliotheque.get(entry.name.trim().toLowerCase()) ?? null;
 
     if (!found) {
-      // Quand le coach a fourni l'identifiant de la vidéo, l'entrée de
-      // bibliothèque n'apporte plus rien : on a le nom et la démonstration.
-      // Nettoyer la bibliothèque ne doit pas faire disparaître un exercice
-      // d'une séance en cours.
-      if (entry.videoId) {
-        dejaVues.set(entry.videoId, entry.name);
-        picked.push({ ...prescription(entry), id: "", name: entry.name, vimeo_video_id: entry.videoId });
-        continue;
-      }
+      // Aucun exercice hors bibliothèque n'est inséré, même quand le
+      // catalogue fournit un identifiant de vidéo. Une séance dont les
+      // exercices ne sont pas rattachés à la bibliothèque se fige : elle ne
+      // voit plus les vidéos retournées ensuite, ni les descriptions
+      // corrigées. Mieux vaut un exercice signalé qu'un exercice orphelin.
       problemes.push(`« ${entry.name} » introuvable dans la bibliothèque`);
       continue;
     }
 
     if (entry.videoId) {
-      // Vidéo imposée : elle appartient à cet exercice, donc elle entre aussi
-      // dans le registre des vidéos déjà prises.
+      // Vidéo imposée par le catalogue : elle entre dans le registre des
+      // vidéos déjà prises, mais n'est pas recopiée dans la séance — c'est la
+      // bibliothèque qui fait foi à l'affichage.
       dejaVues.set(entry.videoId, found.name);
       picked.push({ ...prescription(entry), id: found.id, name: found.name, vimeo_video_id: entry.videoId });
       continue;
@@ -380,9 +377,15 @@ export async function GET(req: NextRequest) {
               sessionId,
               e.id || null,
               e.name,
-              e.vimeo_video_id || null,
-              // Sans ce drapeau, l'affichage retrouverait la vidéo par le nom
-              // et la ferait revenir : couper le lien ne suffit pas.
+              // La vidéo n'est jamais recopiée dans la séance. L'affichage la
+              // lit dans la bibliothèque via library_exercise_id, donc une
+              // vidéo retournée plus tard apparaît sans rien reconstruire.
+              // Recopier figeait une photocopie qui devenait fausse au
+              // tournage suivant.
+              null,
+              // Vidéo attribuée deux fois par la bibliothèque : l'exercice
+              // reste, sans démonstration. Sans ce drapeau, l'affichage la
+              // retrouverait par le nom et la ferait revenir.
               e.vimeo_video_id === "",
               e.sets ?? def.sets,
               e.reps ?? def.reps,
