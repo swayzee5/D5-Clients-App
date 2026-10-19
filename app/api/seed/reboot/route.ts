@@ -124,6 +124,48 @@ function prescription(entry: PinnedExercise) {
  * faute de frappe, et un exercice qui disparaît sans un mot est bien pire
  * qu'un exercice signalé.
  */
+/**
+ * Les noms de bibliothèque les plus proches d'un nom introuvable.
+ *
+ * « Introuvable » laisse le coach chercher à la main dans deux cent et
+ * quelques entrées, alors que l'écart est presque toujours un mot en trop ou
+ * un accent. Proposer trois candidats transforme une recherche en lecture.
+ *
+ * Comparaison par mots communs, accents retirés : « Élévations latérales
+ * haltères » et « Elevations laterales » partagent deux mots sur trois, ce qui
+ * suffit à les rapprocher. Les mots d'un seul caractère sont ignorés, ils ne
+ * discriminent rien.
+ */
+function nomsProches(nom: string, bibliotheque: Map<string, LibraryRow>): string[] {
+  const mots = (texte: string): string[] =>
+    texte
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .split(/[^a-z0-9]+/)
+      .filter((m) => m.length > 1);
+
+  const cherches = mots(nom);
+  if (cherches.length === 0) return [];
+
+  const scores: { nom: string; score: number }[] = [];
+  bibliotheque.forEach((row) => {
+    const candidats = mots(row.name);
+    let communs = 0;
+    for (const m of cherches) {
+      if (candidats.indexOf(m) !== -1) communs += 1;
+      else if (candidats.some((c) => c.indexOf(m) === 0 || m.indexOf(c) === 0)) communs += 0.5;
+    }
+    if (communs > 0) scores.push({ nom: row.name, score: communs / cherches.length });
+  });
+
+  return scores
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .filter((c) => c.score >= 0.34)
+    .map((c) => `« ${c.nom} »`);
+}
+
 async function resolvePinned(
   pinned: PinnedExercise[],
   bibliotheque: Map<string, LibraryRow>
@@ -137,22 +179,24 @@ async function resolvePinned(
     const found = bibliotheque.get(entry.name.trim().toLowerCase()) ?? null;
 
     if (!found) {
-      // Quand le coach a fourni l'identifiant de la vidéo, l'entrée de
-      // bibliothèque n'apporte plus rien : on a le nom et la démonstration.
-      // Nettoyer la bibliothèque ne doit pas faire disparaître un exercice
-      // d'une séance en cours.
-      if (entry.videoId) {
-        dejaVues.set(entry.videoId, entry.name);
-        picked.push({ ...prescription(entry), id: "", name: entry.name, vimeo_video_id: entry.videoId });
-        continue;
-      }
-      problemes.push(`« ${entry.name} » introuvable dans la bibliothèque`);
+      // Aucun exercice hors bibliothèque n'est inséré, même quand le
+      // catalogue fournit un identifiant de vidéo. Une séance dont les
+      // exercices ne sont pas rattachés à la bibliothèque se fige : elle ne
+      // voit plus les vidéos retournées ensuite, ni les descriptions
+      // corrigées. Mieux vaut un exercice signalé qu'un exercice orphelin.
+      const proches = nomsProches(entry.name, bibliotheque);
+      problemes.push(
+        proches.length > 0
+          ? `« ${entry.name} » introuvable — peut-être ${proches.join(" ou ")} ?`
+          : `« ${entry.name} » introuvable dans la bibliothèque`
+      );
       continue;
     }
 
     if (entry.videoId) {
-      // Vidéo imposée : elle appartient à cet exercice, donc elle entre aussi
-      // dans le registre des vidéos déjà prises.
+      // Vidéo imposée par le catalogue : elle entre dans le registre des
+      // vidéos déjà prises, mais n'est pas recopiée dans la séance — c'est la
+      // bibliothèque qui fait foi à l'affichage.
       dejaVues.set(entry.videoId, found.name);
       picked.push({ ...prescription(entry), id: found.id, name: found.name, vimeo_video_id: entry.videoId });
       continue;
@@ -380,9 +424,15 @@ export async function GET(req: NextRequest) {
               sessionId,
               e.id || null,
               e.name,
-              e.vimeo_video_id || null,
-              // Sans ce drapeau, l'affichage retrouverait la vidéo par le nom
-              // et la ferait revenir : couper le lien ne suffit pas.
+              // La vidéo n'est jamais recopiée dans la séance. L'affichage la
+              // lit dans la bibliothèque via library_exercise_id, donc une
+              // vidéo retournée plus tard apparaît sans rien reconstruire.
+              // Recopier figeait une photocopie qui devenait fausse au
+              // tournage suivant.
+              null,
+              // Vidéo attribuée deux fois par la bibliothèque : l'exercice
+              // reste, sans démonstration. Sans ce drapeau, l'affichage la
+              // retrouverait par le nom et la ferait revenir.
               e.vimeo_video_id === "",
               e.sets ?? def.sets,
               e.reps ?? def.reps,
