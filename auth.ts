@@ -36,6 +36,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           const isValid = await bcrypt.compare(password, user.password_hash)
           if (!isValid) return null
 
+          // La dernière connexion, posée ici et nulle part ailleurs : c'est le
+          // seul endroit où une authentification réussit. Un client qui
+          // n'ouvre plus l'app décroche avant de rater ses séances — c'est le
+          // signal le plus précoce dont le coach dispose.
+          //
+          // L'échec est avalé et la colonne créée au besoin : on ne refuse
+          // jamais une connexion parce qu'une statistique n'a pas pu être
+          // écrite.
+          void pool
+            .query(
+              `ALTER TABLE clients ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`
+            )
+            .then(() =>
+              pool.query(`UPDATE clients SET last_login_at = NOW() WHERE id = $1`, [user.id])
+            )
+            .catch((err) => console.error("[Auth] dernière connexion non enregistrée", err))
+
           return {
             id: user.id as string,
             email: user.email as string,
