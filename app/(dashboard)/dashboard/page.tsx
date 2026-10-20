@@ -201,8 +201,8 @@ export default async function DashboardPage() {
       {!isRebootOnly && (
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-white">Mes plans de nutrition</h2>
-            {hasNutrition && <Link href="/nutrition" className="text-d5-gold text-sm font-medium">Voir tout</Link>}
+            <h2 className="font-semibold text-white">Ma nutrition</h2>
+            <Link href="/nutrition" className="text-d5-gold text-sm font-medium">Voir tout</Link>
           </div>
           {hasNutrition ? (
             <Link href="/nutrition">
@@ -215,12 +215,23 @@ export default async function DashboardPage() {
               </div>
             </Link>
           ) : (
-            <div className="card flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-400/10 flex items-center justify-center flex-shrink-0">
-                <Utensils size={18} className="text-emerald-400" />
+            /* Sans plan, la carte n'était pas cliquable : le journal de repas
+               vivait derrière cet écran et devenait inatteignable depuis
+               l'accueil. Un cul-de-sac sur la page la plus consultée. */
+            <Link href="/nutrition">
+              <div className="card flex items-center gap-3 hover:border-d5-gold/30 transition-colors active:scale-[0.98]">
+                <div className="w-10 h-10 rounded-xl bg-emerald-400/10 flex items-center justify-center flex-shrink-0">
+                  <Utensils size={18} className="text-emerald-400" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-white text-sm font-medium">Mon journal de repas</p>
+                  <p className="text-d5-muted text-xs mt-0.5">
+                    Pas encore de plan — photographie tes repas, je te réponds.
+                  </p>
+                </div>
+                <ArrowRight size={16} className="text-d5-muted shrink-0" />
               </div>
-              <p className="text-d5-muted text-sm flex-1">Pas de plan à afficher</p>
-            </div>
+            </Link>
           )}
         </section>
       )}
