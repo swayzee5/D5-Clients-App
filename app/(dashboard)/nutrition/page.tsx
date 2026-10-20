@@ -3,7 +3,9 @@ import { redirect } from "next/navigation"
 import { getNutritionFiles } from "@/lib/queries/nutrition"
 import { NutritionFileCard } from "@/components/nutrition/NutritionFileCard"
 import { listerRepas } from "@/lib/queries/journal-repas"
-import { Utensils, Camera, ArrowRight } from "lucide-react"
+import { dernierEnvoi } from "@/lib/queries/nutrition-suivi"
+import { joursAvantPoint, pointDu } from "@/lib/nutrition-suivi"
+import { Utensils, Camera, ArrowRight, ClipboardList } from "lucide-react"
 import Link from "next/link"
 import type { Metadata } from "next"
 
@@ -19,16 +21,21 @@ export default async function NutritionPage() {
   const latest = files[0] ?? null
   const history = files.slice(1)
   const repas = await listerRepas(session.user.id, 3).catch(() => [])
+  const suivi = await dernierEnvoi(session.user.id).catch(() => null)
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Nutrition</h1>
-        <p className="text-d5-muted text-sm mt-1">Ton plan alimentaire personnalisé</p>
+        <p className="text-d5-muted text-sm mt-1">Profil, journal de repas &amp; plan</p>
       </div>
 
-      {/* Avant le plan, et non après : le plan se consulte une fois, le
-          journal se nourrit tous les jours. C'est lui qui fait revenir. */}
+      {/* L'ordre est délibéré, et il place le plan en dernier. Le profil
+          conditionne tout le reste — sans lui le coach écrit à l'aveugle. Le
+          journal se nourrit tous les jours, c'est lui qui fait revenir. Le
+          plan, lui, se consulte une fois. */}
+      <ProfilEntree suivi={suivi} />
+
       <JournalEntree
         derniers={repas.length}
         enAttente={repas.filter((r) => r.statut !== "repondu").length}
@@ -91,6 +98,57 @@ function JournalEntree({ derniers, enAttente }: { derniers: number; enAttente: n
         </p>
       </div>
       <ArrowRight size={18} className="shrink-0 text-d5-gold" />
+    </Link>
+  )
+}
+
+/**
+ * L'entrée du profil alimentaire.
+ *
+ * Trois états, et un seul appelle une action : jamais rempli, point dû,
+ * à jour. Dans le dernier cas la carte reste visible mais discrète — la faire
+ * disparaître laisserait croire que le profil n'existe plus.
+ */
+function ProfilEntree({
+  suivi,
+}: {
+  suivi: { envoyeLe: Date } | null
+}) {
+  const maintenant = new Date()
+  const aFaire = !suivi || pointDu(suivi.envoyeLe, maintenant)
+  const jours = suivi ? joursAvantPoint(suivi.envoyeLe, maintenant) : 0
+
+  return (
+    <Link
+      href="/nutrition/profil"
+      className={`flex items-center gap-4 rounded-2xl p-5 transition-transform active:scale-[0.98] ${
+        aFaire
+          ? "border-2 border-d5-gold/40 bg-d5-gold/5"
+          : "card hover:border-d5-gold/30"
+      }`}
+    >
+      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
+        aFaire ? "bg-d5-gold/15" : "bg-d5-surface-2"
+      }`}>
+        <ClipboardList size={22} className={aFaire ? "text-d5-gold" : "text-d5-muted"} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-white">
+          {!suivi
+            ? "Mon profil alimentaire"
+            : aFaire
+              ? "Ton point de six semaines"
+              : "Mon profil alimentaire"}
+        </p>
+        <p className="mt-0.5 text-xs leading-relaxed text-d5-muted">
+          {!suivi
+            ? "Huit questions, deux minutes. C'est ce qui me permet d'écrire un plan que tu pourras suivre."
+            : aFaire
+              ? "Cinq questions pour ajuster ce qui coince."
+              : `À jour. Prochain point dans ${jours} jour${jours > 1 ? "s" : ""}.`}
+        </p>
+      </div>
+      <ArrowRight size={18} className={aFaire ? "shrink-0 text-d5-gold" : "shrink-0 text-d5-muted"} />
     </Link>
   )
 }

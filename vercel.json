@@ -11,6 +11,10 @@
     {
       "path": "/api/cron/reboot-relances",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/nutrition-point",
+      "schedule": "0 10 * * *"
     }
   ]
 }
