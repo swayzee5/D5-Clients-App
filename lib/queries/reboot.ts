@@ -54,6 +54,9 @@ function ensureColumns(): Promise<void> {
     await pool.query(`ALTER TABLE reboot_sessions  ADD COLUMN IF NOT EXISTS manually_edited BOOLEAN NOT NULL DEFAULT false`);
     await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS library_exercise_id UUID`);
     await pool.query(`ALTER TABLE reboot_exercises ADD COLUMN IF NOT EXISTS video_suppressed BOOLEAN NOT NULL DEFAULT false`);
+    // La vidéo d'où vient la vignette. Sans elle, impossible de savoir qu'une
+    // miniature est périmée : elle s'affichait sur un autre mouvement.
+    await pool.query(`ALTER TABLE exercise_library ADD COLUMN IF NOT EXISTS thumbnail_video_id TEXT`);
   })().catch((err) => {
     // Ne pas mémoïser un échec : la tentative suivante doit pouvoir réussir.
     schemaReady = null;

@@ -39,12 +39,23 @@ export async function GET(req: NextRequest) {
   const tout = req.nextUrl.searchParams.get("tout") === "1";
   const token = process.env.VIMEO_ACCESS_TOKEN;
 
+  await pool
+    .query(`ALTER TABLE exercise_library ADD COLUMN IF NOT EXISTS thumbnail_video_id TEXT`)
+    .catch(() => {});
+
+  // Par défaut : les vignettes absentes ET les vignettes périmées — celles qui
+  // illustrent une autre vidéo que celle de l'exercice. Les secondes sont les
+  // plus nuisibles : une image fausse se lit comme une information.
   const { rows: exercises } = await pool.query<ExNoThumb>(
     `SELECT id::text, name, vimeo_video_id
      FROM exercise_library
      WHERE vimeo_video_id IS NOT NULL
-       AND ($1::boolean OR thumbnail_url IS NULL OR thumbnail_url = '')
        AND is_active = true
+       AND ($1::boolean
+            OR thumbnail_url IS NULL
+            OR thumbnail_url = ''
+            OR (thumbnail_video_id IS NOT NULL
+                AND thumbnail_video_id IS DISTINCT FROM vimeo_video_id))
      ORDER BY name`,
     [tout]
   );
@@ -53,7 +64,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       périmètre: tout
         ? "tous les exercices ayant une vidéo"
-        : "exercices ayant une vidéo mais aucune miniature",
+        : "miniatures absentes ou périmées",
       total: exercises.length,
       exercises: exercises.map((e) => ({ name: e.name, vimeo_video_id: e.vimeo_video_id })),
     });
@@ -82,7 +93,9 @@ export async function GET(req: NextRequest) {
 
       if (res.status === 404 || res.status === 403) {
         await pool.query(
-          `UPDATE exercise_library SET vimeo_video_id = NULL WHERE id = $1::uuid`,
+          `UPDATE exercise_library
+              SET vimeo_video_id = NULL, thumbnail_url = NULL, thumbnail_video_id = NULL
+            WHERE id = $1::uuid`,
           [ex.id]
         );
         action = `vimeo_video_id set NULL (status ${res.status})`;
@@ -91,9 +104,14 @@ export async function GET(req: NextRequest) {
         const sizes: { width: number; link: string }[] = data.pictures?.sizes ?? [];
         const thumb = sizes.find((s) => s.width >= 640) ?? sizes[sizes.length - 1] ?? null;
         if (thumb?.link) {
+          // L'origine est enregistrée avec la vignette : c'est ce qui permet
+          // de reconnaître plus tard qu'elle est périmée, quel que soit le
+          // chemin par lequel l'identifiant de la vidéo aura changé.
           await pool.query(
-            `UPDATE exercise_library SET thumbnail_url = $1 WHERE id = $2::uuid`,
-            [thumb.link, ex.id]
+            `UPDATE exercise_library
+                SET thumbnail_url = $1, thumbnail_video_id = $2
+              WHERE id = $3::uuid`,
+            [thumb.link, ex.vimeo_video_id, ex.id]
           );
           action = "thumbnail updated";
         } else {
@@ -125,7 +143,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     périmètre: tout
       ? "tous les exercices ayant une vidéo"
-      : "exercices ayant une vidéo mais aucune miniature",
+      : "miniatures absentes ou périmées",
     total: exercises.length,
     nullified,
     updated,
