@@ -108,7 +108,14 @@ async function ensureSchema(): Promise<void> {
  * d'une séance sans que rien ne le dise.
  */
 function cleNom(nom: string): string {
-  return nom.normalize("NFC").replace(/\s+/g, " ").trim().toLowerCase();
+  return nom
+    .normalize("NFC")
+    // Les apostrophes droite et typographiques se ressemblent et ne se
+    // comparent pas : « vers l'arrière » contre « vers l’arrière ».
+    .replace(/[\u2018\u2019\u02BC\u0060\u00B4]/g, "'")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 }
 
 async function chargerBibliotheque(): Promise<Map<string, LibraryRow>> {
