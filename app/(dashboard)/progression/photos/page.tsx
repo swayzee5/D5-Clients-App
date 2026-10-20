@@ -16,6 +16,7 @@ import {
   type PhotoProgression,
 } from "@/lib/queries/progression-photos";
 import { PhotosProgression } from "@/components/progression/PhotosProgression";
+import { VideoProgression } from "@/components/progression/VideoProgression";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Mes photos — Progression" };
@@ -108,6 +109,7 @@ export default async function PhotosProgressionPage() {
           {photos.length === 0 ? "Tes trois photos de départ" : "Mettre à jour"}
         </h2>
         <PhotosProgression angles={ANGLES} derniereParAngle={derniereParAngle} />
+        <VideoProgression derniere={derniereParAngle.video ?? null} />
       </section>
 
       <p className="px-1 text-xs leading-relaxed text-d5-muted">

@@ -19,13 +19,29 @@ import { pool } from "@/lib/db";
  * se lisent ensemble plutôt que côte à côte sans rapport.
  */
 
-export type AnglePhoto = "front" | "back" | "side";
+/**
+ * Les trois angles, plus la vidéo.
+ *
+ * La vidéo partage la table parce qu'elle partage tout le reste : une date,
+ * un client, un chemin de stockage privé. Elle ne remplace pas les photos —
+ * deux vidéos ne se comparent pas, on ne peut pas les figer au même instant
+ * sous le même angle. Les photos servent au client à voir son évolution, la
+ * vidéo sert au coach comme preuve difficile à fabriquer.
+ */
+export type AnglePhoto = "front" | "back" | "side" | "video";
 
 export const ANGLES: { cle: AnglePhoto; label: string; consigne: string }[] = [
   { cle: "front", label: "De face", consigne: "Bras le long du corps, pieds écartés largeur de bassin." },
   { cle: "side", label: "De profil", consigne: "Bras le long du corps, regard droit devant." },
   { cle: "back", label: "De dos", consigne: "Même position que de face, dos à l'objectif." },
 ];
+
+/** La vidéo est présentée à part : facultative, et d'une autre nature. */
+export const VIDEO: { cle: AnglePhoto; label: string; consigne: string } = {
+  cle: "video",
+  label: "Vidéo de rotation",
+  consigne: "Quinze secondes, un tour complet sur toi-même, lentement.",
+};
 
 export type PhotoProgression = {
   id: string;
@@ -50,6 +66,18 @@ async function ensureSchema(): Promise<void> {
   // Le chemin privé remplace l'adresse publique du schéma d'origine.
   await pool.query(`ALTER TABLE progress_photos ADD COLUMN IF NOT EXISTS photo_path TEXT`);
   await pool.query(`ALTER TABLE progress_photos ALTER COLUMN photo_url DROP NOT NULL`).catch(() => {});
+  // La contrainte d'origine n'admettait que les trois angles. Elle est
+  // reconstruite pour accepter la vidéo — le nom est celui que PostgreSQL
+  // donne par défaut à une contrainte de colonne.
+  await pool
+    .query(`ALTER TABLE progress_photos DROP CONSTRAINT IF EXISTS progress_photos_photo_type_check`)
+    .catch(() => {});
+  await pool
+    .query(
+      `ALTER TABLE progress_photos ADD CONSTRAINT progress_photos_photo_type_check
+         CHECK (photo_type IN ('front', 'back', 'side', 'video'))`
+    )
+    .catch(() => {});
   // Une seule photo par angle et par date : reprendre sa photo de face
   // remplace la précédente du jour au lieu d'en empiler deux.
   await pool.query(
@@ -166,6 +194,7 @@ export type Comparaison = {
 };
 
 export function comparer(photos: PhotoProgression[]): Comparaison[] {
+  // Seulement les angles photo : la vidéo ne se compare pas côte à côte.
   return ANGLES.map(({ cle, label }) => {
     // listerPhotos rend du plus récent au plus ancien.
     const duType = photos.filter((p) => p.angle === cle);

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { auth } from "@/auth";
 import { analyserRepas } from "@/lib/analyse-repas";
-import { deposerPhoto, supprimerPhoto, TAILLE_MAX } from "@/lib/photo-repas";
+import { lireOctets, supprimer } from "@/lib/photos-privees";
 import { enregistrerRepas } from "@/lib/queries/journal-repas";
 
 /**
@@ -20,40 +20,41 @@ import { enregistrerRepas } from "@/lib/queries/journal-repas";
  * attribuée à quelqu'un d'autre fausserait son jugement sur deux clients à la
  * fois.
  */
-export async function envoyerRepas(
-  formData: FormData
-): Promise<{ ok: true; id: string } | { ok: false; erreur: string }> {
+export async function envoyerRepas(valeurs: {
+  chemin: string;
+  typeImage: string;
+  note?: string | null;
+}): Promise<{ ok: true; id: string } | { ok: false; erreur: string }> {
   const session = await auth();
   if (!session?.user?.id) return { ok: false, erreur: "Session expirée. Reconnecte-toi." };
 
-  const fichier = formData.get("photo");
-  if (!(fichier instanceof File) || fichier.size === 0) {
-    return { ok: false, erreur: "Aucune photo reçue." };
-  }
-  if (fichier.size > TAILLE_MAX) {
-    return { ok: false, erreur: "Photo trop lourde (10 Mo maximum)." };
-  }
-  if (!fichier.type.startsWith("image/")) {
-    return { ok: false, erreur: "Ce fichier n'est pas une image." };
+  // Le chemin vient du navigateur : il doit commencer par le dossier d'usage
+  // suivi de l'identifiant de session. Sans ce contrôle, quelqu'un pourrait
+  // s'attribuer la photo d'un autre en envoyant son chemin.
+  if (!valeurs.chemin.startsWith(`repas/${session.user.id}/`)) {
+    return { ok: false, erreur: "Fichier inattendu." };
   }
 
-  const note = (formData.get("note") as string | null)?.slice(0, 500) ?? null;
+  const note = valeurs.note?.slice(0, 500) || null;
 
-  const depot = await deposerPhoto(session.user.id, fichier);
-  if ("erreur" in depot) return { ok: false, erreur: depot.erreur };
-
-  // Les octets sont déjà en mémoire ici : les relire depuis le stockage pour
-  // les envoyer à l'analyse ferait un aller-retour pour rien.
+  // Les octets sont relus depuis le stockage : depuis que la photo va
+  // directement du téléphone au stockage — le seul moyen de dépasser le
+  // plafond d'un mégaoctet des actions serveur — le serveur ne les a plus
+  // sous la main.
   let analyse = null;
   let analyseErreur: string | null = null;
   try {
-    const octets = Buffer.from(await fichier.arrayBuffer());
-    const resultat = await analyserRepas(
-      { base64: octets.toString("base64"), mediaType: fichier.type },
-      note
-    );
-    analyse = resultat.analyse;
-    analyseErreur = resultat.erreur;
+    const octets = await lireOctets(valeurs.chemin);
+    if (!octets) {
+      analyseErreur = "Photo illisible depuis le stockage";
+    } else {
+      const resultat = await analyserRepas(
+        { base64: octets.toString("base64"), mediaType: valeurs.typeImage },
+        note
+      );
+      analyse = resultat.analyse;
+      analyseErreur = resultat.erreur;
+    }
   } catch (err) {
     analyseErreur = String(err).slice(0, 300);
   }
@@ -61,7 +62,7 @@ export async function envoyerRepas(
   try {
     const id = await enregistrerRepas({
       clientId: session.user.id,
-      photoPath: depot.chemin,
+      photoPath: valeurs.chemin,
       noteClient: note,
       analyse,
       analyseErreur,
@@ -74,7 +75,7 @@ export async function envoyerRepas(
     // personne et ne sera jamais affichée. On la retire plutôt que de la
     // laisser s'accumuler dans le stockage sans rien pour la retrouver.
     console.error("[envoyerRepas]", err);
-    await supprimerPhoto(depot.chemin);
+    await supprimer(valeurs.chemin);
     return { ok: false, erreur: "Enregistrement impossible. Réessaie dans un instant." };
   }
 }

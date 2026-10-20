@@ -3,7 +3,8 @@
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, X, Layers } from "lucide-react";
-import { envoyerPhotoProgression } from "@/app/(dashboard)/progression/photos/actions";
+import { enregistrerMediaProgression } from "@/app/(dashboard)/progression/photos/actions";
+import { televerser } from "@/lib/televerser";
 import type { AnglePhoto, PhotoProgression } from "@/lib/queries/progression-photos";
 
 /**
@@ -54,6 +55,7 @@ function CarteAngle({
   const [apercu, setApercu] = useState<string | null>(null);
   const [superpose, setSuperpose] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
+  const [progression, setProgression] = useState<number | null>(null);
 
   function choisir(f: File | null) {
     setErreur(null);
@@ -72,10 +74,16 @@ function CarteAngle({
     if (!fichier) return;
     setErreur(null);
     startTransition(async () => {
-      const data = new FormData();
-      data.set("angle", angle.cle);
-      data.set("photo", fichier);
-      const r = await envoyerPhotoProgression(data);
+      // Le fichier va directement au stockage ; le serveur n'enregistre
+      // ensuite que son chemin.
+      const depot = await televerser("progression", fichier, setProgression);
+      if ("erreur" in depot) {
+        setErreur(depot.erreur);
+        setProgression(null);
+        return;
+      }
+      const r = await enregistrerMediaProgression({ angle: angle.cle, chemin: depot.chemin });
+      setProgression(null);
       if (!r.ok) {
         setErreur(r.erreur);
         return;
@@ -175,7 +183,11 @@ function CarteAngle({
             disabled={isPending}
             className="w-full rounded-xl bg-d5-gold py-3.5 text-sm font-bold text-black transition-transform active:scale-[0.98] disabled:opacity-50"
           >
-            {isPending ? "Envoi…" : "Enregistrer"}
+            {isPending
+              ? progression !== null
+                ? `Envoi… ${progression} %`
+                : "Envoi…"
+              : "Enregistrer"}
           </button>
         </div>
       )}

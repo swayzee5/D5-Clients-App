@@ -4,6 +4,7 @@ import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, X } from "lucide-react";
 import { envoyerRepas } from "@/app/(dashboard)/nutrition/journal/actions";
+import { televerser } from "@/lib/televerser";
 
 /**
  * Photographier un repas.
@@ -29,6 +30,7 @@ export function EnvoyerRepas() {
   const [apercu, setApercu] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
+  const [progression, setProgression] = useState<number | null>(null);
 
   function choisir(f: File | null) {
     setErreur(null);
@@ -47,10 +49,20 @@ export function EnvoyerRepas() {
     if (!fichier) return;
     setErreur(null);
     startTransition(async () => {
-      const data = new FormData();
-      data.set("photo", fichier);
-      if (note.trim()) data.set("note", note.trim());
-      const r = await envoyerRepas(data);
+      // La photo va directement au stockage : une photo d'iPhone dépasse le
+      // plafond d'un mégaoctet des actions serveur.
+      const depot = await televerser("repas", fichier, setProgression);
+      if ("erreur" in depot) {
+        setErreur(depot.erreur);
+        setProgression(null);
+        return;
+      }
+      const r = await envoyerRepas({
+        chemin: depot.chemin,
+        typeImage: fichier.type,
+        note: note.trim() || null,
+      });
+      setProgression(null);
       if (!r.ok) {
         setErreur(r.erreur);
         return;
@@ -110,7 +122,11 @@ export function EnvoyerRepas() {
             disabled={isPending}
             className="w-full rounded-xl bg-d5-gold py-4 text-sm font-bold text-black transition-transform active:scale-[0.98] disabled:opacity-50"
           >
-            {isPending ? "Envoi et lecture de l'assiette…" : "Envoyer à mon coach"}
+            {isPending
+              ? progression !== null
+                ? `Envoi… ${progression} %`
+                : "Lecture de l'assiette…"
+              : "Envoyer à mon coach"}
           </button>
 
           {/* L'analyse prend quelques secondes. Le dire évite qu'on appuie

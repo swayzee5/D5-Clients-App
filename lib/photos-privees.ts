@@ -86,6 +86,35 @@ export async function lire(
   }
 }
 
+/**
+ * Lit un fichier entier en mémoire.
+ *
+ * Sert à l'analyse des photos de repas : depuis que les fichiers vont
+ * directement du téléphone au stockage, le serveur ne les a plus sous la main
+ * et doit les relire pour les envoyer au modèle.
+ *
+ * Réservé aux images. Une vidéo ne doit jamais passer par ici : plusieurs
+ * dizaines de mégaoctets en mémoire dans une fonction serveur, c'est la panne
+ * assurée.
+ */
+export async function lireOctets(chemin: string): Promise<Buffer | null> {
+  const fichier = await lire(chemin);
+  if (!fichier) return null;
+  try {
+    const morceaux: Uint8Array[] = [];
+    const lecteur = fichier.corps.getReader();
+    for (;;) {
+      const { done, value } = await lecteur.read();
+      if (done) break;
+      if (value) morceaux.push(value);
+    }
+    return Buffer.concat(morceaux);
+  } catch (err) {
+    console.error("[photos-privees] lecture des octets impossible", err);
+    return null;
+  }
+}
+
 /** Supprime un fichier. Les erreurs sont avalées : la ligne part de toute façon. */
 export async function supprimer(chemin: string): Promise<void> {
   if (!stockageConfigure()) return;
