@@ -10,6 +10,7 @@ import { getBilan } from "@/lib/queries/reboot-bilan";
 import { pool } from "@/lib/db";
 import { InviterProche } from "@/components/reboot/InviterProche";
 import { prochaineEtape } from "@/lib/reboot-prochaine-etape";
+import { listerPhotos } from "@/lib/queries/progression-photos";
 import { SectionTerminee } from "@/components/reboot/SectionTerminee";
 import type { Metadata } from "next";
 
@@ -103,6 +104,13 @@ export default async function RebootPage() {
   // Le Reboot Score, s'il a été calculé : c'est le point de comparaison de la
   // fin des 7 jours, il doit rester accessible et pas seulement s'afficher une
   // fois à la validation du diagnostic.
+  // Les photos de référence du premier jour. Elles ne comptent pas dans les
+  // dix étapes : en sept jours une photo ne montre rien, et en faire un
+  // objectif découragerait. Elles valent pour plus tard — le jour où ce
+  // participant devient client, il a un vrai point de départ que personne ne
+  // pourra contester.
+  const photosReference = await listerPhotos(clientId).catch(() => []);
+
   const diagnostic = await getRebootDiagnostic(clientId);
   // Le bilan n'est proposé qu'une fois les dix étapes faites, et une seule
   // fois : c'est une mesure datée, pas un formulaire qu'on rejoue.
@@ -242,6 +250,28 @@ export default async function RebootPage() {
       {/* Après les modules, et visible dès le premier jour : l'envie de parler
           du challenge vient surtout juste après une séance réussie, pas au
           septième jour. */}
+      {/* Facultatif, et dit comme tel. Proposé tôt parce qu'une photo de
+          départ prise au cinquième jour n'est plus une photo de départ. */}
+      <Link
+        href="/progression/photos"
+        className="card flex items-center gap-3 transition-all active:scale-[0.98] hover:border-d5-gold/30"
+      >
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-d5-surface-2 text-lg">
+          📸
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold text-white">
+            {photosReference.length > 0 ? "Mes photos de départ" : "Photos de départ (facultatif)"}
+          </span>
+          <span className="block text-xs leading-relaxed text-d5-muted">
+            {photosReference.length > 0
+              ? `${photosReference.length} enregistrée${photosReference.length > 1 ? "s" : ""} — privées, visibles de ton coach seul`
+              : "Face, dos, profil. Sept jours ne se verront pas, mais six mois oui."}
+          </span>
+        </span>
+        <ArrowRight size={15} className="shrink-0 text-d5-muted" />
+      </Link>
+
       <InviterProche
         firstName={session.user?.name?.split(" ")[0]}
         points={bilan && diagnostic ? bilan.scores.global - diagnostic.scores.global : null}
