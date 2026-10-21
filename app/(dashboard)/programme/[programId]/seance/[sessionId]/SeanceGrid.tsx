@@ -60,12 +60,15 @@ function ExerciseCard({
   onCheck,
   onVideoClick,
   onWeightChange,
+  sauvegarde,
 }: {
   exercise: SessionExercise;
   index: number;
   checked: boolean;
   clientId: string;
   weights: string[];
+  /** Etat de l'enregistrement des charges de cet exercice. */
+  sauvegarde: "en-cours" | "ok" | "erreur" | null;
   onCheck: () => void;
   onVideoClick: () => void;
   onWeightChange: (setIndex: number, value: string) => void;
@@ -202,6 +205,28 @@ function ExerciseCard({
           </button>
         </div>
 
+        {/* Les charges partaient sans un mot, et une panne ne se voyait pas :
+            l'athlete croyait sa seance enregistree et la retrouvait vide. */}
+        {sauvegarde && (
+          <p
+            role="status"
+            aria-live="polite"
+            className={`text-[10px] font-medium ${
+              sauvegarde === "erreur"
+                ? "text-red-400"
+                : sauvegarde === "ok"
+                ? "text-green-400"
+                : "text-gray-500"
+            }`}
+          >
+            {sauvegarde === "en-cours"
+              ? "Enregistrement\u2026"
+              : sauvegarde === "ok"
+              ? "\u2713 Charges enregistr\u00e9es"
+              : "Charges non enregistr\u00e9es \u2014 reviens dessus quand tu as du r\u00e9seau."}
+          </p>
+        )}
+
         {/* History panel */}
         {showHistory && (
           <div className="border-t border-gray-800 pt-2 space-y-1.5">
@@ -328,6 +353,16 @@ export function SeanceGrid({
     } catch {}
   };
 
+  /**
+   * L'etat d'enregistrement des charges, exercice par exercice.
+   *
+   * L'appel partait en .catch(console.error) : l'athlete n'apprenait jamais
+   * qu'il n'etait pas passe, et retrouvait sa seance vide le lendemain.
+   */
+  const [sauvegardes, setSauvegardes] = useState<
+    Record<string, "en-cours" | "ok" | "erreur">
+  >({});
+
   const toggle = (id: string) => {
     const wasChecked = checked.has(id);
     setChecked((prev) => {
@@ -348,7 +383,28 @@ export function SeanceGrid({
         reps: "",
       }));
       if (sets.some((s) => s.weight)) {
-        saveManualWeightLogs(clientId, id, sets).catch(console.error);
+        setSauvegardes((p) => ({ ...p, [id]: "en-cours" }));
+        saveManualWeightLogs(clientId, id, sets)
+          .then(() => {
+            setSauvegardes((p) => ({ ...p, [id]: "ok" }));
+            // Le message s'efface : il repond a une question posee a
+            // l'instant, et la seance continue.
+            setTimeout(
+              () =>
+                setSauvegardes((p) => {
+                  if (p[id] !== "ok") return p;
+                  const n = { ...p };
+                  delete n[id];
+                  return n;
+                }),
+              4000
+            );
+          })
+          .catch((err) => {
+            console.error(err);
+            // L'erreur, elle, reste affichee : il y a quelque chose a faire.
+            setSauvegardes((p) => ({ ...p, [id]: "erreur" }));
+          });
       }
     }
   };
@@ -387,6 +443,7 @@ export function SeanceGrid({
             weights={weights[ex.id] ?? [""]}
             onCheck={() => toggle(ex.id)}
             onVideoClick={() => setVideoExercise(ex)}
+            sauvegarde={sauvegardes[ex.id] ?? null}
             onWeightChange={(setIndex, value) =>
               setWeights((prev) => {
                 const next = [...(prev[ex.id] ?? [""])];
