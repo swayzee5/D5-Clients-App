@@ -1,5 +1,6 @@
 "use client";
 
+import { estDuree } from "@/lib/duree-exercice";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { SessionExercise } from "@/lib/queries/programme";
@@ -84,7 +85,10 @@ function ExerciseCard({
     : "1 phase";
 
   const stats: { label: string; value: string }[] = [];
-  if (exercise.reps) stats.push({ label: "Reps", value: exercise.reps });
+  // Un gainage se compte en secondes : l'annoncer « Reps : 45 s » obligerait
+  // l'athlete a relire deux fois ce qu'on lui demande.
+  if (exercise.reps)
+    stats.push({ label: estDuree(exercise.reps) ? "Durée" : "Reps", value: exercise.reps });
   if (exercise.rest_seconds)
     stats.push({ label: "Récup.", value: formatRest(exercise.rest_seconds) });
 
