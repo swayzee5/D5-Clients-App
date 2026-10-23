@@ -131,12 +131,20 @@ function ExerciseCard({
         className={`mx-3 rounded-xl overflow-hidden bg-gray-800 relative ${
           hasVideo ? "cursor-pointer" : ""
         }`}
-        style={{ aspectRatio: "4/3" }}
+        // Sans vignette, la tuile garde un format fixe : c'est elle qui donne
+        // sa hauteur à la carte, et une carte qui s'effondre déplace tout le
+        // reste de la grille.
+        style={thumbnail ? undefined : { aspectRatio: "4/3" }}
         onClick={hasVideo ? onVideoClick : undefined}
       >
         {thumbnail ? (
+          /* La tuile prend le format de l'image plutôt que de l'imposer : une
+             démonstration filmée à la verticale était recadrée au centre, et
+             on y perdait les pieds et la tête — c'est-à-dire le mouvement.
+             La hauteur reste bornée pour qu'un portrait ne pousse pas le
+             reste de la séance hors de l'écran. */
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumbnail} alt={exercise.name} className="w-full h-full object-cover" />
+          <img src={thumbnail} alt={exercise.name} className="w-full max-h-72 object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <span className="text-5xl font-black text-gray-700">{index + 1}</span>

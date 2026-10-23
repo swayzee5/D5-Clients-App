@@ -134,11 +134,24 @@ function ExerciseCard({ exercise, index, checked, onCheck, onPlay }: {
         disabled={!exercise.vimeo_video_id}
         aria-label={exercise.vimeo_video_id ? `Voir la démonstration de ${exercise.name}` : undefined}
         className="relative mx-3 block w-[calc(100%-1.5rem)] overflow-hidden rounded-xl bg-gray-800"
-        style={{ aspectRatio: "4/3" }}
+        // Sans vignette, la tuile garde un format fixe : c'est elle qui donne
+        // sa hauteur à la carte, et une carte qui s'effondre déplace tout le
+        // reste de la grille.
+        style={thumbnailUrl ? undefined : { aspectRatio: "4/3" }}
       >
         {thumbnailUrl ? (
+          /* La tuile prend le format de l'image plutôt que de l'imposer : une
+             démonstration filmée à la verticale était recadrée au centre, et
+             on y perdait les pieds et la tête — c'est-à-dire le mouvement.
+             La hauteur reste bornée pour qu'un portrait ne pousse pas le
+             reste de la séance hors de l'écran. */
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumbnailUrl} alt={exercise.name} className="h-full w-full object-cover" onError={() => setImgError(true)} />
+          <img
+            src={thumbnailUrl}
+            alt={exercise.name}
+            className="max-h-72 w-full object-cover"
+            onError={() => setImgError(true)}
+          />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <span className="text-5xl font-black text-gray-700">{index + 1}</span>
