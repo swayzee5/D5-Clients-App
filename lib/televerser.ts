@@ -52,9 +52,19 @@ export async function televerser(
     // Le détail est remonté en plus du message simple. Sans lui, une panne de
     // configuration est indiscernable d'une panne de réseau : on fait
     // réessayer quelqu'un sur quelque chose qui ne marchera jamais.
+    // « Failed to retrieve the client token » veut dire que le serveur a
+    // refusé l'autorisation, sans dire pourquoi. Le motif est demandé juste
+    // après, sinon le message ne sert à rien.
+    let motif = "";
+    try {
+      const d = await fetch("/api/televersement", { cache: "no-store" });
+      motif = ` — ${JSON.stringify(await d.json())}`;
+    } catch {
+      /* Rien de plus à dire que ce qu'on a déjà. */
+    }
     return {
       erreur: "Envoi impossible. Vérifie ta connexion et réessaie.",
-      detail: String(err).slice(0, 300),
+      detail: `${String(err).slice(0, 200)}${motif}`.slice(0, 600),
     };
   }
 }

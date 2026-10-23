@@ -59,6 +59,36 @@ function extension(nom: string): string {
   return trouvee ? trouvee[1] : "bin";
 }
 
+/**
+ * Pourquoi l'autorisation est refusée.
+ *
+ * Quand la route refuse, le téléphone n'en sait rien : la bibliothèque de
+ * stockage n'affiche que « Failed to retrieve the client token », sans le
+ * motif. Trois refus possibles — pas de session, usage inconnu, stockage non
+ * configuré — et rien pour les distinguer, alors qu'ils appellent trois
+ * gestes différents.
+ *
+ * Ce GET rejoue les mêmes vérifications et dit laquelle échoue. Il ne
+ * téléverse rien et ne révèle pas le jeton.
+ */
+export async function GET(): Promise<Response> {
+  const session = await auth().catch((err) => {
+    console.error("[televersement] auth", err);
+    return null;
+  });
+
+  return Response.json({
+    session: session?.user?.id ? "ouverte" : "absente",
+    stockage: process.env.BLOB_READ_WRITE_TOKEN ? "configuré" : "BLOB_READ_WRITE_TOKEN manquant",
+    usagesAcceptés: Object.keys(USAGES),
+    diagnostic: !session?.user?.id
+      ? "La session n'est pas vue par la route. C'est elle qui bloque l'autorisation."
+      : !process.env.BLOB_READ_WRITE_TOKEN
+      ? "Session ouverte, mais le stockage n'est pas configuré sur ce déploiement."
+      : "Session et stockage sont bons : le refus vient d'ailleurs.",
+  });
+}
+
 export async function POST(req: NextRequest): Promise<Response> {
   // Dit tout de suite ce qui manque. Sans jeton, la bibliothèque échoue avec
   // un message technique en anglais, que le client voit traduit en « vérifie
@@ -79,7 +109,10 @@ export async function POST(req: NextRequest): Promise<Response> {
       request: req,
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const session = await auth();
-        if (!session?.user?.id) throw new Error("Session expirée");
+        if (!session?.user?.id) {
+          console.error("[televersement] refus : aucune session");
+          throw new Error("Session expirée");
+        }
 
         const usage = (clientPayload ?? "").trim();
         if (!usageValide(usage)) throw new Error("Usage inconnu");
