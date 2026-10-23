@@ -39,9 +39,16 @@ export async function televerser(
     return { chemin: resultat.pathname };
   } catch (err) {
     console.error("[televerser]", err);
-    // Le message du stockage est technique et en anglais. Les deux causes
-    // réelles sont le réseau et le stockage non configuré ; dans les deux cas
-    // la seule chose utile à dire est de réessayer.
+    // Les deux causes réelles sont le réseau et le stockage non configuré.
+    // Elles appellent des gestes opposés — réessayer, ou prévenir le coach —
+    // et les confondre fait réessayer dix fois quelque chose qui ne peut pas
+    // marcher.
+    if (String(err).includes("BLOB_READ_WRITE_TOKEN")) {
+      return {
+        erreur:
+          "L'envoi de photos n'est pas encore activé sur l'application. Préviens ton coach — ce n'est pas ton téléphone.",
+      };
+    }
     return { erreur: "Envoi impossible. Vérifie ta connexion et réessaie." };
   }
 }

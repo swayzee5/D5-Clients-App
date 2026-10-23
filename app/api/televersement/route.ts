@@ -60,6 +60,17 @@ function extension(nom: string): string {
 }
 
 export async function POST(req: NextRequest): Promise<Response> {
+  // Dit tout de suite ce qui manque. Sans jeton, la bibliothèque échoue avec
+  // un message technique en anglais, que le client voit traduit en « vérifie
+  // ta connexion » — alors que le réseau n'y est pour rien et qu'aucune
+  // tentative ne marchera jamais.
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return Response.json(
+      { error: "Stockage non configuré : BLOB_READ_WRITE_TOKEN manquant sur ce projet." },
+      { status: 503 }
+    );
+  }
+
   const corps = (await req.json()) as HandleUploadBody;
 
   try {
