@@ -30,6 +30,7 @@ export function EnvoyerRepas() {
   const [apercu, setApercu] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [erreur, setErreur] = useState<string | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
   const [progression, setProgression] = useState<number | null>(null);
 
   function choisir(f: File | null) {
@@ -48,12 +49,16 @@ export function EnvoyerRepas() {
   function envoyer() {
     if (!fichier) return;
     setErreur(null);
+    setDetail(null);
     startTransition(async () => {
       // La photo va directement au stockage : une photo d'iPhone dépasse le
       // plafond d'un mégaoctet des actions serveur.
       const depot = await televerser("repas", fichier, setProgression);
       if ("erreur" in depot) {
         setErreur(depot.erreur);
+        // Le détail technique est affiché en petit : il ne s'adresse pas au
+        // client, mais il évite d'avoir à deviner la panne à distance.
+        setDetail(depot.detail ?? null);
         setProgression(null);
         return;
       }
@@ -116,6 +121,11 @@ export function EnvoyerRepas() {
           />
 
           {erreur && <p className="text-sm text-red-400">{erreur}</p>}
+          {detail && (
+            <p className="break-words text-[10px] leading-snug text-d5-muted">
+              Détail : {detail}
+            </p>
+          )}
 
           <button
             onClick={envoyer}

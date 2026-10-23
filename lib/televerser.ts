@@ -24,7 +24,7 @@ export async function televerser(
   usage: Usage,
   fichier: File,
   onProgression?: (pourcent: number) => void
-): Promise<{ chemin: string } | { erreur: string }> {
+): Promise<{ chemin: string } | { erreur: string; detail?: string }> {
   try {
     const resultat = await upload(fichier.name || "fichier", fichier, {
       access: "private",
@@ -49,6 +49,12 @@ export async function televerser(
           "L'envoi de photos n'est pas encore activé sur l'application. Préviens ton coach — ce n'est pas ton téléphone.",
       };
     }
-    return { erreur: "Envoi impossible. Vérifie ta connexion et réessaie." };
+    // Le détail est remonté en plus du message simple. Sans lui, une panne de
+    // configuration est indiscernable d'une panne de réseau : on fait
+    // réessayer quelqu'un sur quelque chose qui ne marchera jamais.
+    return {
+      erreur: "Envoi impossible. Vérifie ta connexion et réessaie.",
+      detail: String(err).slice(0, 300),
+    };
   }
 }
