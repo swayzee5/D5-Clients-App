@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
+import { jetonBlob, nomVariableBlob } from "@/lib/blob-token";
 
 /**
  * Teste le stockage, et dit ce qui coince.
@@ -22,13 +23,14 @@ async function essayer(acces: "private" | "public") {
   const chemin = `diagnostic/test-${Date.now()}-${acces}.txt`;
   try {
     const depot = await put(chemin, "test", {
+      token: jetonBlob(),
       access: acces,
       contentType: "text/plain",
       addRandomSuffix: false,
     });
     // Rien ne doit rester : un fichier de test oublié dans un store est un
     // fichier dont personne ne saura plus à quoi il servait.
-    await del(depot.url).catch(() => {});
+    await del(depot.url, { token: jetonBlob() }).catch(() => {});
     return { ok: true };
   } catch (err) {
     return { ok: false, erreur: String(err).slice(0, 400) };
@@ -41,7 +43,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const jeton = process.env.BLOB_READ_WRITE_TOKEN;
+  const jeton = jetonBlob();
   if (!jeton) {
     return NextResponse.json({
       jeton: "absent",
@@ -56,7 +58,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     // Le jeton n'est jamais renvoyé : seulement de quoi reconnaître qu'il y en
     // a un, et lequel.
-    jeton: `présent (${jeton.slice(0, 22)}…, ${jeton.length} caractères)`,
+    jeton: `présent dans ${nomVariableBlob()} (${jeton.length} caractères)`,
     dépôtPrivé: prive,
     dépôtPublic: publique,
     diagnostic: prive.ok

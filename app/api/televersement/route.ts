@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { auth } from "@/auth";
+import { jetonBlob, nomVariableBlob } from "@/lib/blob-token";
 
 /**
  * Autorise un envoi de fichier depuis le téléphone, directement vers le
@@ -79,11 +80,11 @@ export async function GET(): Promise<Response> {
 
   return Response.json({
     session: session?.user?.id ? "ouverte" : "absente",
-    stockage: process.env.BLOB_READ_WRITE_TOKEN ? "configuré" : "BLOB_READ_WRITE_TOKEN manquant",
+    stockage: jetonBlob() ? `configuré (${nomVariableBlob()})` : "BLOB_READ_WRITE_TOKEN manquant",
     usagesAcceptés: Object.keys(USAGES),
     diagnostic: !session?.user?.id
       ? "La session n'est pas vue par la route. C'est elle qui bloque l'autorisation."
-      : !process.env.BLOB_READ_WRITE_TOKEN
+      : !jetonBlob()
       ? "Session ouverte, mais le stockage n'est pas configuré sur ce déploiement."
       : "Session et stockage sont bons : le refus vient d'ailleurs.",
   });
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest): Promise<Response> {
   // un message technique en anglais, que le client voit traduit en « vérifie
   // ta connexion » — alors que le réseau n'y est pour rien et qu'aucune
   // tentative ne marchera jamais.
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+  if (!jetonBlob()) {
     return Response.json(
       { error: "Stockage non configuré : BLOB_READ_WRITE_TOKEN manquant sur ce projet." },
       { status: 503 }
@@ -107,6 +108,9 @@ export async function POST(req: NextRequest): Promise<Response> {
     const reponse = await handleUpload({
       body: corps,
       request: req,
+      // Passé explicitement : la variable ne porte pas toujours le nom que la
+      // bibliothèque lit d'elle-même.
+      token: jetonBlob(),
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const session = await auth();
         if (!session?.user?.id) {

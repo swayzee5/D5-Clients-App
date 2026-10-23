@@ -1,3 +1,4 @@
+import { jetonBlob } from "@/lib/blob-token";
 import { put, get, del } from "@vercel/blob";
 
 /**
@@ -54,6 +55,7 @@ export async function deposer(
 
   try {
     await put(chemin, fichier, {
+      token: jetonBlob(),
       access: "private",
       contentType: fichier.type,
       // Le chemin porte déjà un horodatage et un aléa : laisser la
@@ -74,7 +76,7 @@ export async function lire(
 ): Promise<{ corps: ReadableStream; type: string } | null> {
   if (!stockageConfigure()) return null;
   try {
-    const resultat = await get(chemin, { access: "private" });
+    const resultat = await get(chemin, { access: "private", token: jetonBlob() });
     // `stream` peut être nul alors que l'objet existe : un fichier vide, ou
     // une réponse sans corps. Le traiter comme une absence évite de servir une
     // image cassée avec un code 200.
@@ -118,7 +120,7 @@ export async function lireOctets(chemin: string): Promise<Buffer | null> {
 /** Supprime un fichier. Les erreurs sont avalées : la ligne part de toute façon. */
 export async function supprimer(chemin: string): Promise<void> {
   if (!stockageConfigure()) return;
-  await del(chemin).catch(() => {});
+  await del(chemin, { token: jetonBlob() }).catch(() => {});
 }
 
 function alea(): string {
