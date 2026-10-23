@@ -1,7 +1,8 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Configure le projet iOS pour les notifications push.
+# Configure le projet iOS : notifications push, et declarations d'usage des
+# capteurs sans lesquelles iOS tue l'application.
 #
 # Pourquoi un script plutôt qu'un réglage fait une fois dans Xcode : le dossier
 # ios/ n'est pas versionné, il est régénéré à chaque run par `npx cap add ios`.
@@ -78,6 +79,36 @@ end
 # systeme, ce qui releve de l'exemption standard. Si un jour du chiffrement
 # proprietaire est ajoute, cette valeur devra etre revue — c'est une
 # declaration legale faite au nom du compte developpeur.
+# Declarations d'usage de l'appareil photo et de la photothèque.
+#
+# Sans elles, iOS ne refuse pas poliment : il TUE l'application a l'instant ou
+# le selecteur photo s'ouvre. Du point de vue du client, l'app "crashe" quand
+# il appuie sur « Photographier mon repas » — rien dans l'ecran ne permet de
+# le deviner, et aucun message n'est affiche.
+#
+# Trois fonctions en dependent : le journal de repas, les photos de
+# progression, et la video de rotation. Le micro est declare parce qu'une
+# capture video enregistre le son, meme quand on ne s'en sert pas.
+#
+# Ces textes sont montres tels quels dans la demande de permission, donc ils
+# disent a quoi ca sert, pas qu'on en a besoin.
+USAGES = {
+  "NSCameraUsageDescription" =>
+    "Pour photographier tes repas et tes photos de progression, et filmer ta video de rotation.",
+  "NSPhotoLibraryUsageDescription" =>
+    "Pour choisir une photo deja prise plutot que d'en reprendre une.",
+  "NSMicrophoneUsageDescription" =>
+    "Le son est enregistre avec ta video de progression. Il n'est jamais ecoute separement."
+}.freeze
+
+USAGES.each do |key, texte|
+  next unless plist[key].nil? || plist[key].to_s.strip.empty?
+
+  plist[key] = texte
+  dirty = true
+  puts "#{key} ajoute a Info.plist"
+end
+
 if plist["ITSAppUsesNonExemptEncryption"].nil?
   plist["ITSAppUsesNonExemptEncryption"] = false
   dirty = true

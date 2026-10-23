@@ -91,7 +91,7 @@ jobs:
       # Doit tourner apres l'installation de Fastlane, qui fournit la gem
       # xcodeproj, et avant le build. ios/ etant regenere a chaque run, c'est
       # la seule facon de conserver ces reglages d'un build a l'autre.
-      - name: Configure push notifications (entitlements + Info.plist)
+      - name: Configure iOS project (entitlements, push, permissions caméra)
         run: ruby scripts/configure-ios-push.rb
 
       - name: Prepare signing keychain
