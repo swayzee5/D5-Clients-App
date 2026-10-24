@@ -1,9 +1,11 @@
 import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
-import { User, Mail, LogOut, Lock, Calendar } from "lucide-react"
+import { User, Mail, LogOut, Lock } from "lucide-react"
 import Link from "next/link"
 import { pool } from "@/lib/db"
 import type { Metadata } from "next"
+import { DateNaissance } from "@/components/profil/DateNaissance"
+import { ageDepuis } from "@/lib/age"
 
 export const metadata: Metadata = { title: "Profil" }
 
@@ -26,9 +28,9 @@ export default async function ProfilPage() {
     // ignore
   }
 
-  const age = birthDate
-    ? Math.floor((Date.now() - new Date(birthDate).getTime()) / (365.25 * 24 * 3600 * 1000))
-    : null
+  // Calculé sur l'anniversaire et non par division : 365,25 jours fait
+  // vieillir d'un an quelques jours trop tôt, une année sur quatre.
+  const age = birthDate ? ageDepuis(birthDate) : null
 
   return (
     <div className="space-y-6">
@@ -65,17 +67,9 @@ export default async function ProfilPage() {
             <p className="text-white text-sm font-medium">{email}</p>
           </div>
         </div>
-        {birthDate && (
-          <div className="flex items-center gap-3">
-            <Calendar size={16} className="text-d5-muted" />
-            <div>
-              <p className="text-xs text-d5-muted">Date de naissance</p>
-              <p className="text-white text-sm font-medium">
-                {new Date(birthDate).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-              </p>
-            </div>
-          </div>
-        )}
+        {/* Saisissable, et non plus seulement affichée : personne n'avait de
+            moyen de la renseigner, donc la ligne n'apparaissait jamais. */}
+        <DateNaissance valeur={birthDate} />
       </div>
 
       <Link href="/profil/mot-de-passe" className="card flex items-center justify-between hover:border-d5-gold/30 transition-colors group">
