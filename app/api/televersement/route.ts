@@ -85,7 +85,7 @@ export async function GET(): Promise<Response> {
       ? "configuré (jeton)"
       : storeIdPrive()
       ? "identifiant présent, mais pas de jeton — l'envoi depuis le téléphone en a besoin"
-      : "absent (PHOTOS_BLOB_READ_WRITE_TOKEN)",
+      : "absent (PHOTOS_READ_WRITE_TOKEN)",
     usagesAcceptés: Object.keys(USAGES),
     diagnostic: !session?.user?.id
       ? "La session n'est pas vue par la route. C'est elle qui bloque l'autorisation."
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     return Response.json(
       {
         error:
-          "Aucun store privé configuré (PHOTOS_BLOB_READ_WRITE_TOKEN). Les photos ne sont pas déposées dans un store public.",
+          "Aucun store privé configuré (PHOTOS_READ_WRITE_TOKEN). Les photos ne sont pas déposées dans un store public.",
       },
       { status: 503 }
     );

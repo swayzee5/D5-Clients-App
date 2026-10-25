@@ -84,7 +84,11 @@ export function modeBlob(): string {
  * de rendre publiques.
  */
 export function storeIdPrive(): string | undefined {
+  // Vercel nomme les variables d'une connexion préfixée sans le mot « blob » :
+  // le préfixe PHOTOS donne PHOTOS_STORE_ID. Les deux graphies sont acceptées
+  // pour que le nom exact ne décide pas du fonctionnement.
   return (
+    process.env.PHOTOS_STORE_ID ||
     process.env.PHOTOS_BLOB_STORE_ID ||
     process.env.PRIVE_BLOB_STORE_ID ||
     undefined
@@ -101,6 +105,7 @@ export function storeIdPrive(): string | undefined {
  */
 export function jetonPrive(): string | undefined {
   return (
+    process.env.PHOTOS_READ_WRITE_TOKEN ||
     process.env.PHOTOS_BLOB_READ_WRITE_TOKEN ||
     process.env.PRIVE_BLOB_READ_WRITE_TOKEN ||
     undefined
