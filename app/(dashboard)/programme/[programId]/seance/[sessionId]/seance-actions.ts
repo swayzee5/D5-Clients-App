@@ -1,6 +1,7 @@
 "use server";
 
 import { pool } from "@/lib/db";
+import { marquerActivite } from "@/lib/derniere-activite";
 
 async function ensureTables() {
   await pool.query(`
@@ -59,6 +60,10 @@ export async function saveManualWeightLogs(
   exerciseId: string,
   sets: SetLog[]
 ): Promise<void> {
+  // Un geste fait dans l'app, pas seulement une connexion : c'est
+  // ce qui dit au coach que le client est toujours là.
+  marquerActivite(clientId);
+
   const filled = sets.filter((s) => s.weight.trim() || s.reps.trim());
   await ensureTables();
 

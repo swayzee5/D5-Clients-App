@@ -4,6 +4,7 @@ import { auth } from "@/auth"
 import { pool } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { marquerActivite } from "@/lib/derniere-activite";
 
 export async function ensureMessagesTable() {
   await pool.query(`
@@ -21,6 +22,10 @@ export async function ensureMessagesTable() {
 export async function sendMessage(content: string): Promise<void> {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
+  // Un geste fait dans l'app, pas seulement une connexion : c'est ce
+  // qui dit au coach que le client est toujours là.
+  marquerActivite(session.user.id);
+
 
   await ensureMessagesTable()
 

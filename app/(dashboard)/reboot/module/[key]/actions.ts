@@ -5,6 +5,7 @@ import { pool } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { checkAndSendMilestoneNotification } from "@/lib/push";
 import { countSeanceCompletions } from "@/lib/queries/reboot";
+import { marquerActivite } from "@/lib/derniere-activite";
 
 async function notifyIfChallengeComplete(clientId: string) {
   try {
@@ -29,6 +30,10 @@ async function notifyIfChallengeComplete(clientId: string) {
 export async function validateModule(taskKey: string) {
   const session = await auth();
   if (!session?.user?.id) return;
+  // Un geste fait dans l'app, pas seulement une connexion : c'est ce
+  // qui dit au coach que le client est toujours là.
+  marquerActivite(session.user.id);
+
   try {
     await pool.query(`CREATE TABLE IF NOT EXISTS reboot_task_completions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id TEXT NOT NULL,

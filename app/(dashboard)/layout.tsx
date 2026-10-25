@@ -3,6 +3,7 @@ import { redirect } from "next/navigation"
 import { Header } from "@/components/layout/Header"
 import { BottomNav } from "@/components/navigation/BottomNav"
 import { pool } from "@/lib/db"
+import { marquerActivite } from "@/lib/derniere-activite"
 import { PushInit } from "@/components/PushInit"
 import { needsRebootDiagnostic } from "@/lib/queries/reboot-diagnostic"
 import { RebootDiagnosticModal } from "@/components/reboot/RebootDiagnosticModal"
@@ -29,6 +30,11 @@ export default async function DashboardLayout({
 }) {
   const session = await auth()
   if (!session) redirect("/login")
+
+  // Une session reste ouverte des semaines : sans ça, quelqu'un qui ouvre
+  // l'app tous les jours sans se reconnecter apparaît « jamais connecté »
+  // côté coach. Au plus une écriture par heure, et jamais attendue.
+  marquerActivite(session.user.id)
 
   // Diagnostic Reboot 40 : tant qu'il n'est pas rempli, on rend le formulaire
   // À LA PLACE du tableau de bord, et non par-dessus. Rien d'autre n'est monté,

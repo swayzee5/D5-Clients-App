@@ -4,6 +4,7 @@ import { pool } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { checkAndSendMilestoneNotification } from "@/lib/push";
 import { countSeanceCompletions } from "@/lib/queries/reboot";
+import { marquerActivite } from "@/lib/derniere-activite";
 
 async function notifyIfChallengeComplete(clientId: string) {
   try {
@@ -26,6 +27,10 @@ async function notifyIfChallengeComplete(clientId: string) {
 }
 
 export async function completeSession(clientId: string, sessionId: string) {
+  // Un geste fait dans l'app, pas seulement une connexion : c'est
+  // ce qui dit au coach que le client est toujours là.
+  marquerActivite(clientId);
+
   await pool.query(`INSERT INTO reboot_completions (client_id, session_id) VALUES ($1, $2) ON CONFLICT (client_id, session_id) DO NOTHING`, [clientId, sessionId]);
   await notifyIfChallengeComplete(clientId);
   await checkAndSendMilestoneNotification(clientId);
@@ -34,6 +39,10 @@ export async function completeSession(clientId: string, sessionId: string) {
 }
 
 export async function submitSessionCheckin(clientId: string, sessionId: string, energy: number, difficulty: string, feeling: string) {
+  // Un geste fait dans l'app, pas seulement une connexion : c'est
+  // ce qui dit au coach que le client est toujours là.
+  marquerActivite(clientId);
+
   try {
     await pool.query(`CREATE TABLE IF NOT EXISTS reboot_session_checkins (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id TEXT NOT NULL,
@@ -46,6 +55,10 @@ export async function submitSessionCheckin(clientId: string, sessionId: string, 
 }
 
 export async function recordWhatsappSend(clientId: string, sessionId: string) {
+  // Un geste fait dans l'app, pas seulement une connexion : c'est
+  // ce qui dit au coach que le client est toujours là.
+  marquerActivite(clientId);
+
   try {
     await pool.query(`CREATE TABLE IF NOT EXISTS reboot_whatsapp_completions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

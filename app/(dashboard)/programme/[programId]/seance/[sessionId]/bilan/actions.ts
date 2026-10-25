@@ -1,6 +1,7 @@
 "use server";
 
 import { pool } from "@/lib/db";
+import { marquerActivite } from "@/lib/derniere-activite";
 
 async function ensureTables() {
   await pool.query(`
@@ -38,6 +39,10 @@ export async function quickCompleteSession(
   existingWorkoutSessionId?: string
 ): Promise<void> {
   await ensureTables();
+  // Un geste fait dans l'app, pas seulement une connexion : c'est ce
+  // qui dit au coach que le client est toujours là.
+  marquerActivite(clientId);
+
 
   let sessionRowId: string;
 

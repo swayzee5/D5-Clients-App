@@ -4,6 +4,7 @@ import { pool } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { checkAndSendMilestoneNotification } from "@/lib/push";
 import { countSeanceCompletions } from "@/lib/queries/reboot";
+import { marquerActivite } from "@/lib/derniere-activite";
 
 /**
  * Prévenir le coach quand le troisième message clôt le challenge.
@@ -55,6 +56,10 @@ async function notifierSiChallengeTermine(clientId: string, waDone: number): Pro
  * ne peut pas être devancée par le client.
  */
 export async function recordNextWhatsappMessage(clientId: string): Promise<number> {
+  // Un geste fait dans l'app, pas seulement une connexion : c'est
+  // ce qui dit au coach que le client est toujours là.
+  marquerActivite(clientId);
+
   try {
     await pool.query(`CREATE TABLE IF NOT EXISTS reboot_whatsapp_completions (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
