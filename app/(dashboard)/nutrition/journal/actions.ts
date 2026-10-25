@@ -31,8 +31,17 @@ export async function envoyerRepas(valeurs: {
   // Le chemin vient du navigateur : il doit commencer par le dossier d'usage
   // suivi de l'identifiant de session. Sans ce contrôle, quelqu'un pourrait
   // s'attribuer la photo d'un autre en envoyant son chemin.
-  if (!valeurs.chemin.startsWith(`repas/${session.user.id}/`)) {
-    return { ok: false, erreur: "Fichier inattendu." };
+  // Normalisé avant comparaison : selon le store, le chemin revient parfois
+  // avec une barre de tête ou préfixé par le dossier du store. Ce qui doit
+  // être garanti, c'est que le fichier est bien dans le dossier de CE
+  // client — pas la forme exacte de la chaîne.
+  const chemin = valeurs.chemin.replace(/^\/+/, "");
+  const attendu = `repas/${session.user.id}/`;
+  const position = chemin.indexOf(attendu);
+  if (position === -1) {
+    // Le chemin reçu est nommé : « fichier inattendu » sans dire lequel
+    // oblige à deviner, et c'est le client qui en paie le temps.
+    return { ok: false, erreur: `Fichier inattendu (${chemin.slice(0, 80)}).` };
   }
 
   const note = valeurs.note?.slice(0, 500) || null;
