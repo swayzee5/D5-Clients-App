@@ -54,24 +54,6 @@ function usageValide(valeur: string): valeur is Usage {
   return Object.prototype.hasOwnProperty.call(USAGES, valeur);
 }
 
-/** Extension déduite du nom proposé, bornée à des caractères sûrs. */
-function extension(nom: string): string {
-  const trouvee = nom.toLowerCase().match(/\.([a-z0-9]{2,5})$/);
-  return trouvee ? trouvee[1] : "bin";
-}
-
-/**
- * Pourquoi l'autorisation est refusée.
- *
- * Quand la route refuse, le téléphone n'en sait rien : la bibliothèque de
- * stockage n'affiche que « Failed to retrieve the client token », sans le
- * motif. Trois refus possibles — pas de session, usage inconnu, stockage non
- * configuré — et rien pour les distinguer, alors qu'ils appellent trois
- * gestes différents.
- *
- * Ce GET rejoue les mêmes vérifications et dit laquelle échoue. Il ne
- * téléverse rien et ne révèle pas le jeton.
- */
 export async function GET(): Promise<Response> {
   const session = await auth().catch((err) => {
     console.error("[televersement] auth", err);
@@ -79,6 +61,9 @@ export async function GET(): Promise<Response> {
   });
 
   return Response.json({
+    // L'identifiant de SA propre session, et rien d'autre : c'est ce qui
+    // permet au navigateur de composer un chemin que le serveur acceptera.
+    clientId: session?.user?.id ?? null,
     session: session?.user?.id ? "ouverte" : "absente",
     stockage: stockageUtilisable() ? `configuré — ${modeBlob()}` : "aucun moyen d'authentification",
     storePrivé: jetonPrive()
@@ -143,16 +128,26 @@ export async function POST(req: NextRequest): Promise<Response> {
         if (!usageValide(usage)) throw new Error("Usage inconnu");
         const regles = USAGES[usage];
 
+        // Le chemin est VÉRIFIÉ ici, et non réécrit : cette version de la
+        // bibliothèque ignore un `pathname` renvoyé par le serveur. C'est le
+        // navigateur qui le compose, donc il doit être contrôlé — sans quoi
+        // n'importe qui pourrait écrire dans le dossier d'un autre.
+        //
+        // C'est aussi ce qui manquait : le chemin imposé étant ignoré, c'est
+        // le nom du fichier de l'appareil qui servait — le même à chaque
+        // photo, d'où le refus « ce fichier existe déjà ».
+        const prefixe = `${usage}/${session.user.id}/`;
+        if (!pathname.startsWith(prefixe)) {
+          throw new Error("Chemin refusé");
+        }
+
         return {
           allowedContentTypes: [...regles.types],
           maximumSizeInBytes: regles.tailleMax,
-          // Le chemin est reconstruit ici : seul le suffixe du nom proposé est
-          // retenu, le reste vient de la session. Un navigateur ne choisit pas
-          // dans quel dossier il écrit.
-          pathname: `${usage}/${session.user.id}/${Date.now()}-${Math.random()
-            .toString(36)
-            .slice(2, 10)}.${extension(pathname)}`,
-          addRandomSuffix: false,
+          // Deux photos prises dans la même seconde ne doivent pas se
+          // marcher dessus : le suffixe aléatoire est ajouté par le
+          // stockage, après le dossier, qui reste donc vérifiable.
+          addRandomSuffix: true,
           // L'autorisation ne vaut qu'une heure : assez pour un envoi en 4G
           // sur un réseau médiocre, trop peu pour être réutilisée plus tard.
           validUntil: Date.now() + 60 * 60 * 1000,

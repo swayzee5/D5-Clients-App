@@ -26,7 +26,16 @@ export async function televerser(
   onProgression?: (pourcent: number) => void
 ): Promise<{ chemin: string } | { erreur: string; detail?: string }> {
   try {
-    const resultat = await upload(fichier.name || "fichier", fichier, {
+    // Le dossier vient du serveur : il contient l'identifiant de la session,
+    // et c'est lui que le serveur vérifiera avant d'autoriser l'envoi. Le
+    // navigateur ne peut donc pas écrire ailleurs que chez lui.
+    const qui = await fetch("/api/televersement", { cache: "no-store" }).then((r) => r.json());
+    if (!qui?.clientId) return { erreur: "Session expirée. Reconnecte-toi." };
+
+    const ext = (fichier.name.toLowerCase().match(/\.([a-z0-9]{2,5})$/)?.[1] ?? "jpg");
+    const chemin = `${usage}/${qui.clientId}/${Date.now()}.${ext}`;
+
+    const resultat = await upload(chemin, fichier, {
       access: "private",
       handleUploadUrl: "/api/televersement",
       clientPayload: usage,
