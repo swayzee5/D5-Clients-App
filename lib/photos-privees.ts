@@ -1,4 +1,4 @@
-import { optionsPrivees } from "@/lib/blob-token";
+import { optionsPrivees, priveUtilisable } from "@/lib/blob-token";
 import { put, get, del } from "@vercel/blob";
 
 /**
@@ -19,7 +19,11 @@ import { put, get, del } from "@vercel/blob";
 export const TAILLE_MAX = 10 * 1024 * 1024;
 
 export function stockageConfigure(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  // Le store privé s'authentifie par son propre jeton ou par l'identité du
+  // déploiement. Chercher BLOB_READ_WRITE_TOKEN, qui n'existe plus dans ce
+  // projet, faisait refuser la lecture avant même d'essayer : la photo était
+  // bien déposée, et l'image s'affichait cassée.
+  return priveUtilisable();
 }
 
 const EXTENSIONS: Record<string, string> = {
