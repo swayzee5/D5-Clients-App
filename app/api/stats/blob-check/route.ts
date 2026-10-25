@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
-import { jetonBlob, nomVariableBlob } from "@/lib/blob-token";
+import { jetonBlob, stockageUtilisable, modeBlob } from "@/lib/blob-token";
 
 /**
  * Teste le stockage, et dit ce qui coince.
@@ -43,12 +43,11 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
-  const jeton = jetonBlob();
-  if (!jeton) {
+  if (!stockageUtilisable()) {
     return NextResponse.json({
-      jeton: "absent",
+      authentification: "aucune",
       diagnostic:
-        "BLOB_READ_WRITE_TOKEN n'est pas lu par ce déploiement. Le store est peut-être connecté, mais le déploiement en cours date d'avant la connexion.",
+        "Ni jeton ni BLOB_STORE_ID sur ce déploiement. Le store est peut-être connecté, mais le déploiement en cours date d'avant la connexion.",
     });
   }
 
@@ -58,7 +57,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     // Le jeton n'est jamais renvoyé : seulement de quoi reconnaître qu'il y en
     // a un, et lequel.
-    jeton: `présent dans ${nomVariableBlob()} (${jeton.length} caractères)`,
+    authentification: modeBlob(),
     dépôtPrivé: prive,
     dépôtPublic: publique,
     diagnostic: prive.ok

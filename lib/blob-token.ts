@@ -1,5 +1,13 @@
 /**
- * Le jeton du stockage, quel que soit le nom qu'il porte.
+ * De quoi écrire dans le stockage — jeton, ou identité du déploiement.
+ *
+ * Vercel a changé de modèle : les projets reliés à un store s'authentifient
+ * désormais par OIDC, c'est-à-dire par l'identité du déploiement lui-même, et
+ * ne reçoivent plus de jeton du tout. Seul `BLOB_STORE_ID` est écrit.
+ *
+ * Exiger un jeton revenait donc à refuser un stockage parfaitement
+ * fonctionnel : c'est ce qui bloquait l'envoi des photos, alors que tout
+ * était correctement relié.
  *
  * Quand un store Blob est relié à un projet, Vercel écrit son jeton dans une
  * variable d'environnement — mais pas toujours sous le nom attendu. Selon la
@@ -36,4 +44,26 @@ export function nomVariableBlob(): string | undefined {
     if (nom.endsWith("READ_WRITE_TOKEN") && valeur.startsWith("vercel_blob_rw_")) return nom;
   }
   return undefined;
+}
+
+/**
+ * Le stockage est-il utilisable ?
+ *
+ * Deux façons valables, et il suffit de l'une : un jeton de lecture-écriture,
+ * ou l'identité du déploiement avec l'identifiant du store. La bibliothèque
+ * choisit elle-même, à condition qu'on la laisse faire.
+ */
+export function stockageUtilisable(): boolean {
+  return Boolean(jetonBlob() || process.env.BLOB_STORE_ID);
+}
+
+/** Comment on s'authentifie, pour les diagnostics. */
+export function modeBlob(): string {
+  if (jetonBlob()) return `jeton (${nomVariableBlob()})`;
+  if (process.env.BLOB_STORE_ID) {
+    return process.env.VERCEL_OIDC_TOKEN
+      ? "OIDC (identité du déploiement) + BLOB_STORE_ID"
+      : "BLOB_STORE_ID présent, mais aucun jeton OIDC dans ce contexte";
+  }
+  return "aucun";
 }

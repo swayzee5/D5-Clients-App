@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { auth } from "@/auth";
-import { jetonBlob, nomVariableBlob } from "@/lib/blob-token";
+import { jetonBlob, stockageUtilisable, modeBlob } from "@/lib/blob-token";
 
 /**
  * Autorise un envoi de fichier depuis le téléphone, directement vers le
@@ -80,11 +80,11 @@ export async function GET(): Promise<Response> {
 
   return Response.json({
     session: session?.user?.id ? "ouverte" : "absente",
-    stockage: jetonBlob() ? `configuré (${nomVariableBlob()})` : "BLOB_READ_WRITE_TOKEN manquant",
+    stockage: stockageUtilisable() ? `configuré — ${modeBlob()}` : "aucun moyen d'authentification",
     usagesAcceptés: Object.keys(USAGES),
     diagnostic: !session?.user?.id
       ? "La session n'est pas vue par la route. C'est elle qui bloque l'autorisation."
-      : !jetonBlob()
+      : !stockageUtilisable()
       ? "Session ouverte, mais le stockage n'est pas configuré sur ce déploiement."
       : "Session et stockage sont bons : le refus vient d'ailleurs.",
   });
@@ -95,9 +95,9 @@ export async function POST(req: NextRequest): Promise<Response> {
   // un message technique en anglais, que le client voit traduit en « vérifie
   // ta connexion » — alors que le réseau n'y est pour rien et qu'aucune
   // tentative ne marchera jamais.
-  if (!jetonBlob()) {
+  if (!stockageUtilisable()) {
     return Response.json(
-      { error: "Stockage non configuré : BLOB_READ_WRITE_TOKEN manquant sur ce projet." },
+      { error: "Stockage non configuré : ni jeton, ni BLOB_STORE_ID sur ce projet." },
       { status: 503 }
     );
   }
