@@ -67,3 +67,52 @@ export function modeBlob(): string {
   }
   return "aucun";
 }
+
+/**
+ * Le store privé, réservé aux photos.
+ *
+ * Un store Vercel est public ou privé, et ça se décide à sa création : on ne
+ * bascule pas l'un en l'autre. Le store historique est public — c'est très
+ * bien pour les plans alimentaires, dont le lien est de toute façon donné au
+ * client. Ce ne l'est pas pour des photos de repas et de corps : un lien
+ * public reste lisible par quiconque le reçoit, et ces images-là sont les
+ * données les plus sensibles de tout le système.
+ *
+ * Les deux coexistent donc, et chaque dépôt dit explicitement dans lequel il
+ * va. Sans store privé configuré, on refuse plutôt que de déposer en public :
+ * un repli silencieux rendrait publiques des photos que personne n'a accepté
+ * de rendre publiques.
+ */
+export function storeIdPrive(): string | undefined {
+  return (
+    process.env.PHOTOS_BLOB_STORE_ID ||
+    process.env.PRIVE_BLOB_STORE_ID ||
+    undefined
+  );
+}
+
+/**
+ * Le jeton du store privé.
+ *
+ * L'envoi depuis le téléphone passe par `handleUpload`, qui ne sait
+ * s'authentifier que par jeton — il n'accepte pas d'identifiant de store. Le
+ * store privé doit donc fournir le sien, sous un nom distinct de celui du
+ * store public, sans quoi les deux seraient confondus.
+ */
+export function jetonPrive(): string | undefined {
+  return (
+    process.env.PHOTOS_BLOB_READ_WRITE_TOKEN ||
+    process.env.PRIVE_BLOB_READ_WRITE_TOKEN ||
+    undefined
+  );
+}
+
+/** Les options de dépôt pour une photo privée. */
+export function optionsPrivees(): { token?: string; storeId?: string } {
+  return { token: jetonPrive() ?? jetonBlob(), storeId: storeIdPrive() };
+}
+
+/** Le stockage privé est-il utilisable ? */
+export function priveUtilisable(): boolean {
+  return Boolean(jetonPrive() || storeIdPrive());
+}

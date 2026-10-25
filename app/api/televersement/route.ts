@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { auth } from "@/auth";
-import { jetonBlob, stockageUtilisable, modeBlob } from "@/lib/blob-token";
+import { stockageUtilisable, modeBlob, storeIdPrive, jetonPrive, priveUtilisable } from "@/lib/blob-token";
 
 /**
  * Autorise un envoi de fichier depuis le téléphone, directement vers le
@@ -81,11 +81,18 @@ export async function GET(): Promise<Response> {
   return Response.json({
     session: session?.user?.id ? "ouverte" : "absente",
     stockage: stockageUtilisable() ? `configuré — ${modeBlob()}` : "aucun moyen d'authentification",
+    storePrivé: jetonPrive()
+      ? "configuré (jeton)"
+      : storeIdPrive()
+      ? "identifiant présent, mais pas de jeton — l'envoi depuis le téléphone en a besoin"
+      : "absent (PHOTOS_BLOB_READ_WRITE_TOKEN)",
     usagesAcceptés: Object.keys(USAGES),
     diagnostic: !session?.user?.id
       ? "La session n'est pas vue par la route. C'est elle qui bloque l'autorisation."
       : !stockageUtilisable()
       ? "Session ouverte, mais le stockage n'est pas configuré sur ce déploiement."
+      : !priveUtilisable()
+      ? "Session et stockage bons, mais aucun store privé : les photos ne peuvent pas être déposées sans devenir publiques."
       : "Session et stockage sont bons : le refus vient d'ailleurs.",
   });
 }
@@ -102,15 +109,29 @@ export async function POST(req: NextRequest): Promise<Response> {
     );
   }
 
+  // Sans store privé, on refuse. Déposer ces photos dans le store public
+  // serait un repli silencieux qui rendrait lisibles par simple lien des
+  // images que personne n'a accepté de partager.
+  if (!priveUtilisable()) {
+    return Response.json(
+      {
+        error:
+          "Aucun store privé configuré (PHOTOS_BLOB_READ_WRITE_TOKEN). Les photos ne sont pas déposées dans un store public.",
+      },
+      { status: 503 }
+    );
+  }
+
   const corps = (await req.json()) as HandleUploadBody;
 
   try {
     const reponse = await handleUpload({
       body: corps,
       request: req,
-      // Passé explicitement : la variable ne porte pas toujours le nom que la
-      // bibliothèque lit d'elle-même.
-      token: jetonBlob(),
+      // Passés explicitement : la variable ne porte pas toujours le nom que
+      // la bibliothèque lit d'elle-même, et le store privé n'est pas celui
+      // par défaut du projet.
+      token: jetonPrive(),
       onBeforeGenerateToken: async (pathname, clientPayload) => {
         const session = await auth();
         if (!session?.user?.id) {

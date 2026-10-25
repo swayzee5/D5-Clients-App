@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put, del } from "@vercel/blob";
-import { jetonBlob, stockageUtilisable, modeBlob } from "@/lib/blob-token";
+import { jetonBlob, stockageUtilisable, modeBlob, storeIdPrive, jetonPrive, optionsPrivees } from "@/lib/blob-token";
 
 /**
  * Teste le stockage, et dit ce qui coince.
@@ -22,15 +22,18 @@ export const maxDuration = 30;
 async function essayer(acces: "private" | "public") {
   const chemin = `diagnostic/test-${Date.now()}-${acces}.txt`;
   try {
+    // Le privé va dans le store privé, le public dans celui du projet :
+    // c'est exactement ce que fait l'application.
+    const creds = acces === "private" ? optionsPrivees() : { token: jetonBlob() };
     const depot = await put(chemin, "test", {
-      token: jetonBlob(),
+      ...creds,
       access: acces,
       contentType: "text/plain",
       addRandomSuffix: false,
     });
     // Rien ne doit rester : un fichier de test oublié dans un store est un
     // fichier dont personne ne saura plus à quoi il servait.
-    await del(depot.url, { token: jetonBlob() }).catch(() => {});
+    await del(depot.url, creds).catch(() => {});
     return { ok: true };
   } catch (err) {
     return { ok: false, erreur: String(err).slice(0, 400) };
@@ -58,6 +61,11 @@ export async function GET(req: NextRequest) {
     // Le jeton n'est jamais renvoyé : seulement de quoi reconnaître qu'il y en
     // a un, et lequel.
     authentification: modeBlob(),
+    storePrivé: jetonPrive()
+      ? "jeton dédié"
+      : storeIdPrive()
+      ? "identifiant seul"
+      : "absent",
     dépôtPrivé: prive,
     dépôtPublic: publique,
     diagnostic: prive.ok
