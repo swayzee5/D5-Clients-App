@@ -87,7 +87,13 @@ export function BottomNav({
         <div className="fixed inset-0 z-40" onClick={() => setOpen(false)}>
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
           <div
-            className="absolute bottom-24 left-4 right-4 max-w-lg mx-auto bg-d5-surface border border-d5-border rounded-2xl overflow-hidden shadow-2xl"
+            /* La barre du bas mesure environ 96 px, plus la zone réservée à la
+               barre d'accueil de l'iPhone. Une valeur fixe suffisait sur un
+               écran sans encoche et laissait, ailleurs, la dernière entrée du
+               menu passer sous la barre : à moitié lisible, à moitié
+               cliquable. La hauteur se calcule donc avec la zone sûre. */
+            style={{ bottom: "calc(6.5rem + env(safe-area-inset-bottom, 0px))" }}
+            className="absolute left-4 right-4 max-w-lg mx-auto bg-d5-surface border border-d5-border rounded-2xl overflow-hidden shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* En tête du menu : c'est l'action la plus fréquente de la
