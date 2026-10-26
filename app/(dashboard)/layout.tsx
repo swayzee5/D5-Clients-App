@@ -66,7 +66,10 @@ export default async function DashboardLayout({
           {children}
         </div>
       </main>
-      <BottomNav unreadMessages={unreadMessages} />
+      <BottomNav
+        unreadMessages={unreadMessages}
+        estReboot={session.user?.isRebootOnly ?? false}
+      />
       <PushInit clientId={session.user.id} />
     </div>
   )

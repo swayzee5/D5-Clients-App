@@ -6,7 +6,29 @@ import { Home, TrendingUp, User, Plus, X, Activity, CalendarPlus, Ruler, Message
 import { cn } from "@/lib/utils"
 import { useState, useEffect, useCallback } from "react"
 
-export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
+/**
+ * Le menu « Ajouter » ne montre pas la même chose à tout le monde.
+ *
+ * Un participant Reboot fait sept jours, pas six mois. Le journal de repas,
+ * les mensurations et l'historique des activités appartiennent à un suivi qui
+ * s'installe dans la durée : proposés pendant une semaine, ils encombrent le
+ * seul geste qui compte — faire sa séance — et donnent cinq portes à qui n'a
+ * qu'un chemin à suivre.
+ *
+ * « Mes activités » et « Aujourd'hui » menaient par ailleurs au même endroit
+ * dans son esprit. Deux entrées pour une idée, c'est une hésitation à chaque
+ * ouverture du menu.
+ *
+ * Rien n'est retiré au client accompagné : c'est l'affichage qui change, pas
+ * les fonctions.
+ */
+export function BottomNav({
+  unreadMessages = 0,
+  estReboot = false,
+}: {
+  unreadMessages?: number
+  estReboot?: boolean
+}) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
 
@@ -71,6 +93,7 @@ export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
             {/* En tête du menu : c'est l'action la plus fréquente de la
                 journée, et la seule qui se fasse debout devant une assiette
                 qui refroidit. */}
+            {!estReboot && (
             <Link href="/nutrition/journal" onClick={() => setOpen(false)}
               className="flex items-center gap-4 px-5 py-4 border-b border-d5-border hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
               <div className="w-10 h-10 rounded-xl bg-orange-400/10 flex items-center justify-center flex-shrink-0">
@@ -81,6 +104,8 @@ export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
                 <p className="text-d5-muted text-xs">Ton coach le regarde et te répond</p>
               </div>
             </Link>
+            )}
+            {!estReboot && (
             <Link href="/activites" onClick={() => setOpen(false)}
               className="flex items-center gap-4 px-5 py-4 border-b border-d5-border hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
               <div className="w-10 h-10 rounded-xl bg-d5-gold/10 flex items-center justify-center flex-shrink-0">
@@ -91,6 +116,7 @@ export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
                 <p className="text-d5-muted text-xs">Historique de toutes vos séances</p>
               </div>
             </Link>
+            )}
             <Link href="/activite/nouvelle" onClick={() => setOpen(false)}
               className="flex items-center gap-4 px-5 py-4 border-b border-d5-border hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
               <div className="w-10 h-10 rounded-xl bg-emerald-400/10 flex items-center justify-center flex-shrink-0">
@@ -101,6 +127,7 @@ export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
                 <p className="text-d5-muted text-xs">Logger une activité libre</p>
               </div>
             </Link>
+            {!estReboot && (
             <Link href="/progression/nouvelle-entree" onClick={() => setOpen(false)}
               className="flex items-center gap-4 px-5 py-4 border-b border-d5-border hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
               <div className="w-10 h-10 rounded-xl bg-blue-400/10 flex items-center justify-center flex-shrink-0">
@@ -111,6 +138,7 @@ export function BottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
                 <p className="text-d5-muted text-xs">Poids &amp; mensurations</p>
               </div>
             </Link>
+            )}
             <Link href="/checkin" onClick={() => setOpen(false)}
               className="flex items-center gap-4 px-5 py-4 hover:bg-d5-surface-2 transition-colors active:bg-d5-surface-2">
               <div className="w-10 h-10 rounded-xl bg-purple-400/10 flex items-center justify-center flex-shrink-0">
