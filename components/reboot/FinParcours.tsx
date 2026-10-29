@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { suivreFin } from "@/app/(dashboard)/reboot/fin-actions";
 import { FORMAT_VERTICAL } from "@/lib/vimeo";
-import type { ReglagesFin } from "@/lib/queries/reboot-fin";
+import type { Intention, ReglagesFin } from "@/lib/queries/reboot-fin";
+import { QuestionAccompagnement } from "./QuestionAccompagnement";
 
 /**
  * Ce qui suit le bilan : la vidéo de clôture et la prise de rendez-vous.
@@ -26,14 +27,20 @@ const FORMAT_PAR_DEFAUT = FORMAT_VERTICAL;
 export function FinParcours({
   reglages,
   ecart,
+  intentionInitiale = null,
+  texteInitial = null,
 }: {
   reglages: ReglagesFin;
   /** Points gagnés sur le score global. Peut être nul ou négatif. */
   ecart: number;
+  /** Ce qu'il a déjà répondu, pour rouvrir l'écran dans son état. */
+  intentionInitiale?: Intention | null;
+  texteInitial?: string | null;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [format, setFormat] = useState(FORMAT_PAR_DEFAUT);
   const vueEnvoyee = useRef(false);
+  const [intention, setIntention] = useState<Intention | null>(intentionInitiale);
 
   useEffect(() => {
     if (!reglages.videoId) return;
@@ -103,7 +110,27 @@ export function FinParcours({
         </div>
       )}
 
-      {reglages.lienReservation && (
+      {/* La question avant le bouton : c'est la vidéo qui vient d'expliquer
+          ce qu'on propose, et répondre « j'hésite » doit être une option
+          offerte, pas un renoncement à cliquer. */}
+      <QuestionAccompagnement
+        intentionInitiale={intentionInitiale}
+        texteInitial={texteInitial}
+        onReponse={setIntention}
+      />
+
+      {/* Un « non » ne ferme pas la porte : l'avis change entre le dimanche
+          soir et le mardi, et il faut qu'il retrouve le chemin. */}
+      {intention === "non" && (
+        <p className="rounded-2xl border border-d5-border bg-d5-surface px-5 py-4 text-sm leading-relaxed text-gray-300">
+          C&apos;est noté, et c&apos;est très bien comme ça. Tu gardes ton score, ton
+          certificat et tes séances. Si tu changes d&apos;avis dans les
+          prochaines semaines, reviens sur cet écran et change ta réponse —
+          la proposition tient.
+        </p>
+      )}
+
+      {reglages.lienReservation && (intention === "oui" || intention === "hesite") && (
         <div className="space-y-3 rounded-2xl border-2 border-d5-gold/50 bg-d5-gold/5 p-5">
           <p className="text-[11px] font-bold uppercase tracking-wider text-d5-gold">
             Continuer avec moi

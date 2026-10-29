@@ -9,6 +9,7 @@ import { getBilan } from "@/lib/queries/reboot-bilan";
 import { comparer } from "@/lib/reboot-diagnostic";
 import { BilanForm } from "@/components/reboot/BilanForm";
 import { FinParcours } from "@/components/reboot/FinParcours";
+import { getIntention } from "@/lib/queries/reboot-fin";
 import { getReglagesFin } from "@/lib/queries/reboot-fin";
 import type { Metadata } from "next";
 
@@ -37,6 +38,9 @@ export default async function BilanPage() {
   const bilan = await getBilan(clientId);
   const prenom = session.user?.name?.split(" ")[0];
   const reglagesFin = await getReglagesFin();
+  // Ce qu'il a déjà répondu : revenir sur cet écran doit le retrouver tel
+  // qu'il l'a laissé, sinon la question semble ne pas avoir été reçue.
+  const intention = bilan ? await getIntention(clientId) : null;
 
   return (
     <div className="space-y-5 pb-8">
@@ -61,6 +65,8 @@ export default async function BilanPage() {
           <FinParcours
             reglages={reglagesFin}
             ecart={bilan.scores.global - depart.scores.global}
+            intentionInitiale={intention?.intention ?? null}
+            texteInitial={intention?.texte ?? null}
           />
         </>
       ) : (

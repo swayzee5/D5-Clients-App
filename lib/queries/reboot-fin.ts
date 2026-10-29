@@ -28,7 +28,10 @@ async function ensureColonnesFin(): Promise<void> {
          ADD COLUMN IF NOT EXISTS video_fin_vue_at TIMESTAMPTZ,
          ADD COLUMN IF NOT EXISTS cta_clique_at    TIMESTAMPTZ,
          ADD COLUMN IF NOT EXISTS rdv_confirme_at  TIMESTAMPTZ,
-         ADD COLUMN IF NOT EXISTS relance_at       TIMESTAMPTZ`
+         ADD COLUMN IF NOT EXISTS relance_at       TIMESTAMPTZ,
+         ADD COLUMN IF NOT EXISTS intention        TEXT,
+         ADD COLUMN IF NOT EXISTS intention_texte  TEXT,
+         ADD COLUMN IF NOT EXISTS intention_at     TIMESTAMPTZ`
     )
     .catch(() => {});
   colonnesPretes = true;
@@ -64,6 +67,17 @@ export async function getReglagesFin(): Promise<ReglagesFin> {
     return { videoId: null, lienReservation: null, prix: null };
   }
 }
+
+/**
+ * Ce que le participant répond à la question de l'accompagnement.
+ *
+ * « J'hésite » n'est pas une politesse : c'est là que se trouve la plupart
+ * des gens, et une question à deux branches les pousse vers le non, parce que
+ * dire oui veut dire, dans leur tête, un engagement financier. Le troisième
+ * choix mène au même rendez-vous sans rien engager, et c'est précisément ce
+ * que la vidéo promet.
+ */
+export type Intention = "oui" | "hesite" | "non";
 
 /** Ce que le coach doit savoir pour relancer. */
 export type SuiviFin = {
@@ -120,4 +134,55 @@ export async function marquerFin(
       // Un suivi perdu ne doit jamais empêcher quelqu'un de prendre rendez-vous.
       console.error("[reboot-fin] marquage impossible", err);
     });
+}
+
+/**
+ * Enregistre la réponse à la question de l'accompagnement.
+ *
+ * Modifiable, contrairement aux marquages de passage : quelqu'un qui répond
+ * « non » le dimanche soir et revient le mardi pour dire qu'il hésite doit
+ * pouvoir le faire. C'est sa réponse actuelle qui intéresse le coach, pas la
+ * première.
+ *
+ * `intention_at` suit la dernière réponse pour la même raison : savoir qu'il
+ * a changé d'avis, et quand, vaut mieux qu'une date figée.
+ */
+export async function enregistrerIntention(
+  clientId: string,
+  intention: Intention,
+  texte: string
+): Promise<{ ok: boolean }> {
+  try {
+    await ensureColonnesFin();
+    const { rowCount } = await pool.query(
+      `UPDATE reboot_bilans
+          SET intention = $2, intention_texte = $3, intention_at = now()
+        WHERE client_id = $1::uuid`,
+      [clientId, intention, texte.trim().slice(0, 2000) || null]
+    );
+    // Aucune ligne touchée veut dire aucun bilan : la question ne s'affiche
+    // qu'après le bilan, donc c'est anormal et il ne faut pas le confirmer.
+    return { ok: (rowCount ?? 0) > 0 };
+  } catch (err) {
+    console.error("[reboot-fin] intention non enregistrée", err);
+    return { ok: false };
+  }
+}
+
+/** La réponse déjà donnée, pour rouvrir l'écran sur ce qu'il a répondu. */
+export async function getIntention(
+  clientId: string
+): Promise<{ intention: Intention; texte: string | null } | null> {
+  try {
+    await ensureColonnesFin();
+    const { rows } = await pool.query<{ intention: string | null; intention_texte: string | null }>(
+      `SELECT intention, intention_texte FROM reboot_bilans WHERE client_id = $1::uuid`,
+      [clientId]
+    );
+    const i = rows[0]?.intention;
+    if (i !== "oui" && i !== "hesite" && i !== "non") return null;
+    return { intention: i, texte: rows[0]?.intention_texte ?? null };
+  } catch {
+    return null;
+  }
 }
