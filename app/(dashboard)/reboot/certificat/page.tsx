@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { pool } from "@/lib/db";
 import { countSeanceCompletions } from "@/lib/queries/reboot";
 import CertificatClient from "./CertificatClient";
+import { getBilan } from "@/lib/queries/reboot-bilan";
+import { getRebootDiagnostic } from "@/lib/queries/reboot-diagnostic";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "Mon Certificat — Reboot 40" };
@@ -83,6 +85,21 @@ export default async function CertificatPage() {
     } catch {}
   }
 
+  // Les points repris, pour que le message d'invitation porte son résultat à
+  // lui plutôt qu'une promesse générale. Null tant que le bilan n'est pas
+  // fait : le message bascule alors sur « je le fais en ce moment ».
+  let pointsGagnes: number | null = null;
+  if (allDone) {
+    const [bilan, diagnostic] = await Promise.all([
+      getBilan(clientId).catch(() => null),
+      getRebootDiagnostic(clientId).catch(() => null),
+    ]);
+    if (bilan && diagnostic) {
+      const ecart = bilan.scores.global - diagnostic.scores.global;
+      pointsGagnes = ecart > 0 ? ecart : null;
+    }
+  }
+
   return (
     <CertificatClient
       firstName={firstName}
@@ -90,6 +107,7 @@ export default async function CertificatPage() {
       completionDate={completionDate}
       totalCompleted={totalCompleted}
       allDone={allDone}
+      pointsGagnes={pointsGagnes}
     />
   );
 }

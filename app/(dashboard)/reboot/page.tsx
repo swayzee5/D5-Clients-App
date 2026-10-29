@@ -301,10 +301,17 @@ export default async function RebootPage() {
         <ArrowRight size={15} className="shrink-0 text-d5-muted" />
       </Link>
 
-      <InviterProche
-        firstName={session.user?.name?.split(" ")[0]}
-        points={bilan && diagnostic ? bilan.scores.global - diagnostic.scores.global : null}
-      />
+      {/* Pendant le challenge seulement : l'envie d'en parler vient souvent
+          juste après une bonne séance. Une fois les dix étapes faites, elle
+          appartient à l'écran du certificat, qui ne demande rien d'autre.
+          Deux endroits pour le même geste, dont un coincé entre les séances
+          et les photos, c'est la garantie qu'aucun ne serve. */}
+      {!allDone && (
+        <InviterProche
+          firstName={session.user?.name?.split(" ")[0]}
+          points={bilan && diagnostic ? bilan.scores.global - diagnostic.scores.global : null}
+        />
+      )}
 
       {allDone && (
         <div className="space-y-4 pb-4">

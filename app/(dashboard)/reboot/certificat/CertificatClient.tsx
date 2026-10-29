@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { InvitationFin } from "@/components/reboot/InvitationFin";
 
 const PRINT_STYLES = `
   @media print {
@@ -25,12 +26,15 @@ export default function CertificatClient({
   completionDate,
   totalCompleted,
   allDone,
+  pointsGagnes,
 }: {
   firstName: string;
   lastName: string;
   completionDate: string;
   totalCompleted: number;
   allDone: boolean;
+  /** Points repris sur le score global. Null si le bilan n'est pas fait. */
+  pointsGagnes: number | null;
 }) {
   const remaining = 10 - totalCompleted;
 
@@ -180,6 +184,20 @@ export default function CertificatClient({
             textAlign: "center",
           }}>
             🔒 Complète {remaining} étape{remaining > 1 ? "s" : ""} pour débloquer le certificat
+          </div>
+        )}
+
+        {/* L'invitation est ici et nulle part ailleurs à la fin du parcours.
+            Cet écran ne demande rien : il donne. L'homme qui vient de
+            télécharger son certificat est content de lui, et c'est le seul
+            moment où proposer de parler du challenge ne coûte rien — sur
+            l'écran de décision, le même bouton volait l'attention du
+            rendez-vous.
+
+            `no-print` : un certificat imprimé n'a pas à porter une invitation. */}
+        {allDone && (
+          <div className="no-print mt-6 w-full">
+            <InvitationFin firstName={firstName} points={pointsGagnes} />
           </div>
         )}
       </div>
