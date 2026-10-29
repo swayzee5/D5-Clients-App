@@ -67,6 +67,7 @@ export default async function BilanPage() {
             ecart={bilan.scores.global - depart.scores.global}
             intentionInitiale={intention?.intention ?? null}
             texteInitial={intention?.texte ?? null}
+            firstName={prenom}
           />
         </>
       ) : (

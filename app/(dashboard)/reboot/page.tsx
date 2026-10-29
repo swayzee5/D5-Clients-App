@@ -301,10 +301,18 @@ export default async function RebootPage() {
         <ArrowRight size={15} className="shrink-0 text-d5-muted" />
       </Link>
 
-      <InviterProche
-        firstName={session.user?.name?.split(" ")[0]}
-        points={bilan && diagnostic ? bilan.scores.global - diagnostic.scores.global : null}
-      />
+      {/* Pendant le challenge seulement. Une fois les dix étapes faites,
+          l'invitation se déplace sur l'écran de fin, après la vidéo et après
+          qu'il a répondu pour lui-même : c'est là qu'il vient de lire ce que
+          sept jours lui ont rapporté, et c'est ce qui décide un partage.
+          La laisser ici en plus donnerait deux endroits pour le même geste,
+          dont un au milieu des séances — c'est-à-dire nulle part. */}
+      {!allDone && (
+        <InviterProche
+          firstName={session.user?.name?.split(" ")[0]}
+          points={bilan && diagnostic ? bilan.scores.global - diagnostic.scores.global : null}
+        />
+      )}
 
       {allDone && (
         <div className="space-y-4 pb-4">
