@@ -6,6 +6,9 @@ import { WeekCalendar } from "@/components/dashboard/WeekCalendar"
 import type { CompletedSession } from "@/components/dashboard/WeekCalendar"
 import { pool } from "@/lib/db"
 import { countSeanceCompletions } from "@/lib/queries/reboot"
+import { getReglagesFin, getIntention } from "@/lib/queries/reboot-fin"
+import { vignetteVimeo } from "@/lib/vimeo-vignette"
+import { getBilan } from "@/lib/queries/reboot-bilan"
 import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
@@ -97,12 +100,78 @@ export default async function DashboardPage() {
 
   const rebootPct = Math.round((rebootProgress.done / rebootProgress.total) * 100)
 
+  // Le challenge est fini : la vidéo de clôture devient la chose la plus
+  // importante de l'écran. Jusqu'ici elle n'existait que derrière le bilan,
+  // et quelqu'un qui remplissait son bilan sans aller plus loin ne la voyait
+  // jamais — il fallait le relancer à la main pour une vidéo qu'il avait sous
+  // la main.
+  const rebootFini = isRebootOnly && rebootProgress.done >= rebootProgress.total
+  const reglagesFin = rebootFini ? await getReglagesFin() : null
+  const vignetteFin = reglagesFin?.videoId ? await vignetteVimeo(reglagesFin.videoId) : null
+  // S'il a déjà répondu, la carte le dit au lieu de réclamer : rappeler une
+  // action faite est le meilleur moyen de faire douter qu'elle l'a été.
+  const dejaRepondu = rebootFini ? Boolean(await getIntention(session.user.id)) : false
+  // Le bilan précède la vidéo : tant qu'il n'est pas rempli, la carte annonce
+  // ce qui va réellement s'ouvrir, sinon elle promet une vidéo et présente un
+  // formulaire.
+  const bilanRempli = rebootFini ? Boolean(await getBilan(session.user.id)) : false
+
   return (
     <div className="space-y-6">
       {/* Greeting */}
       <div className="pt-1">
         <h1 className="text-2xl font-black text-white">{getGreeting(firstName)}</h1>
       </div>
+
+      {/* La vidéo de fin, au-dessus de tout le reste. */}
+      {rebootFini && reglagesFin?.videoId && (
+        <section>
+          <Link href="/reboot/bilan" className="block active:scale-[0.98] transition-transform">
+            <div className="overflow-hidden rounded-2xl border-2 border-d5-gold/60 bg-d5-surface">
+              <div className="relative aspect-video w-full bg-gradient-to-br from-[#2a1d00] via-black to-[#2a1d00]">
+                {vignetteFin && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={vignetteFin}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover opacity-70"
+                  />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="flex h-16 w-16 items-center justify-center rounded-full bg-d5-gold shadow-lg">
+                    {/* Triangle plein : une icône de lecture se reconnaît de
+                        loin, un libellé non. */}
+                    <span className="ml-1 border-y-[11px] border-l-[18px] border-y-transparent border-l-black" />
+                  </span>
+                </div>
+                <div className="absolute inset-x-0 bottom-0 p-4">
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-d5-gold">
+                    Challenge terminé — 10/10
+                  </p>
+                  <p className="mt-0.5 text-lg font-black leading-tight text-white">
+                    {!bilanRempli
+                      ? "Ton bilan, puis ta vidéo de fin"
+                      : dejaRepondu
+                      ? "Revoir ta vidéo de fin"
+                      : "Ta vidéo de fin t'attend"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between px-4 py-3">
+                <p className="text-sm text-d5-muted">
+                  {!bilanRempli
+                    ? "Cinq minutes de bilan, puis je te parle de la suite"
+                    : dejaRepondu
+                    ? "Ta réponse est modifiable à tout moment"
+                    : "La partie que je voulais te dire depuis le début"}
+                </p>
+                <ArrowRight size={16} className="shrink-0 text-d5-gold" />
+              </div>
+            </div>
+          </Link>
+        </section>
+      )}
 
       {/* REBOOT HERO */}
       {isRebootOnly && (
