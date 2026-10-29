@@ -5,7 +5,6 @@ import { suivreFin } from "@/app/(dashboard)/reboot/fin-actions";
 import { FORMAT_VERTICAL } from "@/lib/vimeo";
 import type { Intention, ReglagesFin } from "@/lib/queries/reboot-fin";
 import { QuestionAccompagnement } from "./QuestionAccompagnement";
-import { InvitationFin } from "./InvitationFin";
 
 /**
  * Ce qui suit le bilan : la vidéo de clôture et la prise de rendez-vous.
@@ -30,7 +29,6 @@ export function FinParcours({
   ecart,
   intentionInitiale = null,
   texteInitial = null,
-  firstName = null,
 }: {
   reglages: ReglagesFin;
   /** Points gagnés sur le score global. Peut être nul ou négatif. */
@@ -38,7 +36,8 @@ export function FinParcours({
   /** Ce qu'il a déjà répondu, pour rouvrir l'écran dans son état. */
   intentionInitiale?: Intention | null;
   texteInitial?: string | null;
-  /** Son prénom, pour le message d'invitation. */
+  /** Son prénom. Inutilisé pour l'instant : l'invitation a quitté cet écran,
+   *  et la propriété reste pour quand on lui trouvera sa place. */
   firstName?: string | null;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -170,16 +169,10 @@ export function FinParcours({
         </div>
       )}
 
-      {/* L'invitation vient après, jamais avant. Tant qu'il n'a pas répondu
-          pour lui-même, cet écran ne doit rien demander d'autre : lui proposer
-          de penser à un copain pendant qu'il décide de sa propre année, c'est
-          la meilleure façon de n'obtenir ni l'un ni l'autre. */}
-      {intention && (
-        <>
-          <div className="h-px bg-d5-border" />
-          <InvitationFin firstName={firstName} points={ecart > 0 ? ecart : null} />
-        </>
-      )}
+      {/* Rien d'autre sur cet écran. L'invitation y figurait un temps, après
+          la réponse : deux boutons pleins l'un sous l'autre, et c'est le
+          rendez-vous qui perdait. Un écran de décision ne porte qu'une
+          décision ; le partage trouvera sa place ailleurs. */}
     </section>
   );
 }
