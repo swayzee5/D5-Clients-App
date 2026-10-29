@@ -28,6 +28,8 @@ export function prochaineEtape({
   modules,
   bilanFait,
   premierModuleAFaire,
+  videoFin = false,
+  intentionRepondue = false,
 }: {
   seances: number;
   messages: number;
@@ -35,6 +37,10 @@ export function prochaineEtape({
   bilanFait: boolean;
   /** Clé du premier module non validé, pour y aller directement. */
   premierModuleAFaire: string | null;
+  /** Une vidéo de clôture est-elle réglée ? Sans elle, cette étape n'existe pas. */
+  videoFin?: boolean;
+  /** A-t-il répondu à la question de l'accompagnement ? */
+  intentionRepondue?: boolean;
 }): ProchaineEtape {
   // Le message dû passe avant la séance suivante. Il se rattache à la séance
   // qu'on vient de finir : repoussé d'un jour, il n'est jamais posté, et c'est
@@ -71,6 +77,19 @@ export function prochaineEtape({
       emoji: "📈",
       titre: "Ton bilan de fin",
       detail: "Les 6 mêmes notes qu'au départ, pour voir ce qui a changé.",
+      href: "/reboot/bilan",
+    };
+  }
+
+  // Le bilan est fait : reste la vidéo de clôture, qui est la seule chose
+  // qu'il n'a pas encore vue. Le certificat passe derrière — il est déjà
+  // téléchargeable depuis la page, et un trophée proposé avant la vidéo fait
+  // refermer l'application.
+  if (videoFin && !intentionRepondue) {
+    return {
+      emoji: "🎬",
+      titre: "Ta vidéo de fin",
+      detail: "La partie que je voulais te dire depuis le début.",
       href: "/reboot/bilan",
     };
   }

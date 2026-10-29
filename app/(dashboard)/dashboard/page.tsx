@@ -9,6 +9,7 @@ import { countSeanceCompletions } from "@/lib/queries/reboot"
 import { getReglagesFin, getIntention } from "@/lib/queries/reboot-fin"
 import { vignetteVimeo } from "@/lib/vimeo-vignette"
 import { getBilan } from "@/lib/queries/reboot-bilan"
+import { CarteVideoFin } from "@/components/reboot/CarteVideoFin"
 import type { Metadata } from "next"
 
 export const dynamic = "force-dynamic"
@@ -126,50 +127,11 @@ export default async function DashboardPage() {
       {/* La vidéo de fin, au-dessus de tout le reste. */}
       {rebootFini && reglagesFin?.videoId && (
         <section>
-          <Link href="/reboot/bilan" className="block active:scale-[0.98] transition-transform">
-            <div className="overflow-hidden rounded-2xl border-2 border-d5-gold/60 bg-d5-surface">
-              <div className="relative aspect-video w-full bg-gradient-to-br from-[#2a1d00] via-black to-[#2a1d00]">
-                {vignetteFin && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={vignetteFin}
-                    alt=""
-                    className="absolute inset-0 h-full w-full object-cover opacity-70"
-                  />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="flex h-16 w-16 items-center justify-center rounded-full bg-d5-gold shadow-lg">
-                    {/* Triangle plein : une icône de lecture se reconnaît de
-                        loin, un libellé non. */}
-                    <span className="ml-1 border-y-[11px] border-l-[18px] border-y-transparent border-l-black" />
-                  </span>
-                </div>
-                <div className="absolute inset-x-0 bottom-0 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-d5-gold">
-                    Challenge terminé — 10/10
-                  </p>
-                  <p className="mt-0.5 text-lg font-black leading-tight text-white">
-                    {!bilanRempli
-                      ? "Ton bilan, puis ta vidéo de fin"
-                      : dejaRepondu
-                      ? "Revoir ta vidéo de fin"
-                      : "Ta vidéo de fin t'attend"}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between px-4 py-3">
-                <p className="text-sm text-d5-muted">
-                  {!bilanRempli
-                    ? "Cinq minutes de bilan, puis je te parle de la suite"
-                    : dejaRepondu
-                    ? "Ta réponse est modifiable à tout moment"
-                    : "La partie que je voulais te dire depuis le début"}
-                </p>
-                <ArrowRight size={16} className="shrink-0 text-d5-gold" />
-              </div>
-            </div>
-          </Link>
+          <CarteVideoFin
+            vignette={vignetteFin}
+            bilanRempli={bilanRempli}
+            dejaRepondu={dejaRepondu}
+          />
         </section>
       )}
 

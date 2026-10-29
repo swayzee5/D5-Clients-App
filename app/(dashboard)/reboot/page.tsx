@@ -10,6 +10,9 @@ import { getBilan } from "@/lib/queries/reboot-bilan";
 import { pool } from "@/lib/db";
 import { InviterProche } from "@/components/reboot/InviterProche";
 import { prochaineEtape } from "@/lib/reboot-prochaine-etape";
+import { getReglagesFin, getIntention } from "@/lib/queries/reboot-fin";
+import { vignetteVimeo } from "@/lib/vimeo-vignette";
+import { CarteVideoFin } from "@/components/reboot/CarteVideoFin";
 import { listerPhotos } from "@/lib/queries/progression-photos";
 import { SectionTerminee } from "@/components/reboot/SectionTerminee";
 import type { Metadata } from "next";
@@ -116,13 +119,27 @@ export default async function RebootPage() {
   // fois : c'est une mesure datée, pas un formulaire qu'on rejoue.
   const bilan = allDone ? await getBilan(clientId) : null;
 
+  // La fin de parcours : la vidéo de clôture et ce qu'il en a déjà fait.
+  // Rien n'est demandé tant que les dix étapes ne sont pas faites.
+  const reglagesFin = allDone ? await getReglagesFin() : null;
+  const vignetteFin = reglagesFin?.videoId ? await vignetteVimeo(reglagesFin.videoId) : null;
+  const intentionFin = allDone ? await getIntention(clientId) : null;
+
   const etape = prochaineEtape({
     seances: sessionsCompleted,
     messages: waCompleted,
     modules: completedModules.length,
     bilanFait: bilan !== null,
     premierModuleAFaire: MODULES.find((m) => !completedModules.includes(m.key))?.key ?? null,
+    videoFin: Boolean(reglagesFin?.videoId),
+    intentionRepondue: intentionFin !== null,
   });
+
+  // Quand la grande carte vidéo est à l'écran, la carte « prochaine étape »
+  // qui mène au même endroit ferait doublon — deux appels à faire la même
+  // chose se neutralisent.
+  const carteVideo = allDone && Boolean(reglagesFin?.videoId);
+  const masquerEtape = carteVideo && etape.href === "/reboot/bilan";
 
   return (
     <div className="space-y-6">
@@ -174,8 +191,19 @@ export default async function RebootPage() {
       </div>
 
 
+      {/* Le challenge est fini : la vidéo de clôture est la seule chose qui
+          reste à voir, et elle passe devant tout le reste. */}
+      {carteVideo && (
+        <CarteVideoFin
+          vignette={vignetteFin}
+          bilanRempli={bilan !== null}
+          dejaRepondu={intentionFin !== null}
+        />
+      )}
+
       {/* La seule décision retirée au participant : par où commencer. Tout le
           reste de la page est toujours là, mais rangé en dessous. */}
+      {!masquerEtape && (
       <Link
         href={etape.href}
         className="flex items-center gap-4 rounded-2xl border-2 border-d5-gold bg-d5-gold/10 p-5 transition-transform active:scale-[0.98]"
@@ -190,6 +218,7 @@ export default async function RebootPage() {
         </span>
         <ArrowRight size={20} className="shrink-0 text-d5-gold" />
       </Link>
+      )}
 
       {/* Sommaire, pas contenu : chaque ligne mène à son écran. La page
           montrait les séances ET les messages ET les modules les uns sous les
@@ -353,9 +382,17 @@ export default async function RebootPage() {
               calibré sur ta récupération, la nutrition, et moi derrière toi
               pendant 6 mois.
             </p>
-            <div className="bg-d5-gold text-black rounded-xl px-4 py-4 text-sm font-bold text-center cursor-pointer hover:bg-d5-gold/90 transition-colors active:scale-[0.98]">
-              Réserver mon appel découverte gratuit →
-            </div>
+            {/* C'était un simple bloc, sans lien ni action : il ne faisait
+                rien. Et il court-circuitait la vidéo, qui est justement ce
+                qui explique ce qu'on réserve.
+                « Appel découverte gratuit » annonce une vente à un homme qui
+                s'en méfie ; on dit ce qu'il y a derrière. */}
+            <Link
+              href="/reboot/bilan"
+              className="block rounded-xl bg-d5-gold px-4 py-4 text-center text-sm font-bold text-black transition-transform active:scale-[0.98]"
+            >
+              Voir la suite avec Daye →
+            </Link>
           </div>
         </div>
       )}
