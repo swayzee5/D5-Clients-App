@@ -3,41 +3,8 @@
 import { pool } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { checkAndSendMilestoneNotification } from "@/lib/push";
-import { countSeanceCompletions } from "@/lib/queries/reboot";
 import { marquerActivite } from "@/lib/derniere-activite";
-
-/**
- * Prévenir le coach quand le troisième message clôt le challenge.
- *
- * Le dernier des dix points peut désormais être ce message, et non plus
- * forcément une séance ou un module. Sans ce contrôle ici, un participant
- * terminerait son challenge sans que personne ne soit prévenu.
- */
-async function notifierSiChallengeTermine(clientId: string, waDone: number): Promise<void> {
-  try {
-    if (waDone < 3) return;
-    const seances = await countSeanceCompletions(clientId);
-    if (seances < 3) return;
-    const { rows } = await pool.query<{ cnt: string }>(
-      `SELECT COUNT(*) AS cnt FROM reboot_task_completions WHERE client_id = $1`,
-      [clientId]
-    );
-    if (Number(rows[0]?.cnt ?? 0) < 4) return;
-
-    await pool.query(`CREATE TABLE IF NOT EXISTS coach_notifications (
-      id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id TEXT NOT NULL,
-      type TEXT NOT NULL, is_read BOOLEAN DEFAULT false, created_at TIMESTAMPTZ DEFAULT now(),
-      UNIQUE(client_id, type)
-    )`);
-    await pool.query(
-      `INSERT INTO coach_notifications (client_id, type) VALUES ($1, 'reboot_completed')
-       ON CONFLICT DO NOTHING`,
-      [clientId]
-    );
-  } catch (err) {
-    console.error("[notifierSiChallengeTermine]", err);
-  }
-}
+import { termineEtPrevenirCoach } from "@/lib/queries/reboot-complet";
 
 /**
  * Valider un message WhatsApp depuis la page du challenge.
@@ -55,7 +22,9 @@ async function notifierSiChallengeTermine(clientId: string, waDone: number): Pro
  * donc deux appuis rapprochés ne comptent pas deux fois, et la valeur affichée
  * ne peut pas être devancée par le client.
  */
-export async function recordNextWhatsappMessage(clientId: string): Promise<number> {
+export async function recordNextWhatsappMessage(
+  clientId: string
+): Promise<{ compte: number; termine: boolean }> {
   // Un geste fait dans l'app, pas seulement une connexion : c'est
   // ce qui dit au coach que le client est toujours là.
   marquerActivite(clientId);
@@ -72,7 +41,7 @@ export async function recordNextWhatsappMessage(clientId: string): Promise<numbe
       [clientId]
     );
     const deja = Number(rows[0]?.cnt ?? 0);
-    if (deja >= 3) return deja;
+    if (deja >= 3) return { compte: deja, termine: await termineEtPrevenirCoach(clientId) };
 
     await pool.query(
       `INSERT INTO reboot_whatsapp_completions (client_id, session_id)
@@ -80,12 +49,12 @@ export async function recordNextWhatsappMessage(clientId: string): Promise<numbe
       [clientId, `message-${deja + 1}`]
     );
 
-    await notifierSiChallengeTermine(clientId, deja + 1);
+    const termine = await termineEtPrevenirCoach(clientId);
     await checkAndSendMilestoneNotification(clientId);
     revalidatePath("/reboot");
-    return deja + 1;
+    return { compte: deja + 1, termine };
   } catch (err) {
     console.error("[recordNextWhatsappMessage]", err);
-    return -1;
+    return { compte: -1, termine: false };
   }
 }

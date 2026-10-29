@@ -4,32 +4,19 @@ import { auth } from "@/auth";
 import { pool } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import { checkAndSendMilestoneNotification } from "@/lib/push";
-import { countSeanceCompletions } from "@/lib/queries/reboot";
 import { marquerActivite } from "@/lib/derniere-activite";
+import { termineEtPrevenirCoach } from "@/lib/queries/reboot-complet";
 
-async function notifyIfChallengeComplete(clientId: string) {
-  try {
-    const [seancesDone, { rows: mRows }, { rows: wRows }] = await Promise.all([
-      countSeanceCompletions(clientId),
-      pool.query(`SELECT COUNT(*) AS cnt FROM reboot_task_completions WHERE client_id = $1`, [clientId]),
-      pool.query(`SELECT COUNT(*) AS cnt FROM reboot_whatsapp_completions WHERE client_id = $1`, [clientId]).catch(() => ({ rows: [{ cnt: 0 }] })),
-    ]);
-    const modulesDone = parseInt(mRows[0]?.cnt ?? 0);
-    const waDone = parseInt(wRows[0]?.cnt ?? 0);
-    if (seancesDone >= 3 && modulesDone >= 4 && waDone >= 3) {
-      await pool.query(`CREATE TABLE IF NOT EXISTS coach_notifications (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(), client_id TEXT NOT NULL,
-        type TEXT NOT NULL, is_read BOOLEAN DEFAULT false, created_at TIMESTAMPTZ DEFAULT now(),
-        UNIQUE(client_id, type)
-      )`);
-      await pool.query(`INSERT INTO coach_notifications (client_id, type) VALUES ($1, 'reboot_completed') ON CONFLICT DO NOTHING`, [clientId]);
-    }
-  } catch (err) { console.error("[notifyIfChallengeComplete]", err); }
-}
-
-export async function validateModule(taskKey: string) {
+/**
+ * Valider un module.
+ *
+ * Renvoie `termine` quand ce module était la dixième étape : l'écran emmène
+ * alors directement au bilan de fin, au lieu de laisser le participant
+ * revenir au tableau de bord chercher ce qu'il lui reste à faire.
+ */
+export async function validateModule(taskKey: string): Promise<{ termine: boolean }> {
   const session = await auth();
-  if (!session?.user?.id) return;
+  if (!session?.user?.id) return { termine: false };
   // Un geste fait dans l'app, pas seulement une connexion : c'est ce
   // qui dit au coach que le client est toujours là.
   marquerActivite(session.user.id);
@@ -40,9 +27,10 @@ export async function validateModule(taskKey: string) {
       task_key TEXT NOT NULL, completed_at TIMESTAMPTZ DEFAULT now(), UNIQUE(client_id, task_key)
     )`);
     await pool.query(`INSERT INTO reboot_task_completions (client_id, task_key) VALUES ($1,$2) ON CONFLICT DO NOTHING`, [session.user.id, taskKey]);
-    await notifyIfChallengeComplete(session.user.id);
+    const termine = await termineEtPrevenirCoach(session.user.id);
     await checkAndSendMilestoneNotification(session.user.id);
-  } catch (err) { console.error("[validateModule]", err); return; }
-  revalidatePath("/reboot");
-  revalidatePath(`/reboot/module/${taskKey}`);
+    revalidatePath("/reboot");
+    revalidatePath(`/reboot/module/${taskKey}`);
+    return { termine };
+  } catch (err) { console.error("[validateModule]", err); return { termine: false }; }
 }

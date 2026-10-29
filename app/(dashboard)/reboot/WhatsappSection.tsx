@@ -55,8 +55,14 @@ export function WhatsappSection({ clientId, waCompleted, sessionsCompleted, goal
 
   function confirmer() {
     startTransition(async () => {
-      await recordNextWhatsappMessage(clientId);
+      const r = await recordNextWhatsappMessage(clientId);
       setOuvert(null);
+      // Dixième étape : on emmène au bilan plutôt que de rafraîchir une liste
+      // entièrement cochée où rien n'indique que la suite existe.
+      if (r.termine) {
+        router.push("/reboot/bilan");
+        return;
+      }
       router.refresh();
     });
   }

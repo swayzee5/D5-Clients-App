@@ -202,6 +202,8 @@ export function RebootSeanceGrid({
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [playing, setPlaying] = useState<RebootExercise | null>(null);
   const [showModal, setShowModal] = useState(false);
+  /** Vrai dès que cette validation a complété les dix étapes. */
+  const [termine, setTermine] = useState(false);
   const [energy, setEnergy] = useState(3);
   const [difficulty, setDifficulty] = useState("good");
   const [feeling, setFeeling] = useState("");
@@ -231,7 +233,8 @@ export function RebootSeanceGrid({
   function triggerComplete() {
     setShowModal(false);
     startTransition(async () => {
-      await completeSession(clientId, sessionId);
+      const r = await completeSession(clientId, sessionId);
+      if (r.termine) setTermine(true);
       // Un échauffement ou un HIIT ne déclenche ni ressenti ni message de
       // groupe : ces étapes appartiennent aux trois séances du challenge, et un
       // « Séance 1/3 validée » après dix minutes de mobilité serait faux.
@@ -248,10 +251,18 @@ export function RebootSeanceGrid({
   }
 
   async function handleWhatsappSent() {
+    let dixSur10 = termine;
     if (ordinal !== null) {
-      await recordWhatsappSend(clientId, sessionId);
+      const r = await recordWhatsappSend(clientId, sessionId);
+      // La valeur est lue ici plutôt que depuis l'état : un setState n'est pas
+      // encore appliqué à la ligne suivante, et c'est précisément cette
+      // ligne-là qui décide où l'on va.
+      if (r.termine) {
+        dixSur10 = true;
+        setTermine(true);
+      }
     }
-    finish();
+    finish(dixSur10);
   }
 
   async function copyMessage() {
@@ -260,9 +271,17 @@ export function RebootSeanceGrid({
     setTimeout(() => setCopied(false), 2000);
   }
 
-  function finish() {
+  /**
+   * Fin de l'enchaînement.
+   *
+   * Quand c'était la dixième étape, on va au bilan et non au tableau de bord.
+   * Sinon le participant retombait sur une liste de tâches toutes cochées,
+   * sans rien qui lui dise que la suite existe — juste après le seul geste de
+   * la semaine qui méritait une récompense.
+   */
+  function finish(estTermine = termine) {
     setStep("done");
-    setTimeout(() => router.push("/reboot"), 1500);
+    setTimeout(() => router.push(estTermine ? "/reboot/bilan" : "/reboot"), 1800);
   }
 
   void startTimeRef;
@@ -284,8 +303,12 @@ export function RebootSeanceGrid({
     return (
       <div className="card border-d5-gold/30 bg-d5-gold/5 flex flex-col items-center gap-2 py-8 text-center mt-4">
         <span className="text-4xl">🎉</span>
-        <p className="text-white font-bold">Séance validée !</p>
-        <p className="text-d5-muted text-sm">Retour au challenge…</p>
+        <p className="text-white font-bold">
+          {termine ? "Challenge terminé — 10/10 !" : "Séance validée !"}
+        </p>
+        <p className="text-d5-muted text-sm">
+          {termine ? "On passe à ton bilan…" : "Retour au challenge…"}
+        </p>
       </div>
     );
   }

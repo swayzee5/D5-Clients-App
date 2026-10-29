@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { validateModule } from "./actions";
 
@@ -20,6 +21,9 @@ export default function ValidateButton({
   const [step, setStep] = useState<Step>("idle");
   const [isPending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
+  /** Vrai quand ce module était la dixième étape des dix. */
+  const [termine, setTermine] = useState(false);
+  const router = useRouter();
 
   async function copyMessage() {
     await navigator.clipboard.writeText(WHATSAPP_MESSAGE);
@@ -29,9 +33,20 @@ export default function ValidateButton({
 
   if (isDone || step === "done") {
     return (
-      <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
-        <CheckCircle2 size={18} className="text-green-400" />
-        <p className="text-green-400 font-semibold text-sm">Module validé</p>
+      <div className="space-y-3">
+        <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-xl px-4 py-3">
+          <CheckCircle2 size={18} className="text-green-400" />
+          <p className="text-green-400 font-semibold text-sm">Module validé</p>
+        </div>
+        {/* Dixième étape : le bilan est la suite, et il ne doit pas falloir
+            la chercher dans le tableau de bord. */}
+        {termine && (
+          <button
+            onClick={() => router.push("/reboot/bilan")}
+            className="w-full rounded-xl bg-d5-gold py-3.5 text-sm font-bold text-black transition-transform active:scale-[0.98]">
+            Challenge terminé — voir mon bilan →
+          </button>
+        )}
       </div>
     );
   }
@@ -51,9 +66,16 @@ export default function ValidateButton({
           className="w-full border border-d5-border hover:border-white/30 bg-d5-surface-2 text-white rounded-xl py-3 text-sm font-medium transition-all active:scale-[0.98]">
           {copied ? "✓ Copié !" : "Copier le message"}
         </button>
-        <button onClick={() => setStep("done")}
+        <button
+          onClick={() => {
+            if (termine) {
+              router.push("/reboot/bilan");
+              return;
+            }
+            setStep("done");
+          }}
           className="w-full bg-d5-gold hover:bg-d5-gold/90 text-black font-bold rounded-xl py-3.5 text-sm transition-colors active:scale-[0.98]">
-          Message envoyé ✓
+          {termine ? "Message envoyé — voir mon bilan →" : "Message envoyé ✓"}
         </button>
         {/* Même raison qu'après une séance : ce message fait vivre le groupe,
             et c'est le point le plus facile à oublier une fois l'écran quitté. */}
@@ -68,7 +90,8 @@ export default function ValidateButton({
     <button
       onClick={() =>
         startTransition(async () => {
-          await validateModule(taskKey);
+          const r = await validateModule(taskKey);
+          if (r.termine) setTermine(true);
           if (isLastModule) {
             setStep("whatsapp");
           } else {
