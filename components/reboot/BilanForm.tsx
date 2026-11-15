@@ -21,16 +21,21 @@ import type { ReglagesFin } from "@/lib/queries/reboot-fin";
  * Trois écrans, dans cet ordre précis :
  *
  *   1. Les six mêmes notes qu'au départ.
- *   2. L'écart, axe par axe. C'est le seul moment du parcours où la personne
- *      voit noir sur blanc ce qui a changé en sept jours.
- *   3. La satisfaction et le témoignage, demandés APRÈS l'écart.
+ *   2. L'avis sur la semaine, et ce qu'il faudrait changer pour le groupe
+ *      suivant.
+ *   3. L'écart, axe par axe, puis la vidéo de clôture.
  *
- * L'ordre n'est pas cosmétique. Demander un témoignage avant d'avoir montré la
- * progression, c'est demander à quelqu'un de recommander un ressenti flou.
- * Après, il raconte ce qu'il vient de constater.
+ * L'avis venait après l'écart, pour qu'il raconte ce qu'il venait de
+ * constater. L'intention était bonne et le résultat sans appel : dix-huit
+ * bilans, zéro témoignage. Une fois le score obtenu, la personne a ce qu'elle
+ * était venue chercher et ferme l'application — l'écran d'après n'existe pas.
+ *
+ * Le score devient donc ce qu'on obtient après avoir répondu. C'est la seule
+ * monnaie d'échange de tout le parcours, et elle ne sert à rien si on la
+ * donne d'abord.
  */
 
-type Phase = "notes" | "resultat" | "avis" | "merci";
+type Phase = "notes" | "avis" | "resultat";
 
 export function BilanForm({
   depart,
@@ -50,6 +55,7 @@ export function BilanForm({
   const [arrivee, setArrivee] = useState<Scores | null>(null);
   const [satisfaction, setSatisfaction] = useState<number | null>(null);
   const [temoignage, setTemoignage] = useState("");
+  const [amelioration, setAmelioration] = useState("");
   const [publiable, setPubliable] = useState(false);
   const [erreur, setErreur] = useState<string | null>(null);
 
@@ -66,21 +72,24 @@ export function BilanForm({
 
   const toutesNotees = SCORE_AXES.every(({ key }) => touchees.has(key));
 
-  function envoyer(avecAvis: boolean) {
+  /**
+   * Un seul envoi, avec tout.
+   *
+   * Il y en avait deux : les notes d'abord, l'avis ensuite. Et le second
+   * était jeté en silence — l'écriture se terminait par `ON CONFLICT DO
+   * NOTHING`, donc le bilan existait déjà et l'avis n'était jamais
+   * enregistré. Même ceux qui répondaient ne laissaient aucune trace.
+   */
+  function envoyer() {
     setErreur(null);
     startTransition(async () => {
-      const r = await submitBilan(
-        notes,
-        avecAvis ? satisfaction : null,
-        avecAvis ? temoignage : "",
-        avecAvis ? publiable : false
-      );
+      const r = await submitBilan(notes, satisfaction, temoignage, publiable, amelioration);
       if (!r.ok) {
         setErreur(r.error);
         return;
       }
       setArrivee(r.scores);
-      setPhase(avecAvis ? "merci" : "resultat");
+      setPhase("resultat");
     });
   }
 
@@ -114,13 +123,13 @@ export function BilanForm({
         {erreur && <p className="text-sm text-red-400">{erreur}</p>}
 
         <button
-          onClick={() => envoyer(false)}
+          onClick={() => setPhase("avis")}
           disabled={!toutesNotees || isPending}
           className={`w-full rounded-xl py-4 text-sm font-bold transition-all ${
             toutesNotees ? "bg-d5-gold text-black active:scale-[0.98]" : "bg-d5-surface-2 text-d5-muted"
           }`}
         >
-          {isPending ? "Un instant…" : toutesNotees ? "Voir ma progression" : "Touche les six curseurs"}
+          {toutesNotees ? "Continuer" : "Touche les six curseurs"}
         </button>
 
         {!toutesNotees && (
@@ -139,27 +148,14 @@ export function BilanForm({
   const ecartGlobal = arrivee ? arrivee.global - depart.global : 0;
   const partage = messageInvitation(firstName, ecartGlobal > 0 ? ecartGlobal : null);
 
-  if (phase === "resultat" && arrivee) {
-    return (
-      <div className="space-y-5">
-        <Comparaison depart={depart} arrivee={arrivee} ecart={ecartGlobal} evolutions={evolutions} />
-        <button
-          onClick={() => setPhase("avis")}
-          className="w-full rounded-xl bg-d5-gold py-4 text-sm font-bold text-black active:scale-[0.98]"
-        >
-          Continuer
-        </button>
-      </div>
-    );
-  }
-
   if (phase === "avis") {
     return (
       <div className="space-y-5">
         <div>
           <h1 className="text-xl font-bold text-white">Ton avis sur la semaine</h1>
           <p className="mt-1.5 text-sm leading-relaxed text-d5-muted">
-            Deux questions, et c&apos;est terminé.
+            Trois questions, puis tu verras ta progression. Réponds franchement —
+            c&apos;est ce qui construit le groupe suivant.
           </p>
         </div>
 
@@ -217,14 +213,38 @@ export function BilanForm({
           )}
         </div>
 
+        {/* La question qui sert au produit, et la seule obligatoire avec la
+            note. Le bouton « rien à changer » n'est pas une facilité : sans
+            porte de sortie honnête, un champ obligatoire se remplit de
+            « ras » et ne vaut plus rien. */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wider text-d5-muted">
+            Qu&apos;est-ce qu&apos;on améliore pour le prochain groupe ?
+          </p>
+          <textarea
+            value={amelioration}
+            onChange={(e) => setAmelioration(e.target.value)}
+            rows={3}
+            placeholder="ex : les séances maison étaient trop longues, j'aurais aimé…"
+            className="w-full resize-none rounded-xl border border-d5-border bg-d5-surface-2 px-3 py-2.5 text-sm text-white placeholder-d5-muted focus:border-d5-gold/40 focus:outline-none"
+          />
+          <button
+            type="button"
+            onClick={() => setAmelioration("Rien à changer pour moi.")}
+            className="text-xs text-d5-muted underline underline-offset-2"
+          >
+            Rien à changer
+          </button>
+        </div>
+
         {erreur && <p className="text-sm text-red-400">{erreur}</p>}
 
         <button
-          onClick={() => envoyer(true)}
-          disabled={isPending || satisfaction === null}
+          onClick={envoyer}
+          disabled={isPending || satisfaction === null || amelioration.trim().length === 0}
           className="w-full rounded-xl bg-d5-gold py-4 text-sm font-bold text-black active:scale-[0.98] disabled:opacity-60"
         >
-          {isPending ? "Enregistrement…" : "Terminer"}
+          {isPending ? "Enregistrement…" : "Voir ma progression"}
         </button>
       </div>
     );

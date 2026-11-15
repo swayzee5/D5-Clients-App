@@ -16,6 +16,11 @@ import { computeScores, type Ratings, type Scores } from "@/lib/reboot-diagnosti
  */
 
 async function ensureTable(): Promise<void> {
+  // La colonne est ajoutée séparément : la table existe déjà en production,
+  // et un CREATE TABLE IF NOT EXISTS ne la fait pas évoluer.
+  await pool
+    .query(`ALTER TABLE reboot_bilans ADD COLUMN IF NOT EXISTS amelioration TEXT`)
+    .catch(() => {});
   await pool.query(`
     CREATE TABLE IF NOT EXISTS reboot_bilans (
       id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -31,6 +36,8 @@ async function ensureTable(): Promise<void> {
       /** Note de satisfaction sur 5. */
       satisfaction        INT,
       temoignage          TEXT,
+      /** Ce qu'il faudrait changer pour le groupe suivant. */
+      amelioration        TEXT,
       /**
        * Autorisation explicite de publier le témoignage.
        *
@@ -93,7 +100,8 @@ export async function saveBilan(
   ratings: Ratings,
   satisfaction: number | null,
   temoignage: string | null,
-  temoignagePubliable: boolean
+  temoignagePubliable: boolean,
+  amelioration: string | null
 ): Promise<Scores> {
   await ensureTable();
   const scores = computeScores(ratings);
@@ -101,10 +109,19 @@ export async function saveBilan(
     `INSERT INTO reboot_bilans (
        client_id, ratings, score_global, score_sommeil, score_energie,
        score_recuperation, score_stress, score_motivation, score_confiance,
-       satisfaction, temoignage, temoignage_publiable
+       satisfaction, temoignage, temoignage_publiable, amelioration
      )
-     VALUES ($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-     ON CONFLICT (client_id) DO NOTHING`,
+     VALUES ($1,$2::jsonb,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+     ON CONFLICT (client_id) DO UPDATE SET
+       -- Les scores ne bougent pas : c'est une mesure datée, pas un
+       -- formulaire qu'on rejoue. L'avis, lui, peut arriver après — et
+       -- jusqu'ici un second envoi était purement et simplement jeté, ce qui
+       -- expliquait zéro témoignage sur dix-huit bilans.
+       satisfaction = COALESCE(reboot_bilans.satisfaction, EXCLUDED.satisfaction),
+       temoignage   = COALESCE(reboot_bilans.temoignage,   EXCLUDED.temoignage),
+       temoignage_publiable = reboot_bilans.temoignage_publiable
+                              OR EXCLUDED.temoignage_publiable,
+       amelioration = COALESCE(reboot_bilans.amelioration, EXCLUDED.amelioration)`,
     [
       clientId,
       JSON.stringify(ratings),
@@ -118,6 +135,7 @@ export async function saveBilan(
       satisfaction,
       temoignage,
       temoignagePubliable,
+      amelioration,
     ]
   );
   return scores;

@@ -18,12 +18,17 @@ export type BilanResult =
  *
  * L'identifiant vient de la session, jamais du client : ce bilan devient une
  * preuve publiable, il ne doit pas pouvoir être écrit au nom d'un autre.
+ *
+ * L'avis arrive désormais avec les notes, en un seul envoi. Il était demandé
+ * après l'affichage du score : les participants obtenaient ce qu'ils venaient
+ * chercher et fermaient l'application. Dix-huit bilans, zéro témoignage.
  */
 export async function submitBilan(
   ratings: Partial<Ratings>,
   satisfaction: number | null,
   temoignage: string,
-  temoignagePubliable: boolean
+  temoignagePubliable: boolean,
+  amelioration: string
 ): Promise<BilanResult> {
   const session = await auth();
   if (!session?.user?.id) return { ok: false, error: "Session expirée. Reconnecte-toi." };
@@ -43,7 +48,8 @@ export async function submitBilan(
       texte.length > 0 ? texte : null,
       // Sans texte, l'autorisation n'a pas d'objet : la stocker à true
       // laisserait croire plus tard qu'on dispose d'un accord sur rien.
-      texte.length > 0 && temoignagePubliable
+      texte.length > 0 && temoignagePubliable,
+      amelioration.trim().length > 0 ? amelioration.trim() : null
     );
     return { ok: true, scores };
   } catch (err) {
